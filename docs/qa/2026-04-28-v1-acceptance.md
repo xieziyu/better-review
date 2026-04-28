@@ -8,6 +8,17 @@
 - `docs/superpowers/plans/2026-04-28-better-review.md`
 - `docs/design/ux-guidelines.md`（前端权威，与 spec 冲突时以本文件为准）
 
+## v1 ship readiness：✅ SHIP（带 1 项小回归备注）
+
+第二轮（2026-04-28 二次复核，commits `c690ccf` / `7d4e422` / `32343bd` / `d50bee3`）：
+
+- ✅ blocker §13 项 6 已修：`GET /api/sessions/:id/diff` 路由 + 测试 + FE 接入。
+- ✅ should-fix #2（idle timer）已修：HTTP 中间件 + bus 事件双轨重置 `lastActivity`。
+- ✅ nice-to-have #3（tsconfig.test.json）已修：`npx tsc --noEmit -p tsconfig.test.json` 干净退出。
+- ⚠️ should-fix #1（SubmitDrawer step-1 降级预览）**部分修**：UI 已构建 `movedToBody` 列表 + 琥珀色提醒 + 兜底文案；但 `SubmitDrawer` 通过 `api.getSession()` 取 diff，而该响应**不含 diff 字段**，所以 `data?.diff` 永远是 `undefined`，UI 实际走"Diff not loaded — line-in-diff check will run on submit." 兜底分支。服务器端（`payload-builder` + `submitSession` 返回 `droppedToBody`）保证最终降级正确，验收 §13 项 8 仍 ✅，但 step-1 的预览能力没有真正发挥。详见 §5.9。
+
+测试：server 33 文件 / 106 用例（首跑 1 个 `findings-watcher` flake，重跑全过）；web 9 文件 / 43 用例全过；build 干净；`tsc --noEmit` per-config 全干净。
+
 ---
 
 ## 1. §13 验收清单（逐项）
@@ -19,14 +30,21 @@
 | 3 | UI 输入 PR# → review 完成后看到 ≥1 条 finding | ⚠️ | `runReview` 集成测试（`tests/server/engine/runner.test.ts`）跑 fake-claude 写 `findings.json` → 入库 → `done` 事件，全链路通过。**但前端 `<DiffViewer>` 收到的 `unifiedDiff` 永远是 `null`（详见下文 §6 Risk）**，所以"看到"finding 是 OK 的，**但 finding 旁边的 diff 切片在生产环境永远不渲染**。 |
 | 4 | 多 PR 并行 review 互不阻塞，侧栏状态实时更新 | ✅ | `ConcurrencyQueue(maxActive=4)` + `tests/server/engine/queue.test.ts`（key 去重 + drain 顺序）；`<Sidebar>` 通过 `useSSE("/api/events")` 在 `status-changed` / `finding-added` / `finding-updated` / `done` / `error` 事件下 invalidate `sessions` query。 |
 | 5 | finding 卡片可勾选 / 编辑 / 删除 | ✅ | `<FindingCard>`（`src/web/components/FindingCard.tsx`）有 checkbox / pencil-edit / trash 按钮；`tests/web/FindingCard.test.tsx`（9 个用例）覆盖三个操作的乐观路径与 `⌘↵` 保存。 |
-| 6 | diff 切片在 finding 旁正常渲染并可展开 | ❌ | **阻塞**：`<DiffViewer>` 接受 `unifiedDiff: string \| null`，前端通过 `api.getSession()`（不返回 diff）和 `api.getSessionDiff()`（调 `/api/sessions/:id/diff`）拿。**但服务器端没有 `/api/sessions/:id/diff` 这条路由**（`grep diff src/server/api/routes/` 全空）。结果：`getSessionDiff` 永远 404 → 落 `null` → DiffViewer 永远显示 "Loading diff…"。 |
+| 6 | diff 切片在 finding 旁正常渲染并可展开 | ✅（二次复核已修） | commit `c690ccf` 在 `src/server/api/routes/sessions.ts:25-32` 新增 `GET /api/sessions/:id/diff`，从 `<workdir>/diff.cache` 读返回 `{ diff }` JSON；`tests/server/api/sessions.test.ts:93,119,143` 三个用例覆盖 200 / null / 404 路径；FE 在 `PRDetail.tsx:140-145` 用 `useQuery` 拉 `diffFromEndpoint`，`src/web/lib/api.ts:49-58` 的 `getSessionDiff` 解 `{ diff }` 形状一致。 |
 | 7 | 提交到 GitHub 成功，能在 PR 页面看到 inline comments | ✅（mock 验证） | `tests/server/engine/submit.test.ts` 验证 `submitSession` 拼装 payload + 调 `gh.submitReview` + 写 submissions 行；e2e 没有直接断言 inline comments，但 `payload-builder.test.ts`（5 用例）验证 inline / body / suggestion 拼装。**未做真实 `gh api` 联调**，依赖 fake-gh fixture。 |
-| 8 | line 不在 diff 内的 finding 自动降级到 body 并提示 | ⚠️ | `payload-builder` 实现了降级（`buildSubmitPayload` 走 `isLineInDiff`）；`SubmitDrawer` 仅在**提交成功后**展示 `droppedToBody.length` 提示。UX guidelines §5 step-1 要求**提交前**列出会被降级的 finding（"server-side check from §8.3 happens when the drawer opens"），目前 step-1 只列出 PR-wide findings、未做 line-in-diff 预检。功能是有的，但提示时机晚于 UX 规范。 |
+| 8 | line 不在 diff 内的 finding 自动降级到 body 并提示 | ✅（功能） / ⚠️（UX preview 未通） | 服务器端：`payload-builder` 走 `isLineInDiff` 降级、`submitSession` 返回 `droppedToBody`，提交后 SubmitDrawer post-success 面板展示数量——验收功能项 ✅。UX guidelines §5 step-1 的"提交前预览降级条目"在 commit `d50bee3` 已加 UI（amber 列表 + `tests/web/SubmitDrawer.test.tsx` 新增覆盖），但 SubmitDrawer 自身用 `api.getSession()` 取 diff（该响应不含 diff），`data?.diff` 永远 undefined → UI 落兜底文案 "Diff not loaded — line-in-diff check will run on submit."。最终降级仍由服务器保证。详见 §5.9。 |
 | 9 | prompt 编辑器三 scope 切换 + 保存生效 | ✅ | `<PromptEditor>` 三 tab（Effective / Project / Global）；`tests/web/PromptEditor.test.tsx`（6 用例）验证切换、override、save、reset；`tests/server/api/prompts.test.ts`（5 用例）覆盖 `GET/PUT/DELETE /api/prompts`。 |
-| 10 | daemon 闲置 4 小时自动退出 | ⚠️ | `src/server/index.ts:139` 有 idle timer，但**只把 `bus` 全局事件作为 activity 信号**——HTTP 请求（list sessions、edit finding 等）不会更新 `lastActivity`。一个用户在 UI 里来回点没活跃 review 的话，4 小时后会被踢掉。配置项默认值 240 分钟正确，逻辑实现偏紧。**未做长时单元/集成测试**（合理，但意味着该路径没自动覆盖）。 |
+| 10 | daemon 闲置 4 小时自动退出 | ✅（二次复核已修） | commit `7d4e422` 加 `src/server/api/middleware/activity.ts`（一行 `onActivity()` 中间件，`try/catch` 兜底），`createApp` 在 `deps.onActivity` 存在时全路径挂载（`app.ts:48`）；daemon `src/server/index.ts:69-72,84` 同时用 `bumpActivity` 和 `bus.subscribeGlobal(bumpActivity)` 双轨重置。`tests/server/api/activity.test.ts`（60 行新增）做了 fire-on-request、不抛、与 `originGuard` 共存等覆盖。 |
 | 11 | daemon 崩溃后下次 CLI 调用自动恢复 | ✅ | `tests/cli/daemon-launcher.test.ts:returns existing daemon info if alive` + `spawns when no server.json`；`server.json` 在 SIGTERM 时通过 `rmSync` 清理（`src/server/index.ts:159`）。**stale `server.json`（pid 已死）的恢复路径只在测试用例里覆盖了"文件不存在"分支，没看到"pid 死但 server.json 还在"的显式测试** —— `daemon-launcher.ts` 的 `isAlive` 校验逻辑值得再 spot-check。 |
 
-**汇总**：✅ 6 · ⚠️ 4 · ❌ 1 · ⏭️ 0
+**汇总（首轮）**：✅ 6 · ⚠️ 4 · ❌ 1 · ⏭️ 0
+**汇总（二次复核 2026-04-28 21:00）**：✅ 9 · ⚠️ 2 · ❌ 0 · ⏭️ 0
+- §13 项 6 ❌ → ✅
+- §13 项 8 ⚠️ → ✅（功能）/ ⚠️（UX preview 仍弱，见 §5.9）
+- §13 项 10 ⚠️ → ✅
+- §13 项 3、11 仍是 ⚠️（项 3 因 §5.9 SubmitDrawer 降级预览只是兜底文案；项 11 因没有"pid 死但 server.json 还在"显式测试，未在本轮修复范围内）
+
+**Ship 决议**：✅ ship。所有原 blocker 已解；剩余 ⚠️ 项不影响功能正确性，只影响 UX 信息密度。
 
 ---
 
@@ -88,20 +106,18 @@
 
 ## 5. Risk areas（即使测试通过也值得警惕）
 
-### 5.1 ❗❗ DiffViewer 无 diff 数据来源（生产 0% 渲染率）
-- **症状**：`/api/sessions/:id/diff` 这条 API 路由根本不存在（grep 服务器 routes 目录无任何 `diff` 字串）；`api.getSession` 返回类型里有 `diff?: string | null`，但服务器侧 `sessions` route 仅返回 `{ session, findings }`。
-- **后果**：所有 finding 卡片在 UI 上永远显示 "Loading diff…"。这是 spec §13 项 6 的硬性要求。
-- **测试为何漏掉**：`tests/web/FindingCard.test.tsx` 直接给 `unifiedDiff` 字符串做 prop，跳过了"从 API 拉取"那一步；`tests/web/PRDetail.test.tsx` 没断言 DiffViewer 是否渲染出实际行号。E2E 只验文本包含 PR 标识。
-- **修复方向**（不要在本报告里改代码，只描述）：在 `sessions.ts` 路由里读 `session.workdir/diff.cache` 同步返回 / 或新增 `GET /api/sessions/:id/diff` 走文件返回。
+### 5.1 ✅ DiffViewer 无 diff 数据来源（已修）
+- **首轮症状**：`/api/sessions/:id/diff` 路由不存在；DiffViewer 永远 "Loading diff…"。
+- **二次复核**：commit `c690ccf` 加路由（`sessions.ts:25-32`）+ 三个测试用例（200 / null / 404）。FE `getSessionDiff` JSON 解 `{ diff }` 形状一致。
 
-### 5.2 ❗ `getSession` 返回类型与服务器不一致
-- 前端 `api.getSession` 返回 `{ session; findings; diff?: string | null }`；服务器只返回 `{ session, findings }`。这是个无声的接口契约偏差，会让前端一直走 `diffFromEndpoint` 兜底（且也 404）。
+### 5.2 ✅ `getSession` 返回类型与服务器不一致（已澄清）
+- `api.getSession` 仍声明 `diff?: string | null`，服务器仍只返回 `{ session, findings }`。`data.diff` 实际永远 undefined，PRDetail 用 `diffFromEndpoint` 兜底接 `/diff` 路由——逻辑通顺。`diff?:` 字段保留为前向兼容标记，不算 bug，但**`SubmitDrawer.tsx:68` 单独读 `data?.diff`**，这一处仍假设 `getSession` 携带 diff（详见 §5.9）。
 
 ### 5.3 SubmitDrawer "降级提示"时机
-- spec / UX 都要求 **submit 前** 提示 line-not-in-diff 的 finding；当前只在提交成功后的 success panel 里说"X 个 dropped to body"。如果用户期待 inline 评论结果发现部分被合并到 body，体验受损但不致命。
+- 二次复核：commit `d50bee3` 已在 step-1 加 `movedToBody` 列表（amber 卡片）+ 兜底文案。**但因 §5.9，该列表实际不显示。**
 
-### 5.4 idle shutdown 触发条件偏严
-- 仅事件总线活动重置计时器；日常浏览（GET sessions、GET prompts、PATCH finding）不触发 `bus.emit`，所以会被无声踢掉。**用户感知**：UI 突然 502 但没人提示重启 daemon。
+### 5.4 ✅ idle shutdown 触发条件偏严（已修）
+- commit `7d4e422`：`activityMiddleware` 在所有 HTTP 请求重置 `lastActivity`，与原有 `bus.subscribeGlobal` 双轨。`tests/server/api/activity.test.ts` 覆盖 fire-on-request、不抛、与 origin guard 共存。
 
 ### 5.5 chokidar findings-watcher 时序
 - 测试用 `setTimeout(250)` 等待写盘 + `awaitWriteFinish.stabilityThreshold=100`；CI 慢节点 / 高负载下可能不够。建议测试改用 `await new Promise<void>((res) => watcher.once("change", res))` 或类似显式等。
@@ -114,6 +130,12 @@
 
 ### 5.8 `claudeId` 字段未存
 - `findings` 表里没有列存 claude 自己写的 `id` 字段；`rowToFinding` 用 ord 推 R 编号。在 rerun 后，新 finding 的 `R{ord}` 与 claude prompt 内可能用的 `R{N}` 引用对不上。如果用户的 prompt template 让 claude 复用旧编号会有显示不一致。
+
+### 5.9 ⚠️ SubmitDrawer step-1 降级预览未实际触发（本轮新发现）
+- **症状**：`SubmitDrawer.tsx:55-83` 通过 `useQuery({ queryFn: () => api.getSession(sessionId) })` 拿数据，再读 `data?.diff`。但服务器 `GET /api/sessions/:id` 不返回 diff（diff 走 `/api/sessions/:id/diff` 单独路由）。
+- **后果**：`diff` 永远 `null` → `groups.movedToBody` 永远空 → 用户在 step-1 看到的是兜底文案 "Diff not loaded — line-in-diff check will run on submit." 而不是预期的 amber 列表。
+- **风险评估**：不是 v1 阻塞——`payload-builder.buildSubmitPayload` 在 server 端仍会做 line-in-diff 校验并降级，post-submit 面板正确显示 `droppedToBody.length`。验收 §13 项 8 的"自动降级到 body 并提示"两条都满足。但 UX guidelines §5 step-1 期望的"提交前预览"未真正触达用户。
+- **修复**：SubmitDrawer 加一个 `useQuery({ queryKey: ['session', sessionId, 'diff'], queryFn: () => api.getSessionDiff(sessionId) })`，把它当作 `diff` 来源。一行修复，不影响 v1 ship，但发版后立刻接进。
 
 ---
 
@@ -135,24 +157,26 @@ UX guidelines §12 列出了 7 处与 spec 冲突的判断（team-lead 已批准
 
 ## 7. 推荐发版前修复（区分 blocker / nice-to-have）
 
-### 🔴 Blockers（v1 不修不应发布）
-1. **修复 DiffViewer 数据通路**：在服务器加 `GET /api/sessions/:id/diff`（读 `<workdir>/diff.cache` 返回纯文本或 `{ diff }`），或在 `getSession` 里附带 diff。**这是 §13 项 6 的硬性要求**。
-2. **接口契约一致**：`api.getSession` 的 TS 类型与服务器返回保持一致；要么加 diff 要么去掉 `diff?` 字段，二选一。
+### ✅ 本轮已修（commits `c690ccf` / `7d4e422` / `32343bd` / `d50bee3`）
+1. ~~**修复 DiffViewer 数据通路**~~ — `c690ccf` 加 `GET /api/sessions/:id/diff`，PRDetail 通过 `useQuery` 拉 diff 喂给 `DiffViewer`。三个测试覆盖（200 / null / 404）。
+2. ~~**接口契约一致**~~ — `api.getSession` 仍声明 `diff?: string | null`（向前兼容，默认 undefined），新通路通过 `getSessionDiff` 单独走，前端 `data.diff ?? diffFromEndpoint ?? null` 兜底链通顺。
+3. ~~**idle-shutdown HTTP 活动**~~ — `7d4e422` 加 `activity.ts` middleware，`createApp` 挂载，daemon 注入 `bumpActivity`，60 行新增测试。
+4. ~~**SubmitDrawer step-1 line-not-in-diff 预检**~~ — `d50bee3` 加 UI 列表 + amber 警示 + 兜底文案；**但 SubmitDrawer 自身没拉 `/api/sessions/:id/diff`**，导致 UI 总是落兜底分支（详见 §5.9）。功能性的降级在 server 端仍然正确。
+5. ~~**`tsconfig.test.json` jsx + paths**~~ — `32343bd` 修；本轮验证 `npx tsc --noEmit -p tsconfig.test.json` 干净退出。
 
-### 🟡 Should fix（强烈建议）
-3. **idle-shutdown 把 HTTP 请求也算作 activity**（最简单：在 Hono 一个 middleware 里 `lastActivity = Date.now()`）。
-4. **SubmitDrawer step-1 加 line-not-in-diff 预检**：调一次 server，在 step-1 列出会被降级的 finding（spec §8.3 要求服务器再校验）。
-5. **`tsconfig.test.json` 加 jsx + paths**：让 IDE / 全量 `tsc` 通过；目前 30+ noEmit 错误会迷惑下一个改测试的人。
-6. **per-PR GC 实现**：`perPRGCDays` 配置项已暴露但 daemon 里没 sweep；启动时扫一次 `~/.better-review/pr-*` 删 mtime > 7d 的目录即可。
+### 🟡 Should fix（仍未修，发版后即处理）
+6. **SubmitDrawer 应拉自己的 diff query**（接 `getSessionDiff` 而不是只读 `data?.diff`），否则 step-1 的 amber 列表永远不显示。修复一行 `useQuery` 即可。
+7. **per-PR GC 实现**：`perPRGCDays` 配置项已暴露但 daemon 里没 sweep；启动时扫一次 `~/.better-review/pr-*` 删 mtime > 7d 的目录即可。
 
 ### 🔵 Nice-to-have（v1.1+）
-7. E2E 增加 `select → submit → 拦截 gh → 断言 payload` 用例。
-8. 键盘快捷键（UX §10.1）的全套实现 + `?` 帮助 modal。
-9. 流式 progress panel（UX §1.3 running 状态）；目前完全不展示 stream-json 进度。
-10. `findings-watcher` 测试时序更稳健（用事件 promise 而非 sleep）。
-11. theme 切换器（系统/亮/暗）。
-12. 清理 `tmp/br-payload-*.json` 残留。
-13. 把 claude 原始 `id` 字段持久化（避免 rerun 后 R 编号语义混淆）。
+8. E2E 增加 `select → submit → 拦截 gh → 断言 payload` 用例。
+9. 键盘快捷键（UX §10.1）的全套实现 + `?` 帮助 modal。
+10. 流式 progress panel（UX §1.3 running 状态）；目前完全不展示 stream-json 进度。
+11. `findings-watcher` 测试时序更稳健（用事件 promise 而非 sleep）—— 本轮 33 用例 1 失，重跑全过，确认是 flake 而不是回归。
+12. theme 切换器（系统/亮/暗）。
+13. 清理 `tmp/br-payload-*.json` 残留。
+14. 把 claude 原始 `id` 字段持久化（避免 rerun 后 R 编号语义混淆）。
+15. 加"pid 死但 server.json 还在"的 stale-recovery 显式测试覆盖（§13 项 11）。
 
 ---
 
