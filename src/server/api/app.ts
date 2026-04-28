@@ -1,4 +1,7 @@
 import { Hono } from "hono";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { originGuard } from "./middleware/origin";
 import { healthRoutes } from "./routes/health";
 import { sessionsRoutes } from "./routes/sessions";
@@ -25,6 +28,7 @@ export interface AppDeps {
   promptCwd: string;
   promptHome: string;
   config: Config;
+  webDir?: string;
   getPort: () => number;
   startSession: (input: string) => Promise<{ id: string }>;
   rerunSession: (id: string) => Promise<void>;
@@ -45,5 +49,17 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", promptsRoutes(deps));
   app.route("/api", eventsRoutes(deps));
   app.route("/api", submitRoutes(deps));
+
+  if (deps.webDir && existsSync(join(deps.webDir, "index.html"))) {
+    const webDir = deps.webDir;
+    const indexHtml = readFileSync(join(webDir, "index.html"), "utf8");
+    const root = relative(process.cwd(), webDir) || ".";
+    app.use("/*", serveStatic({ root }));
+    app.notFound((c) => {
+      const accept = c.req.header("accept") ?? "";
+      if (accept.includes("text/html")) return c.html(indexHtml);
+      return c.json({ error: "not found" }, 404);
+    });
+  }
   return app;
 }

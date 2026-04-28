@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { execaSync } from "execa";
 import { serve } from "@hono/node-server";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolvePaths } from "./paths";
 import { loadConfig } from "./config";
 import { createLogger } from "./logger";
@@ -61,6 +63,8 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
 
   let port = 0;
   const startedAt = Date.now();
+  const here = dirname(fileURLToPath(import.meta.url));
+  const webDir = join(here, "..", "web");
   const deps: AppDeps = {
     sessions,
     findings,
@@ -71,6 +75,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     promptCwd: cwd,
     promptHome: paths.home,
     config,
+    webDir,
     getPort: () => port,
     startSession,
     rerunSession: async (id) => {
