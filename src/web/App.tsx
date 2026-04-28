@@ -3,6 +3,7 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { HealthBanner } from "@/components/HealthBanner";
 import { Sidebar } from "@/components/Sidebar";
 import { Home } from "@/pages/Home";
+import { PRDetail } from "@/pages/PRDetail";
 
 function TopBar() {
   return (
@@ -41,7 +42,7 @@ export function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/pr/:id" element={<div className="p-6">PR detail (TBD)</div>} />
+            <Route path="/pr/:id" element={<PRDetail />} />
             <Route path="/prompt" element={<div className="p-6">Prompt (TBD)</div>} />
             <Route path="/settings" element={<div className="p-6">Settings (TBD)</div>} />
           </Routes>

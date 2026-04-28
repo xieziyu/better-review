@@ -44,8 +44,19 @@ export type WritablePromptScope = Exclude<PromptScope, "cwd">;
 export const api = {
   health: (): Promise<HealthStatus> => req<HealthStatus>("/api/health"),
   listSessions: (): Promise<PRSession[]> => req<PRSession[]>("/api/sessions"),
-  getSession: (id: string): Promise<{ session: PRSession; findings: Finding[] }> =>
+  getSession: (id: string): Promise<{ session: PRSession; findings: Finding[]; diff?: string | null }> =>
     req(`/api/sessions/${id}`),
+  getSessionDiff: async (id: string): Promise<string | null> => {
+    const res = await fetch(`/api/sessions/${id}/diff`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct.includes("application/json")) {
+      const j = (await res.json()) as { diff?: string | null };
+      return j.diff ?? null;
+    }
+    return await res.text();
+  },
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req("/api/sessions", { method: "POST", body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> =>
