@@ -1,12 +1,12 @@
-import type { MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from 'hono'
 
 export function activityMiddleware(onActivity: () => void): MiddlewareHandler {
   return async (_c, next) => {
     try {
-      onActivity();
+      onActivity()
     } catch {
       /* never let activity tracking break the response */
     }
-    await next();
-  };
+    await next()
+  }
 }

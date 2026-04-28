@@ -1,19 +1,17 @@
-import { Link, Routes, Route } from "react-router-dom";
-import { Settings as SettingsIcon } from "lucide-react";
-import { HealthBanner } from "@/components/HealthBanner";
-import { Sidebar } from "@/components/Sidebar";
-import { Home } from "@/pages/Home";
-import { PRDetail } from "@/pages/PRDetail";
-import { PromptEditor } from "@/pages/PromptEditor";
-import { Settings } from "@/pages/Settings";
+import { Settings as SettingsIcon } from 'lucide-react'
+import { Link, Routes, Route } from 'react-router-dom'
+
+import { HealthBanner } from '@/components/HealthBanner'
+import { Sidebar } from '@/components/Sidebar'
+import { Home } from '@/pages/Home'
+import { PRDetail } from '@/pages/PRDetail'
+import { PromptEditor } from '@/pages/PromptEditor'
+import { Settings } from '@/pages/Settings'
 
 function TopBar() {
   return (
     <header className="h-12 flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-      <Link
-        to="/"
-        className="font-semibold tracking-tight text-gray-900 dark:text-gray-100"
-      >
+      <Link to="/" className="font-semibold tracking-tight text-gray-900 dark:text-gray-100">
         better-review
       </Link>
       <div className="flex-1 mx-4">
@@ -32,7 +30,7 @@ function TopBar() {
         </Link>
       </nav>
     </header>
-  );
+  )
 }
 
 export function App() {
@@ -51,5 +49,5 @@ export function App() {
         </main>
       </div>
     </div>
-  );
+  )
 }

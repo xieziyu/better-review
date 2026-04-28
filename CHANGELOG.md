@@ -11,6 +11,7 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌, QA verdict SHIP.
 
 ### Added — Documentation
+
 - Design spec (`docs/superpowers/specs/2026-04-28-better-review-design.md`) — 13 sections covering goals, architecture, data model, flows, error handling, testing, acceptance criteria
 - UX guidelines (`docs/design/ux-guidelines.md`) — IA, severity/status visual system, layout, edit mode, submit flow, sidebar density, prompt editor, color tokens, light/dark, a11y
 - Implementation plan (`docs/superpowers/plans/2026-04-28-better-review.md`) — 25 phases, 59 tasks, 260 TDD steps
@@ -18,25 +19,30 @@ First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌,
 - User-facing README with install / usage / CLI reference / config / FAQ
 
 ### Added — Foundation
+
 - Project bootstrap: package.json, tsconfig (server / cli / web / test), vitest, ESLint, Prettier
 - Shared types and zod schema for `Finding` (`src/shared/`)
 - Path helpers, config loader (zod defaults), file logger (`src/server/`)
 
 ### Added — Persistence
+
 - SQLite layer: initial schema migration, version-tracked migration runner, WAL-mode connection
 - Repositories for `pr_sessions`, `findings`, `submissions`
 
 ### Added — GitHub integration
+
 - `gh` CLI wrapper with typed errors (`src/server/github/`)
 - PR target parser (accepts `123`, `owner/repo#123`, GitHub URL)
 
 ### Added — Prompts
+
 - Built-in review prompt template covering pr-review.md §1–8 categories (scope, correctness/type-safety, security, architecture, performance, naming, complexity, error handling), severity rubric, fixed category enum, and Chinese-language requirement for `title` / `body`
 - Three-level resolver (project → global → built-in)
 - Variable-substitution renderer (`{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`)
 - Per-scope prompt store with read/write/delete
 
 ### Added — Review engine
+
 - Findings JSON parser with schema validation
 - In-memory SSE event bus
 - `claude` stream-json output parser
@@ -46,6 +52,7 @@ First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌,
 - Submit-flow utilities: diff-line validator + GitHub review payload builder
 
 ### Added — HTTP API (Hono)
+
 - Origin-guard middleware
 - Activity middleware that bumps the daemon idle timer on every HTTP request
 - `GET /api/health` — claude/gh discovery and gh-auth status
@@ -56,15 +63,18 @@ First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌,
 - Submit orchestrator + route (gh API call, line-degradation handling, submission record)
 
 ### Added — Daemon
+
 - Boot/wire dependencies, server.json (pid + port) management
 - Idle-shutdown timer (configurable, default 4h), graceful shutdown, stale-daemon recovery
 - Bundles compiled web assets via `scripts/copy-assets.mjs`; serves `dist/web` with SPA fallback
 
 ### Added — CLI
+
 - Daemon launcher with health probe (spawns detached daemon, polls `/api/health`)
 - Commander entry: `better-review [PR]`, `--stop`, `--status`, `--help`
 
 ### Added — Web UI
+
 - Vite + React + Tailwind bootstrap
 - API client + TanStack Query setup
 - `useSSE` hook
@@ -80,15 +90,18 @@ First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌,
 - Settings page exposing daemon info from `/api/health` and the on-disk config snippet
 
 ### Added — Testing
+
 - 33 server test files / 106 cases covering DB repos, GH client, prompts, engine, API routes, submit, daemon lifecycle
 - 9 web test files / 43 cases covering hooks, components, drawers, pages
 - Playwright config + happy-path E2E (homepage rendering + API-driven session creation) using fake claude/gh shims under `tests/fixtures/`
 
 ### Notes
+
 - Strict TDD: failing test → implement → green → commit. One task = one Conventional Commits commit.
 - UX deviations from spec, all explicitly approved before implementation: edit via pencil + `e` (not double-click); explicit `⌘↵` save (not blur-save); single-column inline-diff layout; v1 edits restricted to severity / title / body / suggestion; light + dark mode following system; passive "submitted" header line.
 
 ### Known limitations carried into v1.0
+
 - ⚠️ Streaming-progress panel during `running` is not implemented (the spec calls for it but the team intentionally deferred to v2; sidebar status badges still update via SSE).
 - ⚠️ Per-PR working-directory GC after 7 days is not implemented; data accumulates in `~/.better-review/pr-*` until manually cleaned.
 - The client-side `isLineInDiff` mirror in `src/web/lib/diff-line-check.ts` is a verbatim port of the server validator. If hunk parsing diverges in future, consolidate.

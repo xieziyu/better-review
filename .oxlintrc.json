@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "env": { "node": true },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "typescript/no-unused-vars": "off",
+    "typescript/no-namespace": "off"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.tshy-build/**",
+    "**/lib/**",
+    "**/prisma/client/**",
+    "**/prisma/*.ts",
+    ".turbo/**",
+    "coverage/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/docs/**"
+  ],
+  "overrides": [
+    {
+      "files": ["**/test/**/*.ts", "**/tests/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+      "rules": {
+        "typescript/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+      }
+    }
+  ]
+}

@@ -1,23 +1,25 @@
-import type Database from "better-sqlite3";
-import { randomUUID } from "node:crypto";
-import type { Finding } from "../../shared/types";
-import type { FindingFromClaude } from "../../shared/findings-schema";
+import { randomUUID } from 'node:crypto'
+
+import type Database from 'better-sqlite3'
+
+import type { FindingFromClaude } from '../../shared/findings-schema'
+import type { Finding } from '../../shared/types'
 
 interface Row {
-  id: string;
-  session_id: string;
-  ord: number;
-  severity: string;
-  category: string;
-  file: string | null;
-  line: number | null;
-  title: string;
-  body: string;
-  suggestion: string | null;
-  selected: number;
-  edited: number;
-  archived: number;
-  created_at: number;
+  id: string
+  session_id: string
+  ord: number
+  severity: string
+  category: string
+  file: string | null
+  line: number | null
+  title: string
+  body: string
+  suggestion: string | null
+  selected: number
+  edited: number
+  archived: number
+  created_at: number
 }
 
 function rowToFinding(r: Row, claudeId: string): Finding {
@@ -26,7 +28,7 @@ function rowToFinding(r: Row, claudeId: string): Finding {
     sessionId: r.session_id,
     id: claudeId,
     ord: r.ord,
-    severity: r.severity as Finding["severity"],
+    severity: r.severity as Finding['severity'],
     category: r.category,
     file: r.file,
     line: r.line,
@@ -36,41 +38,41 @@ function rowToFinding(r: Row, claudeId: string): Finding {
     edited: r.edited === 1,
     archived: r.archived === 1,
     createdAt: r.created_at,
-  };
-  if (r.suggestion !== null) f.suggestion = r.suggestion;
-  return f;
+  }
+  if (r.suggestion !== null) f.suggestion = r.suggestion
+  return f
 }
 
 export interface UpdateFindingPatch {
-  severity?: Finding["severity"];
-  title?: string;
-  body?: string;
-  suggestion?: string | null;
-  file?: string | null;
-  line?: number | null;
+  severity?: Finding['severity']
+  title?: string
+  body?: string
+  suggestion?: string | null
+  file?: string | null
+  line?: number | null
 }
 
 export class FindingsRepo {
   constructor(private db: Database.Database) {}
 
   insertMany(sessionId: string, items: FindingFromClaude[]): Finding[] {
-    const now = Date.now();
+    const now = Date.now()
     const insert = this.db.prepare(`
       INSERT INTO findings (id, session_id, ord, severity, category, file, line, title, body, suggestion, selected, edited, archived, created_at)
       VALUES (@id, @sessionId, @ord, @severity, @category, @file, @line, @title, @body, @suggestion, 1, 0, 0, @now)
-    `);
-    const inserted: Finding[] = [];
+    `)
+    const inserted: Finding[] = []
     this.db.transaction(() => {
       const existingMax = (
         this.db
           .prepare(
-            "SELECT COALESCE(MAX(ord), 0) AS m FROM findings WHERE session_id=? AND archived=0",
+            'SELECT COALESCE(MAX(ord), 0) AS m FROM findings WHERE session_id=? AND archived=0',
           )
           .get(sessionId) as { m: number }
-      ).m;
+      ).m
       items.forEach((it, i) => {
-        const dbId = randomUUID();
-        const ord = existingMax + i + 1;
+        const dbId = randomUUID()
+        const ord = existingMax + i + 1
         insert.run({
           id: dbId,
           sessionId,
@@ -83,7 +85,7 @@ export class FindingsRepo {
           body: it.body,
           suggestion: it.suggestion ?? null,
           now,
-        });
+        })
         const f: Finding = {
           dbId,
           sessionId,
@@ -99,31 +101,31 @@ export class FindingsRepo {
           edited: false,
           archived: false,
           createdAt: now,
-        };
-        if (it.suggestion !== undefined) f.suggestion = it.suggestion;
-        inserted.push(f);
-      });
-    })();
-    return inserted;
+        }
+        if (it.suggestion !== undefined) f.suggestion = it.suggestion
+        inserted.push(f)
+      })
+    })()
+    return inserted
   }
 
   listBySession(sessionId: string, opts: { includeArchived?: boolean } = {}): Finding[] {
-    const where = opts.includeArchived ? "session_id=?" : "session_id=? AND archived=0";
+    const where = opts.includeArchived ? 'session_id=?' : 'session_id=? AND archived=0'
     const rows = this.db
       .prepare(`SELECT * FROM findings WHERE ${where} ORDER BY ord ASC`)
-      .all(sessionId) as Row[];
-    return rows.map((r) => rowToFinding(r, "R" + r.ord));
+      .all(sessionId) as Row[]
+    return rows.map((r) => rowToFinding(r, 'R' + r.ord))
   }
 
   getById(dbId: string): Finding | null {
-    const r = this.db.prepare("SELECT * FROM findings WHERE id=?").get(dbId) as Row | undefined;
-    return r ? rowToFinding(r, "R" + r.ord) : null;
+    const r = this.db.prepare('SELECT * FROM findings WHERE id=?').get(dbId) as Row | undefined
+    return r ? rowToFinding(r, 'R' + r.ord) : null
   }
 
   update(dbId: string, patch: UpdateFindingPatch): void {
-    const cur = this.getById(dbId);
-    if (!cur) return;
-    const next = { ...cur, ...patch };
+    const cur = this.getById(dbId)
+    if (!cur) return
+    const next = { ...cur, ...patch }
     this.db
       .prepare(
         `
@@ -139,24 +141,24 @@ export class FindingsRepo {
         next.file,
         next.line,
         dbId,
-      );
+      )
   }
 
   setSelected(dbId: string, selected: boolean): void {
-    this.db.prepare("UPDATE findings SET selected=? WHERE id=?").run(selected ? 1 : 0, dbId);
+    this.db.prepare('UPDATE findings SET selected=? WHERE id=?').run(selected ? 1 : 0, dbId)
   }
 
   setArchived(dbId: string, archived: boolean): void {
-    this.db.prepare("UPDATE findings SET archived=? WHERE id=?").run(archived ? 1 : 0, dbId);
+    this.db.prepare('UPDATE findings SET archived=? WHERE id=?').run(archived ? 1 : 0, dbId)
   }
 
   archiveAllForSession(sessionId: string): void {
     this.db
-      .prepare("UPDATE findings SET archived=1 WHERE session_id=? AND archived=0")
-      .run(sessionId);
+      .prepare('UPDATE findings SET archived=1 WHERE session_id=? AND archived=0')
+      .run(sessionId)
   }
 
   delete(dbId: string): void {
-    this.db.prepare("DELETE FROM findings WHERE id=?").run(dbId);
+    this.db.prepare('DELETE FROM findings WHERE id=?').run(dbId)
   }
 }

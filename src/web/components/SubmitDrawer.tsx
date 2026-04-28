@@ -1,116 +1,125 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, ExternalLink } from "lucide-react";
-import { api, queryKeys, ApiError } from "@/lib/api";
-import { isLineInDiff } from "@/lib/diff-line-check";
-import { cn } from "@/lib/utils";
-import type { Finding, ReviewEvent } from "@shared/types";
+import type { Finding, ReviewEvent } from '@shared/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { X, ExternalLink } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+
+import { api, queryKeys, ApiError } from '@/lib/api'
+import { isLineInDiff } from '@/lib/diff-line-check'
+import { cn } from '@/lib/utils'
 
 interface Props {
-  sessionId: string;
-  onClose: () => void;
+  sessionId: string
+  onClose: () => void
 }
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4
 
 const STEP_LABELS: Record<Step, string> = {
-  1: "Selection",
-  2: "Event",
-  3: "Preview",
-  4: "Confirm",
-};
+  1: 'Selection',
+  2: 'Event',
+  3: 'Preview',
+  4: 'Confirm',
+}
 
 const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: string }> = [
-  { value: "COMMENT", label: "COMMENT", description: "Leave comments without approving or rejecting." },
-  { value: "REQUEST_CHANGES", label: "REQUEST_CHANGES", description: "Block merge until addressed." },
-  { value: "APPROVE", label: "APPROVE", description: "Mark as ready to merge." },
-];
+  {
+    value: 'COMMENT',
+    label: 'COMMENT',
+    description: 'Leave comments without approving or rejecting.',
+  },
+  {
+    value: 'REQUEST_CHANGES',
+    label: 'REQUEST_CHANGES',
+    description: 'Block merge until addressed.',
+  },
+  { value: 'APPROVE', label: 'APPROVE', description: 'Mark as ready to merge.' },
+]
 
 function formatPRWideBody(prWide: Finding[]): string {
-  if (prWide.length === 0) return "";
-  const lines = ["**PR-wide notes:**"];
+  if (prWide.length === 0) return ''
+  const lines = ['**PR-wide notes:**']
   for (const f of prWide) {
-    lines.push(`- **${f.title}** (${f.severity})`);
+    lines.push(`- **${f.title}** (${f.severity})`)
     if (f.body.trim()) {
       const indented = f.body
         .trim()
-        .split("\n")
+        .split('\n')
         .map((l) => `  ${l}`)
-        .join("\n");
-      lines.push(indented);
+        .join('\n')
+      lines.push(indented)
     }
   }
-  return lines.join("\n");
+  return lines.join('\n')
 }
 
-function severityCounts(findings: Finding[]): Record<"must" | "should" | "nit", number> {
-  const counts = { must: 0, should: 0, nit: 0 };
-  for (const f of findings) counts[f.severity] += 1;
-  return counts;
+function severityCounts(findings: Finding[]): Record<'must' | 'should' | 'nit', number> {
+  const counts = { must: 0, should: 0, nit: 0 }
+  for (const f of findings) counts[f.severity] += 1
+  return counts
 }
 
 export function SubmitDrawer({ sessionId, onClose }: Props) {
-  const qc = useQueryClient();
+  const qc = useQueryClient()
   const { data } = useQuery({
     queryKey: queryKeys.session(sessionId),
     queryFn: () => api.getSession(sessionId),
-  });
+  })
   const { data: diffData } = useQuery({
-    queryKey: ["session", sessionId, "diff"] as const,
+    queryKey: ['session', sessionId, 'diff'] as const,
     queryFn: () => api.getSessionDiff(sessionId),
-  });
-  const [step, setStep] = useState<Step>(1);
-  const [event, setEvent] = useState<ReviewEvent>("COMMENT");
-  const [body, setBody] = useState("");
-  const [bodyTouched, setBodyTouched] = useState(false);
+  })
+  const [step, setStep] = useState<Step>(1)
+  const [event, setEvent] = useState<ReviewEvent>('COMMENT')
+  const [body, setBody] = useState('')
+  const [bodyTouched, setBodyTouched] = useState(false)
 
   const findings = useMemo(
     () => (data?.findings ?? []).filter((f) => !f.archived),
     [data?.findings],
-  );
-  const selected = useMemo(() => findings.filter((f) => f.selected), [findings]);
-  const diff = diffData ?? null;
+  )
+  const selected = useMemo(() => findings.filter((f) => f.selected), [findings])
+  const diff = diffData ?? null
   const groups = useMemo(() => {
-    const inline: Finding[] = [];
-    const movedToBody: Finding[] = [];
-    const prWide: Finding[] = [];
+    const inline: Finding[] = []
+    const movedToBody: Finding[] = []
+    const prWide: Finding[] = []
     for (const f of selected) {
       if (f.file === null || f.line === null) {
-        prWide.push(f);
+        prWide.push(f)
       } else if (diff && !isLineInDiff(diff, f.file, f.line)) {
-        movedToBody.push(f);
+        movedToBody.push(f)
       } else {
-        inline.push(f);
+        inline.push(f)
       }
     }
-    return { inline, movedToBody, prWide };
-  }, [selected, diff]);
-  const inline = groups.inline;
-  const movedToBody = groups.movedToBody;
-  const prWide = groups.prWide;
-  const counts = useMemo(() => severityCounts(selected), [selected]);
+    return { inline, movedToBody, prWide }
+  }, [selected, diff])
+  const inline = groups.inline
+  const movedToBody = groups.movedToBody
+  const prWide = groups.prWide
+  const counts = useMemo(() => severityCounts(selected), [selected])
 
   // Prefill body with PR-wide findings the first time we have data; user can edit.
   useEffect(() => {
     if (!bodyTouched) {
-      const auto = formatPRWideBody(prWide);
-      setBody(auto);
+      const auto = formatPRWideBody(prWide)
+      setBody(auto)
     }
-  }, [prWide, bodyTouched]);
+  }, [prWide, bodyTouched])
 
   const submit = useMutation({
     mutationFn: () => {
-      const trimmed = body.trim();
-      return api.submit(sessionId, trimmed ? { event, body } : { event });
+      const trimmed = body.trim()
+      return api.submit(sessionId, trimmed ? { event, body } : { event })
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.session(sessionId) });
-      void qc.invalidateQueries({ queryKey: queryKeys.sessions });
+      void qc.invalidateQueries({ queryKey: queryKeys.session(sessionId) })
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
     },
-  });
+  })
 
   const previewPayload = useMemo(() => {
-    const trimmed = body.trim();
+    const trimmed = body.trim()
     return {
       event,
       ...(trimmed ? { body } : {}),
@@ -118,16 +127,16 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
         path: f.file,
         line: f.line,
         body: `**${f.severity} · ${f.category}**\n\n${f.title}\n\n${f.body}${
-          f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ""
+          f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
         }`,
       })),
-    };
-  }, [event, body, inline]);
+    }
+  }, [event, body, inline])
 
   const requestClose = () => {
-    if (submit.isPending) return;
-    onClose();
-  };
+    if (submit.isPending) return
+    onClose()
+  }
 
   return (
     <div
@@ -159,17 +168,17 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               <li key={s} className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "inline-flex w-5 h-5 items-center justify-center rounded-full border text-[11px]",
+                    'inline-flex w-5 h-5 items-center justify-center rounded-full border text-[11px]',
                     s === step
-                      ? "bg-blue-600 text-white border-blue-600"
+                      ? 'bg-blue-600 text-white border-blue-600'
                       : s < step
-                        ? "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                        : "border-gray-300 dark:border-gray-700",
+                        ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                        : 'border-gray-300 dark:border-gray-700',
                   )}
                 >
                   {s}
                 </span>
-                <span className={cn(s === step && "text-gray-900 dark:text-gray-100 font-medium")}>
+                <span className={cn(s === step && 'text-gray-900 dark:text-gray-100 font-medium')}>
                   {STEP_LABELS[s]}
                 </span>
                 {i < 3 && <span aria-hidden>·</span>}
@@ -183,7 +192,8 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
             <section className="space-y-4">
               <div>
                 <div className="text-sm" data-testid="selection-summary">
-                  <strong>{selected.length}</strong> finding{selected.length === 1 ? "" : "s"} selected of {findings.length} total
+                  <strong>{selected.length}</strong> finding{selected.length === 1 ? '' : 's'}{' '}
+                  selected of {findings.length} total
                 </div>
                 <div className="mt-2 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                   <span>● {counts.must} must</span>
@@ -199,7 +209,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {inline.length > 0 && (
                 <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 text-xs">
                   <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {inline.length} inline comment{inline.length === 1 ? "" : "s"}
+                    {inline.length} inline comment{inline.length === 1 ? '' : 's'}
                   </div>
                   <ul
                     data-testid="inline-list"
@@ -207,7 +217,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   >
                     {inline.map((f) => (
                       <li key={f.dbId}>
-                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{" "}
+                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{' '}
                         <span className="font-sans">{f.title}</span>
                       </li>
                     ))}
@@ -217,10 +227,12 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {movedToBody.length > 0 && (
                 <div className="rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3 text-xs">
                   <div className="font-medium text-amber-800 dark:text-amber-300 mb-1">
-                    {movedToBody.length} finding{movedToBody.length === 1 ? "" : "s"} will be moved to the review body
+                    {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} will be moved
+                    to the review body
                   </div>
                   <div className="text-amber-700 dark:text-amber-400 mb-2">
-                    Their <code className="font-mono">file:line</code> is outside the PR diff, so GitHub would reject them as inline comments.
+                    Their <code className="font-mono">file:line</code> is outside the PR diff, so
+                    GitHub would reject them as inline comments.
                   </div>
                   <ul
                     data-testid="moved-to-body-list"
@@ -228,7 +240,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   >
                     {movedToBody.map((f) => (
                       <li key={f.dbId}>
-                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{" "}
+                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{' '}
                         <span className="font-sans">{f.title}</span>
                       </li>
                     ))}
@@ -238,12 +250,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {prWide.length > 0 && (
                 <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3 text-xs">
                   <div className="font-medium text-blue-700 dark:text-blue-300 mb-1">
-                    {prWide.length} PR-wide finding{prWide.length === 1 ? "" : "s"} will be added to the review body
+                    {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'} will be added to
+                    the review body
                   </div>
-                  <ul
-                    data-testid="pr-wide-list"
-                    className="list-disc list-inside space-y-1"
-                  >
+                  <ul data-testid="pr-wide-list" className="list-disc list-inside space-y-1">
                     {prWide.map((f) => (
                       <li key={f.dbId}>
                         <span className="font-mono">{f.id}</span> — {f.title}
@@ -268,10 +278,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   <label
                     key={opt.value}
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-md border cursor-pointer",
+                      'flex items-start gap-3 p-3 rounded-md border cursor-pointer',
                       event === opt.value
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40"
-                        : "border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900",
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                        : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900',
                     )}
                   >
                     <input
@@ -296,14 +306,15 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   aria-label="Review body"
                   value={body}
                   onChange={(e) => {
-                    setBody(e.target.value);
-                    setBodyTouched(true);
+                    setBody(e.target.value)
+                    setBodyTouched(true)
                   }}
                   className="mt-1 w-full h-40 p-2 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {prWide.length > 0 && !bodyTouched && (
                   <span className="block text-xs text-gray-500 mt-1">
-                    Auto-filled from {prWide.length} PR-wide finding{prWide.length === 1 ? "" : "s"}.
+                    Auto-filled from {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'}
+                    .
                   </span>
                 )}
               </label>
@@ -313,9 +324,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
           {step === 3 && (
             <section className="space-y-3">
               <div className="text-sm">
-                <span className="font-medium">POST</span>{" "}
+                <span className="font-medium">POST</span>{' '}
                 <code className="font-mono text-xs">
-                  /repos/{data?.session.owner}/{data?.session.repo}/pulls/{data?.session.number}/reviews
+                  /repos/{data?.session.owner}/{data?.session.repo}/pulls/{data?.session.number}
+                  /reviews
                 </code>
               </div>
               <pre className="text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-3 overflow-auto max-h-96">
@@ -323,7 +335,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               </pre>
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(JSON.stringify(previewPayload, null, 2))}
+                onClick={() =>
+                  navigator.clipboard?.writeText(JSON.stringify(previewPayload, null, 2))
+                }
                 className="text-xs text-blue-600 hover:underline"
               >
                 Copy JSON
@@ -335,7 +349,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
             <section className="space-y-4">
               {submit.data ? (
                 <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 p-4 text-sm space-y-2">
-                  <div className="font-medium text-emerald-800 dark:text-emerald-300">Submitted</div>
+                  <div className="font-medium text-emerald-800 dark:text-emerald-300">
+                    Submitted
+                  </div>
                   <a
                     href={submit.data.url}
                     target="_blank"
@@ -347,16 +363,20 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   </a>
                   {submit.data.droppedToBody.length > 0 && (
                     <div className="text-xs text-amber-700 dark:text-amber-400">
-                      {submit.data.droppedToBody.length} finding(s) dropped to review body (line not in diff).
+                      {submit.data.droppedToBody.length} finding(s) dropped to review body (line not
+                      in diff).
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="rounded-md border border-gray-200 dark:border-gray-800 p-4 text-sm space-y-1">
                   <div>
-                    <strong>{event}</strong> on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
+                    <strong>{event}</strong> on {data?.session.owner}/{data?.session.repo}#
+                    {data?.session.number}
                   </div>
-                  <div>{inline.length} inline comment{inline.length === 1 ? "" : "s"}</div>
+                  <div>
+                    {inline.length} inline comment{inline.length === 1 ? '' : 's'}
+                  </div>
                   {(body.trim() || prWide.length > 0) && <div>1 review body comment</div>}
                   <div className="text-xs text-gray-500 mt-2">
                     This will post immediately. There is no &quot;draft&quot; mode.
@@ -365,7 +385,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               )}
               {submit.isError && (
                 <div className="rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 p-3 text-sm text-red-700 dark:text-red-300">
-                  {submit.error instanceof ApiError ? submit.error.message : "Submit failed"}
+                  {submit.error instanceof ApiError ? submit.error.message : 'Submit failed'}
                 </div>
               )}
             </section>
@@ -378,7 +398,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
             onClick={requestClose}
             className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            {submit.data ? "Close" : "Cancel"}
+            {submit.data ? 'Close' : 'Cancel'}
           </button>
           <div className="flex items-center gap-2">
             {step > 1 && !submit.data && (
@@ -407,12 +427,12 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 disabled={submit.isPending || selected.length === 0}
                 className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
               >
-                {submit.isPending ? "Submitting…" : "Submit"}
+                {submit.isPending ? 'Submitting…' : 'Submit'}
               </button>
             )}
           </div>
         </footer>
       </div>
     </div>
-  );
+  )
 }

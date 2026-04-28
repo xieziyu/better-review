@@ -1,21 +1,22 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, queryKeys, ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import type { PRSession, SessionStatus } from "@shared/types";
+import type { PRSession, SessionStatus } from '@shared/types'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { api, queryKeys, ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const STATUS_BADGE: Record<SessionStatus, string> = {
-  running: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-  pending: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  ready: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  failed: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-  submitted: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
-  archived: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
-};
+  running: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  pending: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  ready: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  failed: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+  submitted: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+  archived: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+}
 
 interface SessionCardProps {
-  session: PRSession;
+  session: PRSession
 }
 
 function SessionCard({ session }: SessionCardProps) {
@@ -30,7 +31,7 @@ function SessionCard({ session }: SessionCardProps) {
         </span>
         <span
           className={cn(
-            "text-xs px-2 py-0.5 rounded-full font-medium",
+            'text-xs px-2 py-0.5 rounded-full font-medium',
             STATUS_BADGE[session.status],
           )}
         >
@@ -38,35 +39,31 @@ function SessionCard({ session }: SessionCardProps) {
         </span>
       </div>
       <h3 className="mt-2 text-sm font-medium line-clamp-2 text-gray-900 dark:text-gray-100">
-        {session.title ?? "(no title)"}
+        {session.title ?? '(no title)'}
       </h3>
-      {session.author && (
-        <div className="mt-2 text-xs text-gray-500">@{session.author}</div>
-      )}
+      {session.author && <div className="mt-2 text-xs text-gray-500">@{session.author}</div>}
     </Link>
-  );
+  )
 }
 
 export function Home() {
-  const [input, setInput] = useState("");
-  const nav = useNavigate();
-  const qc = useQueryClient();
+  const [input, setInput] = useState('')
+  const nav = useNavigate()
+  const qc = useQueryClient()
   const { data: sessions = [] } = useQuery({
     queryKey: queryKeys.sessions,
     queryFn: api.listSessions,
-  });
+  })
   const create = useMutation({
     mutationFn: api.createSession,
     onSuccess: ({ id }) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.sessions });
-      nav(`/pr/${id}`);
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+      nav(`/pr/${id}`)
     },
-  });
+  })
 
-  const trimmed = input.trim();
-  const recent = [...sessions]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 12);
+  const trimmed = input.trim()
+  const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
 
   return (
     <div className="max-w-5xl mx-auto p-8 space-y-12">
@@ -79,8 +76,8 @@ export function Home() {
         </p>
         <form
           onSubmit={(e) => {
-            e.preventDefault();
-            if (trimmed && !create.isPending) create.mutate({ prInput: trimmed });
+            e.preventDefault()
+            if (trimmed && !create.isPending) create.mutate({ prInput: trimmed })
           }}
           className="flex gap-2"
         >
@@ -97,12 +94,12 @@ export function Home() {
             disabled={!trimmed || create.isPending}
             className="px-5 py-2.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
-            {create.isPending ? "Starting…" : "Start review"}
+            {create.isPending ? 'Starting…' : 'Start review'}
           </button>
         </form>
         {create.isError && (
           <div className="text-sm text-red-600 dark:text-red-400">
-            {create.error instanceof ApiError ? create.error.message : "Failed to start review"}
+            {create.error instanceof ApiError ? create.error.message : 'Failed to start review'}
           </div>
         )}
       </header>
@@ -124,5 +121,5 @@ export function Home() {
         )}
       </section>
     </div>
-  );
+  )
 }

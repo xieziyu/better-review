@@ -1,48 +1,48 @@
-import type { SSEEvent } from "../../shared/types";
+import type { SSEEvent } from '../../shared/types'
 
-type Handler = (e: SSEEvent) => void;
+type Handler = (e: SSEEvent) => void
 
 export class EventBus {
-  private sessionHandlers = new Map<string, Set<Handler>>();
-  private globalHandlers = new Set<Handler>();
+  private sessionHandlers = new Map<string, Set<Handler>>()
+  private globalHandlers = new Set<Handler>()
 
   subscribeSession(sessionId: string, h: Handler): () => void {
-    let set = this.sessionHandlers.get(sessionId);
+    let set = this.sessionHandlers.get(sessionId)
     if (!set) {
-      set = new Set();
-      this.sessionHandlers.set(sessionId, set);
+      set = new Set()
+      this.sessionHandlers.set(sessionId, set)
     }
-    set.add(h);
+    set.add(h)
     return () => {
-      set!.delete(h);
-      if (set!.size === 0) this.sessionHandlers.delete(sessionId);
-    };
+      set!.delete(h)
+      if (set!.size === 0) this.sessionHandlers.delete(sessionId)
+    }
   }
 
   subscribeGlobal(h: Handler): () => void {
-    this.globalHandlers.add(h);
+    this.globalHandlers.add(h)
     return () => {
-      this.globalHandlers.delete(h);
-    };
+      this.globalHandlers.delete(h)
+    }
   }
 
   emit(event: SSEEvent): void {
-    if ("sessionId" in event && event.sessionId) {
-      const set = this.sessionHandlers.get(event.sessionId);
+    if ('sessionId' in event && event.sessionId) {
+      const set = this.sessionHandlers.get(event.sessionId)
       set?.forEach((h) => {
         try {
-          h(event);
+          h(event)
         } catch {
           /* swallow */
         }
-      });
+      })
     }
     this.globalHandlers.forEach((h) => {
       try {
-        h(event);
+        h(event)
       } catch {
         /* swallow */
       }
-    });
+    })
   }
 }

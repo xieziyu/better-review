@@ -38,11 +38,13 @@
 ## 适用场景
 
 适合：
+
 - 个人在本机审 GitHub PR，希望比终端里 `claude review` 更顺手
 - 想在提交 review 前手工微调措辞、严重度、suggestion
 - 同时跟进多个 PR，需要一眼看到各自状态
 
 不适合：
+
 - 团队协作 / 多用户共享 review 状态（这是个本地单用户工具）
 - 想替换 `claude` 的提示词逻辑——review 规则仍由 prompt 决定
 - 想绕过 `gh` 直接走 GitHub API：所有 GitHub 操作都委托 `gh` CLI
@@ -51,12 +53,12 @@
 
 ## 前置条件
 
-| 工具 | 版本 | 说明 |
-|---|---|---|
-| Node.js | ≥ 20 | daemon 与构建都需要 |
-| [`gh` CLI](https://cli.github.com) | 任何近期版本 | 需要先 `gh auth login` 完成登录 |
-| [`claude` CLI](https://docs.anthropic.com/en/docs/claude-code) | 任何近期版本 | 必须能在 PATH 里找到 |
-| 浏览器 | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>` |
+| 工具                                                           | 版本                      | 说明                              |
+| -------------------------------------------------------------- | ------------------------- | --------------------------------- |
+| Node.js                                                        | ≥ 20                      | daemon 与构建都需要               |
+| [`gh` CLI](https://cli.github.com)                             | 任何近期版本              | 需要先 `gh auth login` 完成登录   |
+| [`claude` CLI](https://docs.anthropic.com/en/docs/claude-code) | 任何近期版本              | 必须能在 PATH 里找到              |
+| 浏览器                                                         | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>` |
 
 校验：
 
@@ -147,11 +149,11 @@ better-review
 
 PR 输入支持三种格式：
 
-| 格式 | 例子 |
-|---|---|
-| 纯数字（用当前 git remote） | `123` |
-| `owner/repo#N` | `acme/web#42` |
-| 完整 URL | `https://github.com/acme/web/pull/42` |
+| 格式                        | 例子                                  |
+| --------------------------- | ------------------------------------- |
+| 纯数字（用当前 git remote） | `123`                                 |
+| `owner/repo#N`              | `acme/web#42`                         |
+| 完整 URL                    | `https://github.com/acme/web/pull/42` |
 
 回车或点 **Start review**。
 
@@ -197,11 +199,11 @@ UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
 
 侧栏底部点 **Prompt** 进入编辑器。三个 tab：
 
-| Scope | 文件路径 | 用途 |
-|---|---|---|
-| Project | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级） |
-| Global | `~/.better-review/review.md` | 你跨项目复用的规则 |
-| Effective | （只读） | 实际生效的 prompt：project → global → 内置 |
+| Scope     | 文件路径                         | 用途                                       |
+| --------- | -------------------------------- | ------------------------------------------ |
+| Project   | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）        |
+| Global    | `~/.better-review/review.md`     | 你跨项目复用的规则                         |
+| Effective | （只读）                         | 实际生效的 prompt：project → global → 内置 |
 
 行为：
 
@@ -299,13 +301,13 @@ better-review --stop                                # 关掉
 
 `config.json` 可改的字段（全部有默认值）：
 
-| 字段 | 默认 | 说明 |
-|---|---|---|
-| `port` | `0`（随机） | 想固定端口就设非 0 |
-| `idleShutdownMinutes` | `240` | 多久无活动后自动退出（分钟） |
-| `maxConcurrentReviews` | `4` | 同时跑的 claude 进程上限 |
-| `claudeStallMinutes` | `3` | claude 多久没动静就 watchdog 杀掉 |
-| `perPRGCDays` | `7` | 老的 session 工作目录留多久（v1 暂不自动 GC） |
+| 字段                   | 默认        | 说明                                          |
+| ---------------------- | ----------- | --------------------------------------------- |
+| `port`                 | `0`（随机） | 想固定端口就设非 0                            |
+| `idleShutdownMinutes`  | `240`       | 多久无活动后自动退出（分钟）                  |
+| `maxConcurrentReviews` | `4`         | 同时跑的 claude 进程上限                      |
+| `claudeStallMinutes`   | `3`         | claude 多久没动静就 watchdog 杀掉             |
+| `perPRGCDays`          | `7`         | 老的 session 工作目录留多久（v1 暂不自动 GC） |
 
 例：
 
@@ -333,12 +335,12 @@ review prompt 模板的解析顺序：
 
 模板可用的占位符：
 
-| 占位符 | 内容 |
-|---|---|
-| `{{PR_META}}` | PR 标题 / 作者 / URL / body |
-| `{{DIFF}}` | `gh pr diff` 完整结果 |
-| `{{FINDINGS_PATH}}` | claude 应该把 findings JSON 写到的绝对路径 |
-| `{{SCHEMA}}` | findings JSON 的 schema 描述（用于 prompt 内告诉 claude 字段约束） |
+| 占位符              | 内容                                                               |
+| ------------------- | ------------------------------------------------------------------ |
+| `{{PR_META}}`       | PR 标题 / 作者 / URL / body                                        |
+| `{{DIFF}}`          | `gh pr diff` 完整结果                                              |
+| `{{FINDINGS_PATH}}` | claude 应该把 findings JSON 写到的绝对路径                         |
+| `{{SCHEMA}}`        | findings JSON 的 schema 描述（用于 prompt 内告诉 claude 字段约束） |
 
 内置模板见 [`prompts/builtin.md`](prompts/builtin.md)。
 

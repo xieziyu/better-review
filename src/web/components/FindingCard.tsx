@@ -1,63 +1,64 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import { Pencil, Trash2, ExternalLink } from "lucide-react";
-import { api, queryKeys, ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { DiffViewer } from "@/components/DiffViewer";
-import type { Finding, PRSession } from "@shared/types";
-import type { Severity } from "@shared/findings-schema";
+import type { Severity } from '@shared/findings-schema'
+import type { Finding, PRSession } from '@shared/types'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import ReactMarkdown from 'react-markdown'
+import rehypeHighlight from 'rehype-highlight'
+
+import { DiffViewer } from '@/components/DiffViewer'
+import { api, queryKeys, ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 interface Props {
-  finding: Finding;
-  session: PRSession;
-  unifiedDiff: string | null;
+  finding: Finding
+  session: PRSession
+  unifiedDiff: string | null
 }
 
-type SeverityTokens = { icon: string; label: string; border: string; stripe: string; text: string };
+type SeverityTokens = { icon: string; label: string; border: string; stripe: string; text: string }
 
 const SEVERITY_TOKENS: Record<Severity, SeverityTokens> = {
   must: {
-    icon: "●",
-    label: "must",
-    border: "border-l-red-600 dark:border-l-red-500",
-    stripe: "bg-red-50 dark:bg-red-950/40",
-    text: "text-red-700 dark:text-red-300",
+    icon: '●',
+    label: 'must',
+    border: 'border-l-red-600 dark:border-l-red-500',
+    stripe: 'bg-red-50 dark:bg-red-950/40',
+    text: 'text-red-700 dark:text-red-300',
   },
   should: {
-    icon: "◐",
-    label: "should",
-    border: "border-l-amber-500 dark:border-l-amber-400",
-    stripe: "bg-amber-50 dark:bg-amber-950/40",
-    text: "text-amber-700 dark:text-amber-300",
+    icon: '◐',
+    label: 'should',
+    border: 'border-l-amber-500 dark:border-l-amber-400',
+    stripe: 'bg-amber-50 dark:bg-amber-950/40',
+    text: 'text-amber-700 dark:text-amber-300',
   },
   nit: {
-    icon: "○",
-    label: "nit",
-    border: "border-l-emerald-600 dark:border-l-emerald-500",
-    stripe: "bg-emerald-50 dark:bg-emerald-950/40",
-    text: "text-emerald-700 dark:text-emerald-300",
+    icon: '○',
+    label: 'nit',
+    border: 'border-l-emerald-600 dark:border-l-emerald-500',
+    stripe: 'bg-emerald-50 dark:bg-emerald-950/40',
+    text: 'text-emerald-700 dark:text-emerald-300',
   },
-};
+}
 
 function githubLineLink(session: PRSession, file: string, line: number | null): string {
-  const base = session.url ? `${session.url}/files` : "#";
-  const anchor = line ? `R${line}` : "";
+  const base = session.url ? `${session.url}/files` : '#'
+  const anchor = line ? `R${line}` : ''
   // Best-effort GitHub anchor; users can click to navigate.
-  return `${base}#diff-${encodeURIComponent(file)}${anchor}`;
+  return `${base}#diff-${encodeURIComponent(file)}${anchor}`
 }
 
 export function FindingCard({ finding, session, unifiedDiff }: Props) {
-  const qc = useQueryClient();
-  const cardRef = useRef<HTMLElement | null>(null);
-  const [editing, setEditing] = useState(false);
+  const qc = useQueryClient()
+  const cardRef = useRef<HTMLElement | null>(null)
+  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({
     title: finding.title,
     body: finding.body,
     severity: finding.severity,
-    suggestion: finding.suggestion ?? "",
-  });
+    suggestion: finding.suggestion ?? '',
+  })
 
   useEffect(() => {
     if (!editing) {
@@ -65,19 +66,19 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
         title: finding.title,
         body: finding.body,
         severity: finding.severity,
-        suggestion: finding.suggestion ?? "",
-      });
+        suggestion: finding.suggestion ?? '',
+      })
     }
-  }, [editing, finding]);
+  }, [editing, finding])
 
   const invalidate = (): void => {
-    void qc.invalidateQueries({ queryKey: queryKeys.session(session.id) });
-  };
+    void qc.invalidateQueries({ queryKey: queryKeys.session(session.id) })
+  }
 
   const select = useMutation({
     mutationFn: () => api.selectFinding(finding.dbId, { selected: !finding.selected }),
     onSuccess: invalidate,
-  });
+  })
 
   const save = useMutation({
     mutationFn: () =>
@@ -88,52 +89,54 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
         suggestion: draft.suggestion ? draft.suggestion : null,
       }),
     onSuccess: () => {
-      invalidate();
-      setEditing(false);
+      invalidate()
+      setEditing(false)
     },
-  });
+  })
 
   const remove = useMutation({
     mutationFn: () => api.deleteFinding(finding.dbId),
     onSuccess: invalidate,
-  });
+  })
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
-    if (editing) return;
+    if (editing) return
     // Only trigger 'e' when the card itself (not a child input) is focused.
-    if (e.key === "e" && e.target === cardRef.current) {
-      e.preventDefault();
-      setEditing(true);
+    if (e.key === 'e' && e.target === cardRef.current) {
+      e.preventDefault()
+      setEditing(true)
     }
-  };
+  }
 
   const onEditorKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      save.mutate();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setEditing(false);
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      save.mutate()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditing(false)
     }
-  };
+  }
 
-  const tokens = SEVERITY_TOKENS[finding.severity]!;
+  const tokens = SEVERITY_TOKENS[finding.severity]!
 
   return (
     <article
       ref={(el) => {
-        cardRef.current = el;
+        cardRef.current = el
       }}
       role="article"
       aria-labelledby={`f-${finding.dbId}-title`}
       tabIndex={0}
       onKeyDown={onKeyDown}
       className={cn(
-        "group relative rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 border-l-4 focus:outline-none focus:ring-2 focus:ring-blue-500",
+        'group relative rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 border-l-4 focus:outline-none focus:ring-2 focus:ring-blue-500',
         tokens.border,
       )}
     >
-      <div className={cn("absolute left-0 top-0 bottom-0 w-1.5 pointer-events-none", tokens.stripe)} />
+      <div
+        className={cn('absolute left-0 top-0 bottom-0 w-1.5 pointer-events-none', tokens.stripe)}
+      />
       <div className="p-4 space-y-3">
         <header className="flex items-center gap-2 flex-wrap">
           <input
@@ -144,7 +147,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             className="h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
           />
           <span className="font-mono text-xs text-gray-500">{finding.id}</span>
-          <span className={cn("inline-flex items-center gap-1 text-xs font-medium", tokens.text)}>
+          <span className={cn('inline-flex items-center gap-1 text-xs font-medium', tokens.text)}>
             <span aria-hidden>{tokens.icon}</span>
             <span>{tokens.label}</span>
           </span>
@@ -152,7 +155,9 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             {finding.category}
           </span>
           <span className="font-mono text-xs text-gray-500">
-            {finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ""}` : "(whole PR)"}
+            {finding.file
+              ? `${finding.file}${finding.line ? `:${finding.line}` : ''}`
+              : '(whole PR)'}
           </span>
           {finding.file && session.url && (
             <a
@@ -165,13 +170,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
               <ExternalLink size={12} />
             </a>
           )}
-          {finding.edited && (
-            <Pencil
-              size={12}
-              className="text-gray-500"
-              aria-label="Edited"
-            />
-          )}
+          {finding.edited && <Pencil size={12} className="text-gray-500" aria-label="Edited" />}
           {!editing && (
             <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
@@ -185,7 +184,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`Delete finding ${finding.id}?`)) remove.mutate();
+                  if (confirm(`Delete finding ${finding.id}?`)) remove.mutate()
                 }}
                 aria-label="Delete"
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -217,7 +216,9 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             )}
             {finding.suggestion && (
               <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3">
-                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Suggestion</div>
+                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+                  Suggestion
+                </div>
                 <pre className="text-xs font-mono overflow-x-auto whitespace-pre-wrap">
                   <code>{finding.suggestion}</code>
                 </pre>
@@ -241,16 +242,21 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
               <legend className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Severity
               </legend>
-              <div role="radiogroup" className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
+              <div
+                role="radiogroup"
+                className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden"
+              >
                 {(Object.keys(SEVERITY_TOKENS) as Severity[]).map((sev) => {
-                  const tok = SEVERITY_TOKENS[sev]!;
-                  const active = draft.severity === sev;
+                  const tok = SEVERITY_TOKENS[sev]!
+                  const active = draft.severity === sev
                   return (
                     <label
                       key={sev}
                       className={cn(
-                        "px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1",
-                        active ? `${tok.stripe} ${tok.text}` : "hover:bg-gray-100 dark:hover:bg-gray-800",
+                        'px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1',
+                        active
+                          ? `${tok.stripe} ${tok.text}`
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-800',
                       )}
                     >
                       <input
@@ -265,14 +271,16 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                       <span aria-hidden>{tok.icon}</span>
                       <span>{tok.label}</span>
                     </label>
-                  );
+                  )
                 })}
               </div>
             </fieldset>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
               <label className="block">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Body (markdown)</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Body (markdown)
+                </span>
                 <textarea
                   aria-label="Body"
                   value={draft.body}
@@ -281,15 +289,21 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                 />
               </label>
               <div className="block">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Preview</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Preview
+                </span>
                 <div className="mt-1 h-48 p-2 text-sm rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 overflow-auto prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{draft.body || "*(empty)*"}</ReactMarkdown>
+                  <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                    {draft.body || '*(empty)*'}
+                  </ReactMarkdown>
                 </div>
               </div>
             </div>
 
             <label className="block">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Suggestion (optional)</span>
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                Suggestion (optional)
+              </span>
               <textarea
                 aria-label="Suggestion"
                 value={draft.suggestion}
@@ -305,7 +319,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                 disabled={save.isPending}
                 className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
               >
-                {save.isPending ? "Saving…" : "Save"}
+                {save.isPending ? 'Saving…' : 'Save'}
               </button>
               <span className="text-xs text-gray-500">⌘↵</span>
               <button
@@ -317,7 +331,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
               </button>
               {save.isError && (
                 <span className="text-xs text-red-600 dark:text-red-400">
-                  {save.error instanceof ApiError ? save.error.message : "Save failed"}
+                  {save.error instanceof ApiError ? save.error.message : 'Save failed'}
                 </span>
               )}
             </div>
@@ -325,5 +339,5 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
         )}
       </div>
     </article>
-  );
+  )
 }

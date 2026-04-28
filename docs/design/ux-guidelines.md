@@ -24,14 +24,14 @@ These guide every micro-decision below. When in doubt, optimize in this order:
 
 ### 1.1 Routes
 
-| Route | Purpose | Sidebar visible? |
-|---|---|---|
-| `/` | Welcome / new-PR entry / recent sessions list | Yes |
-| `/pr/:id` | The main work surface: findings + diff + submit | Yes |
-| `/prompt` | Prompt template editor (3 scopes) | Yes |
-| `/settings` | Preferences (idle timeout, default event, stall threshold) | Yes |
+| Route       | Purpose                                                    | Sidebar visible? |
+| ----------- | ---------------------------------------------------------- | ---------------- |
+| `/`         | Welcome / new-PR entry / recent sessions list              | Yes              |
+| `/pr/:id`   | The main work surface: findings + diff + submit            | Yes              |
+| `/prompt`   | Prompt template editor (3 scopes)                          | Yes              |
+| `/settings` | Preferences (idle timeout, default event, stall threshold) | Yes              |
 
-The sidebar is **persistent on every route**. There is no "focus mode" toggle in v1 — collapsing the sidebar is a future-only concern. Rationale: the user is here to triage *across* PRs; the sidebar is the primary navigation aid and a live status board. Hiding it would defeat the multi-PR core feature.
+The sidebar is **persistent on every route**. There is no "focus mode" toggle in v1 — collapsing the sidebar is a future-only concern. Rationale: the user is here to triage _across_ PRs; the sidebar is the primary navigation aid and a live status board. Hiding it would defeat the multi-PR core feature.
 
 ### 1.2 Top bar
 
@@ -44,7 +44,7 @@ A 48px-tall top bar sits above both sidebar and main:
 ```
 
 - **Left**: app title (clickable, routes to `/`). No logo image in v1 — typeset wordmark only (`font-mono` or `font-semibold tracking-tight`).
-- **Center**: `<HealthBanner>` zone. Zero-height when healthy. When `claude` / `gh` missing or `gh auth` failed, expands to an amber/red banner with action text (e.g. *"`gh auth login` required — copy command"*).
+- **Center**: `<HealthBanner>` zone. Zero-height when healthy. When `claude` / `gh` missing or `gh auth` failed, expands to an amber/red banner with action text (e.g. _"`gh auth login` required — copy command"_).
 - **Right**: text links to `Prompt` and `Settings` (gear icon). No avatar, no user menu.
 
 ### 1.3 Empty / loading / error states
@@ -52,21 +52,25 @@ A 48px-tall top bar sits above both sidebar and main:
 Every route must define each. Defaults below; deviate only with reason.
 
 #### `/` — Home
-- **First-time empty**: Hero with one-line tagline ("Review GitHub PRs with claude — locally"), centered input `Enter PR (#123, owner/repo#123, or URL)` and a single primary button **Start review**. Secondary text links: *"How it works"* (collapses an inline FAQ) and *"Edit prompt"* (→ `/prompt`).
-- **With history**: Same hero, condensed; below it a 3-column grid of *Recent sessions* cards (max 12, "View all" → list view if implemented later). Each card: PR title, repo · #num, status badge, finding count, last activity.
+
+- **First-time empty**: Hero with one-line tagline ("Review GitHub PRs with claude — locally"), centered input `Enter PR (#123, owner/repo#123, or URL)` and a single primary button **Start review**. Secondary text links: _"How it works"_ (collapses an inline FAQ) and _"Edit prompt"_ (→ `/prompt`).
+- **With history**: Same hero, condensed; below it a 3-column grid of _Recent sessions_ cards (max 12, "View all" → list view if implemented later). Each card: PR title, repo · #num, status badge, finding count, last activity.
 
 #### `/pr/:id`
+
 - **Loading session metadata**: Skeleton header (gray bars) + skeleton finding cards (3). No spinner.
-- **`status=running`**: Header status badge animates (pulsing dot). Body shows a *streaming progress panel*: a vertical list of stream-json events (`tool_use: read file X`, `tool_use: write findings.json`, finding-added events), most recent on top, max 50 visible. As findings start landing, they replace the panel inline (panel collapses to a "View live log" disclosure).
-- **`status=ready` with 0 findings**: Empty state inside main column — *"No issues found. Either the PR is clean, or the prompt missed something."* with two actions: **Rerun** and **Edit prompt**.
+- **`status=running`**: Header status badge animates (pulsing dot). Body shows a _streaming progress panel_: a vertical list of stream-json events (`tool_use: read file X`, `tool_use: write findings.json`, finding-added events), most recent on top, max 50 visible. As findings start landing, they replace the panel inline (panel collapses to a "View live log" disclosure).
+- **`status=ready` with 0 findings**: Empty state inside main column — _"No issues found. Either the PR is clean, or the prompt missed something."_ with two actions: **Rerun** and **Edit prompt**.
 - **`status=failed`**: Red-bordered card with summarized error (top line of `error` field), a `<details>` to expand the last 50 lines of `claude.log`, and **Retry**. Don't auto-retry.
-- **Diff fetch failed**: Inline placeholder where diff would render: *"Couldn't load diff. `gh pr diff` exited non-zero."* + Retry.
+- **Diff fetch failed**: Inline placeholder where diff would render: _"Couldn't load diff. `gh pr diff` exited non-zero."_ + Retry.
 
 #### `/prompt`
-- **Empty (no overrides)**: Both *Project* and *Global* tabs show a textarea pre-filled with the builtin contents (read-only by default) and a button **Override at this scope**, which converts to editable.
+
+- **Empty (no overrides)**: Both _Project_ and _Global_ tabs show a textarea pre-filled with the builtin contents (read-only by default) and a button **Override at this scope**, which converts to editable.
 - **Save error**: Inline red text under the editor.
 
 #### `/settings`
+
 - Form with sensible defaults pre-populated. No empty state needed.
 
 ### 1.4 Loading states (general)
@@ -77,9 +81,9 @@ Every route must define each. Defaults below; deviate only with reason.
 
 ### 1.5 Error states (general)
 
-- Network / 5xx: top-bar slim red band *"Connection to daemon lost — retrying…"* with auto-reconnect.
+- Network / 5xx: top-bar slim red band _"Connection to daemon lost — retrying…"_ with auto-reconnect.
 - 4xx from daemon: inline near the action that triggered it. Never a global toast.
-- `gh auth status` fails *during* submit: open the SubmitDrawer's confirm step in an error state with copyable `gh auth login` and a Retry button.
+- `gh auth status` fails _during_ submit: open the SubmitDrawer's confirm step in an error state with copyable `gh auth login` and a Retry button.
 
 ---
 
@@ -89,13 +93,14 @@ Every route must define each. Defaults below; deviate only with reason.
 
 Three levels. The icon and border carry the signal; backgrounds stay quiet.
 
-| Level | Icon | Light border | Light bg | Light text | Dark border | Dark bg | Dark text |
-|---|---|---|---|---|---|---|---|
-| `must` | filled circle (●) | `border-red-600` | `bg-red-50` | `text-red-700` | `border-red-500` | `bg-red-950/40` | `text-red-300` |
-| `should` | half circle (◐) | `border-amber-500` | `bg-amber-50` | `text-amber-700` | `border-amber-400` | `bg-amber-950/40` | `text-amber-300` |
-| `nit` | empty circle (○) | `border-emerald-600` | `bg-emerald-50` | `text-emerald-700` | `border-emerald-500` | `bg-emerald-950/40` | `text-emerald-300` |
+| Level    | Icon              | Light border         | Light bg        | Light text         | Dark border          | Dark bg             | Dark text          |
+| -------- | ----------------- | -------------------- | --------------- | ------------------ | -------------------- | ------------------- | ------------------ |
+| `must`   | filled circle (●) | `border-red-600`     | `bg-red-50`     | `text-red-700`     | `border-red-500`     | `bg-red-950/40`     | `text-red-300`     |
+| `should` | half circle (◐)   | `border-amber-500`   | `bg-amber-50`   | `text-amber-700`   | `border-amber-400`   | `bg-amber-950/40`   | `text-amber-300`   |
+| `nit`    | empty circle (○)  | `border-emerald-600` | `bg-emerald-50` | `text-emerald-700` | `border-emerald-500` | `bg-emerald-950/40` | `text-emerald-300` |
 
 Why these exact tokens:
+
 - Red-600 / amber-500 / emerald-600 each pass WCAG AA (4.5:1) on `white` for the text variants, and pass on `gray-950` for the dark-mode light-text variants. Verified against Tailwind's published palette.
 - Background tints use the `-50` (light) / `-950/40` (dark) levels — present but not loud. The card body stays mostly neutral.
 - `emerald` (not `green`) keeps the nit tone slightly bluer, distinguishing it from the GitHub "merged" green so the page doesn't read as a status board.
@@ -106,21 +111,21 @@ Why these exact tokens:
 
 ### 2.2 Session status tokens
 
-Five statuses. Each gets icon + color + label. Colors deliberately use a *different hue palette* than severity so a glance never confuses them.
+Five statuses. Each gets icon + color + label. Colors deliberately use a _different hue palette_ than severity so a glance never confuses them.
 
-| Status | Icon | Color (light) | Color (dark) | Sidebar badge style | Live? |
-|---|---|---|---|---|---|
-| `running` | spinning dash (`Loader2` from lucide, animate-spin) | `text-blue-600 bg-blue-50` | `text-blue-300 bg-blue-950/40` | pulsing dot prefix | yes — pulse |
-| `ready` | check (`Check`) | `text-emerald-600 bg-emerald-50` | `text-emerald-300 bg-emerald-950/40` | static | no |
-| `failed` | alert-triangle (`AlertTriangle`) | `text-red-600 bg-red-50` | `text-red-300 bg-red-950/40` | static | no |
-| `submitted` | upload-check (`CheckCheck`) | `text-violet-600 bg-violet-50` | `text-violet-300 bg-violet-950/40` | static | no |
-| `archived` | archive (`Archive`) | `text-gray-500 bg-gray-100` | `text-gray-400 bg-gray-800` | static, dimmed | no |
+| Status      | Icon                                                | Color (light)                    | Color (dark)                         | Sidebar badge style | Live?       |
+| ----------- | --------------------------------------------------- | -------------------------------- | ------------------------------------ | ------------------- | ----------- |
+| `running`   | spinning dash (`Loader2` from lucide, animate-spin) | `text-blue-600 bg-blue-50`       | `text-blue-300 bg-blue-950/40`       | pulsing dot prefix  | yes — pulse |
+| `ready`     | check (`Check`)                                     | `text-emerald-600 bg-emerald-50` | `text-emerald-300 bg-emerald-950/40` | static              | no          |
+| `failed`    | alert-triangle (`AlertTriangle`)                    | `text-red-600 bg-red-50`         | `text-red-300 bg-red-950/40`         | static              | no          |
+| `submitted` | upload-check (`CheckCheck`)                         | `text-violet-600 bg-violet-50`   | `text-violet-300 bg-violet-950/40`   | static              | no          |
+| `archived`  | archive (`Archive`)                                 | `text-gray-500 bg-gray-100`      | `text-gray-400 bg-gray-800`          | static, dimmed      | no          |
 
 Sidebar badge format: 12px circular icon + status word at `text-xs`, OR (denser) just the icon as a 14px chip — see §6 for which density to default to.
 
 ### 2.3 Edited indicator
 
-When `finding.edited === 1`, show a small *pencil* icon (`Pencil` from lucide, 12px) in the card header next to the title, color `text-gray-500`, with a `title="Edited"` tooltip. No color change, no background — purely informational.
+When `finding.edited === 1`, show a small _pencil_ icon (`Pencil` from lucide, 12px) in the card header next to the title, color `text-gray-500`, with a `title="Edited"` tooltip. No color change, no background — purely informational.
 
 ---
 
@@ -151,11 +156,11 @@ This is the most important page. Two reasonable layouts exist; below I lay them 
 ```
 
 Pros: less vertical scrolling; finding stays in view while reading the slice; familiar (GitHub split view).
-Cons: each finding's diff is *not* visible at the same time as another finding's; reading 8–20 findings means 8–20 click-to-load-slice cycles; multi-file scrolling is awkward (do you sync scroll? jump?); editing a finding loses the diff focus.
+Cons: each finding's diff is _not_ visible at the same time as another finding's; reading 8–20 findings means 8–20 click-to-load-slice cycles; multi-file scrolling is awkward (do you sync scroll? jump?); editing a finding loses the diff focus.
 
 ### 3.2 Option B — Single column with inline diff slice (RECOMMENDED)
 
-```
+````
 ┌──── Sidebar ───┬──────────────────────────── /pr/abc123 ───────────────────────────────┐
 │ ● running      │ Header: PR title · repo#num · author · [status]      [Rerun] [Submit] │
 │ ✓ ready    *3* │                                                                       │
@@ -194,9 +199,10 @@ Cons: each finding's diff is *not* visible at the same time as another finding's
 │                │ │ └──────────────────────────────────────────────────────────────┘│   │
 │                │ └──────────────────────────────────────────────────────────────────┘   │
 └────────────────┴───────────────────────────────────────────────────────────────────────┘
-```
+````
 
 Pros:
+
 - **Scanability of 8–20 findings**: file groups become visual chapters; severity icons at the left edge let you skim verdicts in a single column scan.
 - **Reading flow**: finding text and its code slice are adjacent; no eye-saccade between two columns.
 - **Edit ergonomics**: expanding the markdown editor doesn't blow up the diff column; edit-in-place feels natural in a single column.
@@ -204,6 +210,7 @@ Pros:
 - **PR-wide findings** (file=null) get a clean dedicated section at the bottom — a two-column layout has nowhere clean to put these.
 
 Cons (and mitigations):
+
 - Page can grow long with many findings × ±10 line slices. Mitigation: each FindingCard's diff slice has a collapsed default of just the highlighted line ±3, with **Expand** to ±10, **Expand full hunk** below that. Group headers (per file) are sticky.
 - Less "GitHub-like". That's fine — we're not GitHub; we're optimizing for triage speed.
 
@@ -226,7 +233,7 @@ Cons (and mitigations):
   - **Rerun ↻**: secondary button. Confirmation popover only if `status=running` (would cancel current run).
   - **Prompt snapshot 👁**: tertiary, opens a side drawer with the `prompt_used` text, read-only. For audit / "why did claude do this".
   - **Submit (n) →**: primary button when `status=ready` and ≥1 finding selected. Disabled with tooltip "Select at least one finding" otherwise. The `(n)` is the live selected count.
-  - **Delete session**: hidden in a `…` overflow menu next to actions. Confirmation modal: *"Delete session for #123? Submissions to GitHub are not undone."*
+  - **Delete session**: hidden in a `…` overflow menu next to actions. Confirmation modal: _"Delete session for #123? Submissions to GitHub are not undone."_
 - Secondary toolbar (under header, sticky on scroll):
   - Tabs: `Active` (default) / `Archived` (after rerun) / `Submissions` (history of submissions to GitHub)
   - Filter chips: `All severities` · `Must` · `Should` · `Nit` (multi-select)
@@ -236,7 +243,7 @@ Cons (and mitigations):
 
 Visual order top→bottom:
 
-```
+````
 ┌─ [3px severity-color left border] ─────────────────────────────────────┐
 │ ┌─ Header row ─────────────────────────────────────────────────────────┐│
 │ │ [☐ checkbox]  R1  ●must  «Type Safety»  src/auth/jwt.ts:42  ↗       ││
@@ -261,16 +268,17 @@ Visual order top→bottom:
 │ │ ```                                                                  ││
 │ └──────────────────────────────────────────────────────────────────────┘│
 └────────────────────────────────────────────────────────────────────────┘
-```
+````
 
 Element details:
+
 - **Checkbox** (`☐ / ☑`): leftmost, 16px, primary color. Bound to `selected`.
 - **R1** ordinal: `font-mono text-xs text-gray-500`, click-to-copy with a fade tooltip "Copied".
 - **Severity icon + label**: §2.1 tokens. Click the label to open severity selector (radio-toggle inline-replaces the static label).
 - **Category chip**: `text-xs` neutral pill (`bg-gray-100 text-gray-700` / dark `bg-gray-800 text-gray-300`). Free-form text — claude generates it. Display unchanged.
 - **File:line link**: `font-mono text-xs`, opens GitHub at the right line in a new tab (`url + #L<line>` from `pr.url` → `/files`). Internally also the anchor for keyboard navigation.
 - **Edit pencil ✏**: opens edit mode (§4). Only visible on hover for cleanliness, but always rendered for accessibility (CSS `opacity-0 hover:opacity-100`, but `focus-within` keeps it visible).
-- **Overflow ▾**: dropdown with: *Delete finding*, *Copy as markdown*, *Open in GitHub*.
+- **Overflow ▾**: dropdown with: _Delete finding_, _Copy as markdown_, _Open in GitHub_.
 - **Title**: `text-base font-medium`, rendered as markdown (inline only — no headings, no lists).
 - **Body**: rendered with `react-markdown` + `rehype-highlight`. Supports `<details>`. Renderable code fences for any language.
 - **Diff slice**: `react-diff-view` + `shiki`. Default: highlighted line ±3 (collapsed). One Expand button → ±10. Second Expand → full hunk. The active line gets a subtle left-arrow indicator (▶) and `bg-yellow-50/30`. No line numbers from the diff are clickable — this is read-only context.
@@ -310,7 +318,7 @@ When edit mode is active for a card, the body section transforms:
 
 The severity selector and suggestion editor appear in the same edit mode session as additional fields beneath the body editor:
 
-```
+````
 Severity:  [● Must]  [◐ Should]  [○ Nit]
 Suggestion (optional):
 ┌─────────────────────────────────────┐
@@ -318,7 +326,7 @@ Suggestion (optional):
 │ const decoded = jwt.verify(...)     │
 │ ```                                  │
 └─────────────────────────────────────┘
-```
+````
 
 The title is editable in a single-line input above the body editor.
 
@@ -327,18 +335,21 @@ The category and file:line are **not editable in v1** — they come from claude'
 ### 4.3 Save — RECOMMENDED: explicit Save button (with `⌘↵` shortcut), not blur-save
 
 Reasoning:
+
 - Blur-save in markdown editors is dangerous: clicking outside the editor (e.g. to scroll, to click another finding to compare) silently commits potentially half-baked edits.
 - Many other PR review tools (GitHub itself, Reviewable) use explicit save. Reviewers expect it.
 - The spec mentions blur-saves but acknowledges no optimistic locking; an explicit save lets us also confirm "don't navigate away with unsaved changes" cleanly.
 
 So:
+
 - **Save**: button + `⌘↵` (Mac) / `Ctrl+Enter`. Sends `PATCH /api/findings/:id`. On success, exits edit mode; a small "Saved" microcopy appears for 1.5s next to the title.
-- **Cancel**: button + `Esc`. If the editor content differs from the original, show a confirm popover *"Discard changes?"* with **Discard** / **Keep editing**.
+- **Cancel**: button + `Esc`. If the editor content differs from the original, show a confirm popover _"Discard changes?"_ with **Discard** / **Keep editing**.
 - Navigation guard: if the user clicks another route or another finding's edit, same confirm popover.
 
 ### 4.4 Conflict / staleness
 
 Spec says no optimistic locking. Two options:
+
 - (A) Show a passive "Updated elsewhere" notice when a `finding-updated` SSE arrives for a finding currently being edited; user decides whether to keep editing or refresh.
 - (B) Hard overwrite, latest write wins.
 
@@ -502,7 +513,7 @@ On failure, the post-submit panel is replaced by an error variant with the raw `
 ### 6.3 New-PR input — RECOMMENDED: inline at top of sidebar
 
 - Inline persistent input, always visible. No modal.
-- Placeholder: *"Enter PR # or URL"*. Examples in a subtle tooltip on focus.
+- Placeholder: _"Enter PR # or URL"_. Examples in a subtle tooltip on focus.
 - Submit on Enter; the input clears and the new session card animates in at the top. While `gh pr view` is fetching meta, show a placeholder card with a skeleton title.
 - Why inline: the spec calls "+ New PR" the entry point and the user lands here often. A modal adds friction. The 56px input slot is cheap.
 
@@ -510,8 +521,8 @@ On failure, the post-submit panel is replaced by an error variant with the raw `
 
 Single dropdown labeled `[All ▾]` to keep visual noise low. Inside the dropdown, two sections:
 
-- *Status*: checkbox list (Running, Ready, Failed, Submitted, Archived). Default: all ON except Archived.
-- *Repo*: checkbox list of repos found across sessions. Default: all ON.
+- _Status_: checkbox list (Running, Ready, Failed, Submitted, Archived). Default: all ON except Archived.
+- _Repo_: checkbox list of repos found across sessions. Default: all ON.
 
 Active filter shows as a pill: `[Status: 3 of 5 ▾]`.
 
@@ -542,7 +553,7 @@ I chose **icon-only at the leftmost** instead of a full word badge. Rationale: a
 
 ### 7.1 Three tabs
 
-- **Effective** (default tab): shows the currently-resolved prompt. Read-only. A subtitle says: *"Source: project / global / builtin"*.
+- **Effective** (default tab): shows the currently-resolved prompt. Read-only. A subtitle says: _"Source: project / global / builtin"_.
 - **Project**: editable when an override exists, otherwise shows `[Override at this scope]` button. Path label `<repo-cwd>/.better-review/review.md`.
 - **Global**: same as project. Path label `~/.better-review/review.md`.
 
@@ -563,8 +574,8 @@ If the next-level fallback is `builtin` (no global), the panel diffs against bui
 
 ### 7.3 Save and reset
 
-- **Save**: button + `⌘S`. Writes via `PUT /api/prompts/:scope`. On success, a microcopy *"Saved"* fades next to the button.
-- **Reset to fallback**: button on Project / Global tabs, secondary, with confirmation popover *"Delete <path>? The next-level fallback will apply."*.
+- **Save**: button + `⌘S`. Writes via `PUT /api/prompts/:scope`. On success, a microcopy _"Saved"_ fades next to the button.
+- **Reset to fallback**: button on Project / Global tabs, secondary, with confirmation popover _"Delete <path>? The next-level fallback will apply."_.
 
 ### 7.4 "Apply to current session"
 
@@ -578,23 +589,23 @@ If the next-level fallback is `builtin` (no global), the panel diffs against bui
 
 ### 8.1 Tailwind palette (v3, light & dark)
 
-| Role | Light | Dark |
-|---|---|---|
-| **Primary** | `blue-600` (`bg-blue-600 text-white`); hover `blue-700` | `blue-500`; hover `blue-400` |
-| Primary subtle | `blue-50` bg, `blue-700` text | `blue-950/40` bg, `blue-300` text |
-| **Surface** (page bg) | `white` (or `gray-50` for the very outermost) | `gray-950` |
-| Surface raised (cards) | `white` with `border-gray-200` | `gray-900` with `border-gray-800` |
-| Sidebar bg | `gray-50` | `gray-900` |
-| **Border** default | `border-gray-200` | `border-gray-800` |
-| Border strong | `border-gray-300` | `border-gray-700` |
-| **Text** primary | `text-gray-900` | `text-gray-100` |
-| Text secondary | `text-gray-600` | `text-gray-400` |
-| Text muted | `text-gray-500` | `text-gray-500` |
-| Text inverted (on primary) | `text-white` | `text-white` |
-| **Severity** | see §2.1 | see §2.1 |
-| **Status** | see §2.2 | see §2.2 |
-| Focus ring | `ring-2 ring-blue-500 ring-offset-1` | `ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-950` |
-| Highlight (active diff line) | `bg-yellow-50` | `bg-yellow-950/30` |
+| Role                         | Light                                                   | Dark                                                      |
+| ---------------------------- | ------------------------------------------------------- | --------------------------------------------------------- |
+| **Primary**                  | `blue-600` (`bg-blue-600 text-white`); hover `blue-700` | `blue-500`; hover `blue-400`                              |
+| Primary subtle               | `blue-50` bg, `blue-700` text                           | `blue-950/40` bg, `blue-300` text                         |
+| **Surface** (page bg)        | `white` (or `gray-50` for the very outermost)           | `gray-950`                                                |
+| Surface raised (cards)       | `white` with `border-gray-200`                          | `gray-900` with `border-gray-800`                         |
+| Sidebar bg                   | `gray-50`                                               | `gray-900`                                                |
+| **Border** default           | `border-gray-200`                                       | `border-gray-800`                                         |
+| Border strong                | `border-gray-300`                                       | `border-gray-700`                                         |
+| **Text** primary             | `text-gray-900`                                         | `text-gray-100`                                           |
+| Text secondary               | `text-gray-600`                                         | `text-gray-400`                                           |
+| Text muted                   | `text-gray-500`                                         | `text-gray-500`                                           |
+| Text inverted (on primary)   | `text-white`                                            | `text-white`                                              |
+| **Severity**                 | see §2.1                                                | see §2.1                                                  |
+| **Status**                   | see §2.2                                                | see §2.2                                                  |
+| Focus ring                   | `ring-2 ring-blue-500 ring-offset-1`                    | `ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-950` |
+| Highlight (active diff line) | `bg-yellow-50`                                          | `bg-yellow-950/30`                                        |
 
 shadcn/ui's CSS variables (`--background`, `--foreground`, `--primary`, etc.) should map to these tokens via Tailwind config — define both modes there once.
 
@@ -605,15 +616,15 @@ shadcn/ui's CSS variables (`--background`, `--foreground`, `--primary`, etc.) sh
   - Mono: `JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace`. For: ordinal IDs (R1), file:line, code blocks, diff slices.
 - **Sizes** (default + dark mode use the same):
 
-| Use | Tailwind | px |
-|---|---|---|
-| PR title (header) | `text-lg` | 18 |
-| Card title | `text-base` | 16 |
-| Body text | `text-sm` | 14 |
-| Sidebar item title | `text-sm` | 14 |
-| Sidebar metadata | `text-xs` | 12 |
-| Labels / chips / file:line | `text-xs` | 12 |
-| Code (mono) | `text-xs` to `text-sm` (responsive) | 12–14 |
+| Use                        | Tailwind                            | px    |
+| -------------------------- | ----------------------------------- | ----- |
+| PR title (header)          | `text-lg`                           | 18    |
+| Card title                 | `text-base`                         | 16    |
+| Body text                  | `text-sm`                           | 14    |
+| Sidebar item title         | `text-sm`                           | 14    |
+| Sidebar metadata           | `text-xs`                           | 12    |
+| Labels / chips / file:line | `text-xs`                           | 12    |
+| Code (mono)                | `text-xs` to `text-sm` (responsive) | 12–14 |
 
 - **Line-height**: `leading-snug` for headings, `leading-relaxed` for markdown body, `leading-tight` for code.
 - **Density**: comfortable, not cramped. Cards use `p-4`; sidebar items use `px-3 py-2`. No font sizes below 12px anywhere.
@@ -636,6 +647,7 @@ The spec doesn't mandate either, but:
 ### 10.1 Keyboard shortcuts
 
 Global:
+
 - `?` — open shortcuts cheatsheet modal
 - `g` then `h` — go home
 - `g` then `p` — go to prompt
@@ -644,6 +656,7 @@ Global:
 - `[` / `]` — previous / next PR in sidebar
 
 PR detail:
+
 - `j` / `k` — next / previous finding (focus moves, scrolls into view)
 - `x` — toggle selection on focused finding
 - `e` — edit focused finding
@@ -654,6 +667,7 @@ PR detail:
 - `R` — rerun session (with confirm)
 
 Within SubmitDrawer:
+
 - `Enter` — advance step
 - `Esc` — close (with confirm if mid-flow)
 
@@ -671,6 +685,7 @@ All shortcuts must be discoverable via the `?` cheatsheet.
 ### 10.3 Color contrast
 
 All text/background combinations in §8.1 are checked against WCAG AA (4.5:1 for normal text, 3:1 for large/UI). Specifically:
+
 - `text-gray-600` on `white`: 4.83:1 ✓
 - `text-gray-400` on `gray-950`: 7.2:1 ✓
 - `text-red-700` on `red-50`: 6.1:1 ✓
@@ -691,18 +706,18 @@ The `gray-500` muted text is intentionally borderline (4.5:1 on white) — only 
 
 Use this when building each component. If you can't satisfy a row, ping `designer` before guessing.
 
-| Component | Empty state | Loading state | Error state | Severity tokens | Status tokens | Keyboard | A11y |
-|---|---|---|---|---|---|---|---|
-| Sidebar | §1.3 first-time | skeleton items | red band §1.5 | n/a | §2.2 | `[/]/[/]` | role=navigation |
-| HealthBanner | hidden | n/a | always | n/a | n/a | dismissible? no | `role=alert` |
-| FindingList | §1.3 0-findings | skeleton 3 cards | inline | n/a | n/a | `j/k/x/e/o` | `role=list` |
-| FindingCard | n/a | skeleton | red border | §2.1 | n/a | `j/k` focus | `role=article` |
-| DiffSlice | "no slice for PR-wide" | skeleton lines | inline | n/a | n/a | none | `role=region` |
-| EditMode | n/a | inline spinner | inline | severity selector | n/a | `Esc/⌘↵` | trap focus |
-| SubmitDrawer | n/a | step-3 spinner | step-4 error | n/a | n/a | `Enter/Esc` | trap focus |
-| PromptEditor | builtin only | skeleton | inline | n/a | n/a | `⌘S` | n/a |
-| HomePage | §1.3 first-time | skeleton cards | inline | n/a | n/a | `Enter` submit | n/a |
-| SettingsPage | n/a | n/a | inline | n/a | n/a | tab order | label/input |
+| Component    | Empty state            | Loading state    | Error state   | Severity tokens   | Status tokens | Keyboard        | A11y            |
+| ------------ | ---------------------- | ---------------- | ------------- | ----------------- | ------------- | --------------- | --------------- |
+| Sidebar      | §1.3 first-time        | skeleton items   | red band §1.5 | n/a               | §2.2          | `[/]/[/]`       | role=navigation |
+| HealthBanner | hidden                 | n/a              | always        | n/a               | n/a           | dismissible? no | `role=alert`    |
+| FindingList  | §1.3 0-findings        | skeleton 3 cards | inline        | n/a               | n/a           | `j/k/x/e/o`     | `role=list`     |
+| FindingCard  | n/a                    | skeleton         | red border    | §2.1              | n/a           | `j/k` focus     | `role=article`  |
+| DiffSlice    | "no slice for PR-wide" | skeleton lines   | inline        | n/a               | n/a           | none            | `role=region`   |
+| EditMode     | n/a                    | inline spinner   | inline        | severity selector | n/a           | `Esc/⌘↵`        | trap focus      |
+| SubmitDrawer | n/a                    | step-3 spinner   | step-4 error  | n/a               | n/a           | `Enter/Esc`     | trap focus      |
+| PromptEditor | builtin only           | skeleton         | inline        | n/a               | n/a           | `⌘S`            | n/a             |
+| HomePage     | §1.3 first-time        | skeleton cards   | inline        | n/a               | n/a           | `Enter` submit  | n/a             |
+| SettingsPage | n/a                    | n/a              | inline        | n/a               | n/a           | tab order       | label/input     |
 
 ---
 
