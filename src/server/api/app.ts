@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { originGuard } from "./middleware/origin";
 import { healthRoutes } from "./routes/health";
+import { sessionsRoutes } from "./routes/sessions";
 import type { SessionsRepo } from "../db/sessions";
 import type { FindingsRepo } from "../db/findings";
 import type { SubmissionsRepo } from "../db/submissions";
@@ -35,5 +36,6 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.use("*", originGuard(deps.getPort));
   app.route("/api", healthRoutes(deps));
+  app.route("/api", sessionsRoutes(deps));
   return app;
 }
