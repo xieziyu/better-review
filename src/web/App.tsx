@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Home } from "@/pages/Home";
 import { PRDetail } from "@/pages/PRDetail";
 import { PromptEditor } from "@/pages/PromptEditor";
+import { Settings } from "@/pages/Settings";
 
 function TopBar() {
   return (
@@ -45,7 +46,7 @@ export function App() {
             <Route path="/" element={<Home />} />
             <Route path="/pr/:id" element={<PRDetail />} />
             <Route path="/prompt" element={<PromptEditor />} />
-            <Route path="/settings" element={<div className="p-6">Settings (TBD)</div>} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
