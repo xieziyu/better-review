@@ -1,6 +1,8 @@
 import { Link, Routes, Route } from "react-router-dom";
 import { Settings as SettingsIcon } from "lucide-react";
 import { HealthBanner } from "@/components/HealthBanner";
+import { Sidebar } from "@/components/Sidebar";
+import { Home } from "@/pages/Home";
 
 function TopBar() {
   return (
@@ -35,9 +37,13 @@ export function App() {
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
       <TopBar />
       <div className="flex flex-1 min-h-0">
-        <main className="flex-1 p-6 overflow-auto">
+        <Sidebar />
+        <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/" element={<div>Home (TBD next phase)</div>} />
+            <Route path="/" element={<Home />} />
+            <Route path="/pr/:id" element={<div className="p-6">PR detail (TBD)</div>} />
+            <Route path="/prompt" element={<div className="p-6">Prompt (TBD)</div>} />
+            <Route path="/settings" element={<div className="p-6">Settings (TBD)</div>} />
           </Routes>
         </main>
       </div>
