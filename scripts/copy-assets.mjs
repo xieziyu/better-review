@@ -16,11 +16,11 @@ function rewriteImports(file) {
   const replaceFn = (match, q1, spec, q2) => {
     const target = resolve(dir, spec);
     let resolved = null;
-    if (existsSync(target) && statSync(target).isDirectory()) {
+    if (existsSync(`${target}.js`)) {
+      resolved = `${target}.js`;
+    } else if (existsSync(target) && statSync(target).isDirectory()) {
       const idx = join(target, "index.js");
       if (existsSync(idx)) resolved = idx;
-    } else if (existsSync(`${target}.js`)) {
-      resolved = `${target}.js`;
     }
     if (!resolved) return match;
     let rel = relative(dir, resolved).replace(/\\/g, "/");
