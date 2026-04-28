@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { execaSync } from "execa";
 import { serve } from "@hono/node-server";
-import type { AddressInfo } from "node:net";
 import { resolvePaths } from "./paths";
 import { loadConfig } from "./config";
 import { createLogger } from "./logger";
@@ -112,8 +111,15 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   };
 
   const app = createApp(deps);
-  const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: config.port });
-  port = (server.address() as AddressInfo).port;
+  const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
+    const s = serve(
+      { fetch: app.fetch, hostname: "127.0.0.1", port: config.port },
+      (info) => {
+        port = info.port;
+        resolve(s);
+      },
+    );
+  });
   writeFileSync(
     paths.serverJson,
     JSON.stringify({ pid: process.pid, port, startedAt }),
