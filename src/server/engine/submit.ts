@@ -28,12 +28,13 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   const all = args.findings.listBySession(args.sessionId);
   const selected = all.filter((f) => f.selected);
   const diff = readFileSync(join(session.workdir, "diff.cache"), "utf8");
-  const built = buildSubmitPayload({
+  const buildArgs: Parameters<typeof buildSubmitPayload>[0] = {
     diff,
     findings: selected,
     event: args.event,
-    userBody: args.body,
-  });
+  };
+  if (args.body !== undefined) buildArgs.userBody = args.body;
+  const built = buildSubmitPayload(buildArgs);
   const findingIds = selected.map((f) => f.dbId);
   try {
     const r = await args.gh.submitReview(
