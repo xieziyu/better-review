@@ -5,7 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SubmitDrawer } from "@/components/SubmitDrawer";
 import type { Finding, PRSession } from "@shared/types";
 
-function withClient(ui: React.ReactNode, sessionId: string, data: { session: PRSession; findings: Finding[] }) {
+function withClient(
+  ui: React.ReactNode,
+  sessionId: string,
+  data: { session: PRSession; findings: Finding[]; diff?: string | null },
+) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   qc.setQueryData(["session", sessionId], data);
   return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>;
@@ -94,6 +98,36 @@ describe("SubmitDrawer", () => {
     await user.click(screen.getByRole("button", { name: /Next/i }));
     const body = screen.getByLabelText(/Review body/i) as HTMLTextAreaElement;
     expect(body.value).toMatch(/Wider architectural concern/);
+  });
+
+  it("groups findings whose line is outside the diff under 'moved to body'", () => {
+    const diff = [
+      "diff --git a/src/x.ts b/src/x.ts",
+      "--- a/src/x.ts",
+      "+++ b/src/x.ts",
+      "@@ -1,2 +1,3 @@",
+      " a",
+      "+b",
+      " c",
+      "",
+    ].join("\n");
+    const findings = [
+      mk({ id: "R1", dbId: "d1", file: "src/x.ts", line: 2 }), // in diff
+      mk({ id: "R2", dbId: "d2", file: "src/x.ts", line: 999 }), // outside diff
+    ];
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, "s1", {
+        session,
+        findings,
+        diff,
+      }),
+    );
+    const moved = screen.getByTestId("moved-to-body-list");
+    expect(moved).toHaveTextContent(/R2/);
+    expect(moved).not.toHaveTextContent(/\bR1\b/);
+
+    const inline = screen.getByTestId("inline-list");
+    expect(inline).toHaveTextContent(/R1/);
   });
 
   it("defaults to COMMENT event", async () => {

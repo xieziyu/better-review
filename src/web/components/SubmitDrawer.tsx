@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, ExternalLink } from "lucide-react";
 import { api, queryKeys, ApiError } from "@/lib/api";
+import { isLineInDiff } from "@/lib/diff-line-check";
 import { cn } from "@/lib/utils";
 import type { Finding, ReviewEvent } from "@shared/types";
 
@@ -64,8 +65,25 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
     [data?.findings],
   );
   const selected = useMemo(() => findings.filter((f) => f.selected), [findings]);
-  const inline = useMemo(() => selected.filter((f) => f.file !== null && f.line !== null), [selected]);
-  const prWide = useMemo(() => selected.filter((f) => f.file === null), [selected]);
+  const diff = data?.diff ?? null;
+  const groups = useMemo(() => {
+    const inline: Finding[] = [];
+    const movedToBody: Finding[] = [];
+    const prWide: Finding[] = [];
+    for (const f of selected) {
+      if (f.file === null || f.line === null) {
+        prWide.push(f);
+      } else if (diff && !isLineInDiff(diff, f.file, f.line)) {
+        movedToBody.push(f);
+      } else {
+        inline.push(f);
+      }
+    }
+    return { inline, movedToBody, prWide };
+  }, [selected, diff]);
+  const inline = groups.inline;
+  const movedToBody = groups.movedToBody;
+  const prWide = groups.prWide;
   const counts = useMemo(() => severityCounts(selected), [selected]);
 
   // Prefill body with PR-wide findings the first time we have data; user can edit.
@@ -169,12 +187,59 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   <span>○ {counts.nit} nit</span>
                 </div>
               </div>
+              {!diff && selected.some((f) => f.file !== null) && (
+                <div className="text-xs text-gray-500">
+                  Diff not loaded — line-in-diff check will run on submit.
+                </div>
+              )}
+              {inline.length > 0 && (
+                <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 text-xs">
+                  <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {inline.length} inline comment{inline.length === 1 ? "" : "s"}
+                  </div>
+                  <ul
+                    data-testid="inline-list"
+                    className="list-disc list-inside space-y-1 font-mono"
+                  >
+                    {inline.map((f) => (
+                      <li key={f.dbId}>
+                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{" "}
+                        <span className="font-sans">{f.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {movedToBody.length > 0 && (
+                <div className="rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3 text-xs">
+                  <div className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                    {movedToBody.length} finding{movedToBody.length === 1 ? "" : "s"} will be moved to the review body
+                  </div>
+                  <div className="text-amber-700 dark:text-amber-400 mb-2">
+                    Their <code className="font-mono">file:line</code> is outside the PR diff, so GitHub would reject them as inline comments.
+                  </div>
+                  <ul
+                    data-testid="moved-to-body-list"
+                    className="list-disc list-inside space-y-1 font-mono"
+                  >
+                    {movedToBody.map((f) => (
+                      <li key={f.dbId}>
+                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{" "}
+                        <span className="font-sans">{f.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {prWide.length > 0 && (
                 <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3 text-xs">
                   <div className="font-medium text-blue-700 dark:text-blue-300 mb-1">
                     {prWide.length} PR-wide finding{prWide.length === 1 ? "" : "s"} will be added to the review body
                   </div>
-                  <ul className="list-disc list-inside space-y-1">
+                  <ul
+                    data-testid="pr-wide-list"
+                    className="list-disc list-inside space-y-1"
+                  >
                     {prWide.map((f) => (
                       <li key={f.dbId}>
                         <span className="font-mono">{f.id}</span> — {f.title}
@@ -183,18 +248,11 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   </ul>
                 </div>
               )}
-              <ul className="text-xs space-y-1 max-h-72 overflow-auto rounded-md border border-gray-200 dark:border-gray-800 p-3">
-                {selected.map((f) => (
-                  <li key={f.dbId} className="font-mono">
-                    <span>{f.id}</span> · {f.severity} ·{" "}
-                    {f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "(PR-wide)"} —{" "}
-                    <span className="font-sans">{f.title}</span>
-                  </li>
-                ))}
-                {selected.length === 0 && (
-                  <li className="text-gray-500">No findings selected.</li>
-                )}
-              </ul>
+              {selected.length === 0 && (
+                <div className="text-xs text-gray-500 rounded-md border border-gray-200 dark:border-gray-800 p-3">
+                  No findings selected.
+                </div>
+              )}
             </section>
           )}
 
