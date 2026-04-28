@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/cli/**/*", "src/server/**/*", "src/shared/**/*"]
+}
