@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createApp } from "../../../src/server/api/app";
 import { makeTestDeps } from "./_deps";
 import type { PRSession, Finding } from "../../../src/shared/types";
@@ -85,6 +88,63 @@ describe("sessions API", () => {
     const app = createApp(deps);
     expect((await app.request("/api/sessions/s1", { method: "DELETE" })).status).toBe(204);
     expect(deps.sessions.getById("s1")).toBeNull();
+  });
+
+  it("GET /api/sessions/:id/diff returns cached diff", async () => {
+    const deps = makeTestDeps();
+    const wd = mkdtempSync(join(tmpdir(), "br-diff-"));
+    const diff = "diff --git a/x b/x\n@@ -0,0 +1 @@\n+hi\n";
+    writeFileSync(join(wd, "diff.cache"), diff);
+    deps.sessions.insert({
+      id: "s1",
+      owner: "o",
+      repo: "r",
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: "ready",
+      workdir: wd,
+      promptUsed: "p",
+    });
+    const app = createApp(deps);
+    const res = await app.request("/api/sessions/s1/diff");
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as { diff: string | null };
+    expect(j.diff).toBe(diff);
+  });
+
+  it("GET /api/sessions/:id/diff returns null when diff.cache missing", async () => {
+    const deps = makeTestDeps();
+    const wd = mkdtempSync(join(tmpdir(), "br-diff-empty-"));
+    deps.sessions.insert({
+      id: "s1",
+      owner: "o",
+      repo: "r",
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: "running",
+      workdir: wd,
+      promptUsed: "p",
+    });
+    const app = createApp(deps);
+    const res = await app.request("/api/sessions/s1/diff");
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as { diff: string | null };
+    expect(j.diff).toBeNull();
+  });
+
+  it("GET /api/sessions/:id/diff returns 404 when session unknown", async () => {
+    const deps = makeTestDeps();
+    const app = createApp(deps);
+    const res = await app.request("/api/sessions/missing/diff");
+    expect(res.status).toBe(404);
   });
 
   it("POST /api/sessions/:id/rerun calls rerunSession", async () => {

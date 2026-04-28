@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { AppDeps } from "../app";
 
 export function sessionsRoutes(deps: AppDeps): Hono {
@@ -19,6 +21,14 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const s = deps.sessions.getById(id);
     if (!s) return c.json({ error: "not found" }, 404);
     return c.json({ session: s, findings: deps.findings.listBySession(id) });
+  });
+  r.get("/sessions/:id/diff", (c) => {
+    const id = c.req.param("id");
+    const s = deps.sessions.getById(id);
+    if (!s) return c.json({ error: "not found" }, 404);
+    const cache = join(s.workdir, "diff.cache");
+    const diff = existsSync(cache) ? readFileSync(cache, "utf8") : null;
+    return c.json({ diff });
   });
   r.delete("/sessions/:id", (c) => {
     deps.sessions.delete(c.req.param("id"));
