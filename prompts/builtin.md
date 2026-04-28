@@ -81,4 +81,5 @@ Rules:
 - For file-anchored findings, `line` MUST refer to a line that appears in the diff above (a changed line or a line within a hunk's context window). If a finding genuinely refers to an untouched line, set `file: null` and `line: null` so it goes into the review body.
 - `severity` ∈ `"must"` | `"should"` | `"nit"`.
 - `title` is a one-line summary; `body` is markdown with the concrete problem; `suggestion` is an optional code snippet showing the fix.
+- **Write `title` and `body` in 简体中文.** Keep code identifiers, file paths, and code snippets verbatim (don't translate them); the surrounding prose should be Chinese. `category` stays in English (matches the fixed enum above).
 - If you find no issues, write an empty array `[]` — do not invent praise findings.
