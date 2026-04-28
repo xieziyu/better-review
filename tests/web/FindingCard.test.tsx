@@ -122,7 +122,7 @@ describe("FindingCard", () => {
     await user.click(screen.getByRole("button", { name: /Save/i }));
     const calls = fetchSpy.mock.calls;
     expect(calls.length).toBeGreaterThan(0);
-    const last = calls[calls.length - 1];
+    const last = calls[calls.length - 1]!;
     expect(String(last[0])).toContain("/api/findings/db-1");
     expect((last[1] as RequestInit).method).toBe("PATCH");
   });
