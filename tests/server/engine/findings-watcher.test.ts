@@ -1,0 +1,49 @@
+import { describe, it, expect } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { watchFindings } from "../../../src/server/engine/findings-watcher";
+import type { ParseResult } from "../../../src/server/engine/findings-parser";
+import type { FindingFromClaude } from "../../../src/shared/findings-schema";
+
+describe("watchFindings", () => {
+  it("invokes onParsed when valid JSON appears", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "br-watch-"));
+    const file = join(dir, "findings.json");
+    const seen: FindingFromClaude[][] = [];
+    const close = await watchFindings(file, (r: ParseResult) => {
+      if (r.ok) seen.push(r.data);
+    });
+    writeFileSync(
+      file,
+      JSON.stringify([
+        {
+          id: "R1",
+          severity: "must",
+          category: "x",
+          file: null,
+          line: null,
+          title: "t",
+          body: "b",
+        },
+      ]),
+    );
+    await new Promise((res) => setTimeout(res, 250));
+    await close();
+    expect(seen.length).toBeGreaterThanOrEqual(1);
+    expect(seen[0]![0]!.id).toBe("R1");
+  });
+
+  it("invokes onParsed with error result when JSON is invalid", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "br-watch-"));
+    const file = join(dir, "findings.json");
+    const errs: string[] = [];
+    const close = await watchFindings(file, (r: ParseResult) => {
+      if (!r.ok) errs.push(r.error);
+    });
+    writeFileSync(file, "BROKEN");
+    await new Promise((res) => setTimeout(res, 250));
+    await close();
+    expect(errs.length).toBeGreaterThanOrEqual(1);
+  });
+});
