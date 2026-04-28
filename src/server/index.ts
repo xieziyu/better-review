@@ -65,6 +65,11 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const startedAt = Date.now();
   const here = dirname(fileURLToPath(import.meta.url));
   const webDir = join(here, "..", "web");
+  let lastActivity = Date.now();
+  const bumpActivity = (): void => {
+    lastActivity = Date.now();
+  };
+  bus.subscribeGlobal(bumpActivity);
   const deps: AppDeps = {
     sessions,
     findings,
@@ -76,6 +81,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     promptHome: paths.home,
     config,
     webDir,
+    onActivity: bumpActivity,
     getPort: () => port,
     startSession,
     rerunSession: async (id) => {
@@ -131,10 +137,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   );
   log.info("daemon started", { pid: process.pid, port });
 
-  let lastActivity = Date.now();
-  bus.subscribeGlobal(() => {
-    lastActivity = Date.now();
-  });
   const idleMs = config.idleShutdownMinutes * 60_000;
   const idleTimer = setInterval(() => {
     if (Date.now() - lastActivity > idleMs) {

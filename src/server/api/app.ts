@@ -3,6 +3,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { originGuard } from "./middleware/origin";
+import { activityMiddleware } from "./middleware/activity";
 import { healthRoutes } from "./routes/health";
 import { sessionsRoutes } from "./routes/sessions";
 import { findingsRoutes } from "./routes/findings";
@@ -29,6 +30,7 @@ export interface AppDeps {
   promptHome: string;
   config: Config;
   webDir?: string;
+  onActivity?: () => void;
   getPort: () => number;
   startSession: (input: string) => Promise<{ id: string }>;
   rerunSession: (id: string) => Promise<void>;
@@ -43,6 +45,7 @@ export interface AppDeps {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.use("*", originGuard(deps.getPort));
+  if (deps.onActivity) app.use("*", activityMiddleware(deps.onActivity));
   app.route("/api", healthRoutes(deps));
   app.route("/api", sessionsRoutes(deps));
   app.route("/api", findingsRoutes(deps));
