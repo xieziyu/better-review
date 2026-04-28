@@ -5,6 +5,7 @@ import { sessionsRoutes } from "./routes/sessions";
 import { findingsRoutes } from "./routes/findings";
 import { promptsRoutes } from "./routes/prompts";
 import { eventsRoutes } from "./routes/events";
+import { submitRoutes } from "./routes/submit";
 import type { SessionsRepo } from "../db/sessions";
 import type { FindingsRepo } from "../db/findings";
 import type { SubmissionsRepo } from "../db/submissions";
@@ -43,5 +44,6 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", findingsRoutes(deps));
   app.route("/api", promptsRoutes(deps));
   app.route("/api", eventsRoutes(deps));
+  app.route("/api", submitRoutes(deps));
   return app;
 }
