@@ -1,0 +1,437 @@
+# better-review
+
+> 本地 PR review 助手：把 `claude` CLI + `gh` CLI 串成一条顺手的工作流，并用浏览器 UI 替代终端交互。
+
+`better-review` 不是 IDE 插件，也不是云服务，而是一个跑在你本机的小工具。它启动一个本地 daemon、托管一个 React UI，让你在浏览器里做这些事：
+
+- 用 PR 号或 URL 创建一次 review，由 `claude` 在后台跑
+- 在 finding 列表里**勾选 / 编辑 / 删除**，旁边直接看 diff 切片
+- 一键把选中的 findings 作为 inline comments 提交到 GitHub
+- 多 PR 并行 review，侧栏实时显示每个 session 的状态
+
+---
+
+## 目录
+
+- [适用场景](#适用场景)
+- [前置条件](#前置条件)
+- [安装](#安装)
+- [快速开始](#快速开始)
+- [使用教程](#使用教程)
+  - [1. 启动 daemon 与打开 UI](#1-启动-daemon-与打开-ui)
+  - [2. 创建一次 review](#2-创建一次-review)
+  - [3. 处理 findings](#3-处理-findings)
+  - [4. 编辑 review prompt](#4-编辑-review-prompt)
+  - [5. 提交到 GitHub](#5-提交到-github)
+  - [6. Rerun 与多 PR 并行](#6-rerun-与多-pr-并行)
+  - [7. 停止 daemon](#7-停止-daemon)
+- [CLI 参考](#cli-参考)
+- [配置](#配置)
+- [Prompt 三级覆盖](#prompt-三级覆盖)
+- [项目结构](#项目结构)
+- [开发](#开发)
+- [常见问题](#常见问题)
+- [License](#license)
+
+---
+
+## 适用场景
+
+适合：
+- 个人在本机审 GitHub PR，希望比终端里 `claude review` 更顺手
+- 想在提交 review 前手工微调措辞、严重度、suggestion
+- 同时跟进多个 PR，需要一眼看到各自状态
+
+不适合：
+- 团队协作 / 多用户共享 review 状态（这是个本地单用户工具）
+- 想替换 `claude` 的提示词逻辑——review 规则仍由 prompt 决定
+- 想绕过 `gh` 直接走 GitHub API：所有 GitHub 操作都委托 `gh` CLI
+
+---
+
+## 前置条件
+
+| 工具 | 版本 | 说明 |
+|---|---|---|
+| Node.js | ≥ 20 | daemon 与构建都需要 |
+| [`gh` CLI](https://cli.github.com) | 任何近期版本 | 需要先 `gh auth login` 完成登录 |
+| [`claude` CLI](https://docs.anthropic.com/en/docs/claude-code) | 任何近期版本 | 必须能在 PATH 里找到 |
+| 浏览器 | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>` |
+
+校验：
+
+```bash
+node --version           # v20+
+gh auth status           # Logged in to github.com
+claude --version         # 任意版本
+```
+
+---
+
+## 安装
+
+### 方式一：从源码全局安装（当前推荐）
+
+```bash
+git clone <repo-url> better-review
+cd better-review
+npm install
+npm run build
+npm install -g .
+```
+
+装完后 `better-review` 命令应该全局可用：
+
+```bash
+which better-review       # /usr/local/bin/better-review 之类
+better-review --help
+```
+
+### 方式二：仅本地试用（不全局安装）
+
+```bash
+git clone <repo-url> better-review
+cd better-review
+npm install
+npm run build
+node dist/cli/index.js --help
+```
+
+后续所有 `better-review …` 命令都可以替换成 `node dist/cli/index.js …`。
+
+---
+
+## 快速开始
+
+```bash
+# 1. 一键启动：拉起 daemon + 打开浏览器
+better-review
+
+# 2. 直接拉起对某个 PR 的 review（同时打开 UI）
+better-review owner/repo#123
+
+# 3. 看看 daemon 状态
+better-review --status
+
+# 4. 关掉 daemon
+better-review --stop
+```
+
+第一次跑会在 `~/.better-review/` 下建一个工作目录（详见 [配置](#配置)）。
+
+---
+
+## 使用教程
+
+### 1. 启动 daemon 与打开 UI
+
+```bash
+better-review
+```
+
+发生了什么：
+
+1. CLI 检查 `~/.better-review/server.json`
+   - 如果文件存在且 `/api/health` 通，复用现有 daemon
+   - 否则 spawn 一个 detached node 进程跑 `dist/server/index.js`，等它写出 `server.json`
+2. 浏览器自动打开 `http://127.0.0.1:<port>/`
+3. UI 顶部 banner 会显示 `claude` / `gh` 是否找得到、`gh` 是否已登录
+
+> 如果 banner 显示 `gh: not authenticated`，先在终端跑 `gh auth login`，然后刷新浏览器。
+
+### 2. 创建一次 review
+
+两种方式：
+
+**A. 在浏览器主页输入框里填**
+
+PR 输入支持三种格式：
+
+| 格式 | 例子 |
+|---|---|
+| 纯数字（用当前 git remote） | `123` |
+| `owner/repo#N` | `acme/web#42` |
+| 完整 URL | `https://github.com/acme/web/pull/42` |
+
+回车或点 **Start review**。
+
+**B. 命令行直接传**
+
+```bash
+better-review owner/repo#123
+```
+
+这会同时打开 UI 并在后台创建好 session。
+
+**期间 daemon 在做什么**
+
+```
+gh pr view  → PRMeta（标题/作者/分支）
+gh pr diff  → 写到 <workdir>/diff.cache
+prompt 渲染 → spawn claude --output-format stream-json -p <prompt>
+              ↓ 监听 stdout 进度事件
+              ↓ chokidar 监听 <workdir>/findings.json
+              ↓ 增量解析 + 入库 + SSE 推送
+claude exit → session.status = ready
+```
+
+UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
+
+### 3. 处理 findings
+
+进入 PR 详情页后，每条 finding 是一张卡片，包含：
+
+- **左上**：勾选框（决定提交时是否包含）+ 严重度标签 `[MUST]` / `[SHOULD]` / `[NIT]`
+- **标题**：一行摘要
+- **正文**：markdown，会渲染高亮代码
+- **diff 切片**：如果 finding 有 `file:line`，会自动展开 ±5 行的 diff，可以点 "Expand" 看更多
+- **右上**：三个按钮
+  - 铅笔（编辑）：把卡片变成可编辑表单。改 title / body / severity / suggestion，`⌘↵` 保存
+  - 垃圾桶（删除）：从这条 review 中移除（仅本地软删除，不影响 GitHub）
+
+跨文件的 finding（`file=null`）不会有 inline 切片，会在列表顶部的 "PR-wide" 分组里。
+
+> Tip：编辑后卡片标记为 `edited`；多个 tab 同时打开时，编辑会通过 SSE `finding-updated` 事件实时同步到其他 tab。
+
+### 4. 编辑 review prompt
+
+侧栏底部点 **Prompt** 进入编辑器。三个 tab：
+
+| Scope | 文件路径 | 用途 |
+|---|---|---|
+| Project | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级） |
+| Global | `~/.better-review/review.md` | 你跨项目复用的规则 |
+| Effective | （只读） | 实际生效的 prompt：project → global → 内置 |
+
+行为：
+
+- 在 Project / Global tab 里修改后点 **Save** 写文件，**Reset** 删除文件回退到下一级
+- 切到 Effective tab 可以核对当前到底用的是哪个 scope（左上有 `source: project / global / builtin` 标签）
+- 修改 prompt 不会自动重跑已有 review；要让旧 PR 用新 prompt，得在该 PR 详情页点 **Rerun**
+
+模板里可以用占位符 `{{PR_META}}`、`{{DIFF}}`、`{{FINDINGS_PATH}}`，daemon 在 spawn claude 前会替换。
+
+### 5. 提交到 GitHub
+
+PR 详情页右上角 **Submit** 按钮（数字是当前选中的 finding 数）打开抽屉，4 步：
+
+1. **Review**：列出哪些 finding 会变成 inline comments、哪些会降级到 review body（line 不在 diff 内、或 `file=null`）。降级条目会有黄色提示。
+2. **Body**：可以在 review body 顶部写一段开场白（可选）
+3. **Event**：选 `COMMENT` / `REQUEST_CHANGES` / `APPROVE`
+4. **Confirm**：点 **Confirm**，daemon 拼好 payload → `gh api repos/<owner>/<repo>/pulls/<n>/reviews -X POST` → 返回 GitHub URL
+
+提交成功后：
+
+- 抽屉显示一个跳转链接（直接到 GitHub 上的 review 页）
+- 如果有降级条目，抽屉会再次列出哪些被丢到了 body
+- session 状态变成 `submitted`，但 finding 仍然可以继续编辑——下一次提交是新的一条 review，不影响已提交的那条
+
+> **不会重试**：如果 `gh api` 返回 4xx/5xx，错误透传到 banner，submissions 表会记一行 `error`，session 不会自动重提。
+
+### 6. Rerun 与多 PR 并行
+
+**Rerun**：在 PR 详情页点 **Rerun** 会：
+
+- 把当前所有活跃 finding 标记为 `archived`（不删，只是从默认视图隐藏）
+- 用**当前生效的 prompt** 重跑——这是 rerun 的语义，也就是说改完 prompt 想让旧 PR 也用，就 rerun 它
+- 创建新的 workdir 目录 `pr-…-rerun-<ts>/`
+
+**多 PR 并行**：直接在不同 tab / 在主页连续创建即可。daemon 内部用一个并发队列（默认 4 个并行 claude 进程，见 [配置](#配置)），多余的会排队。侧栏实时显示每个 session 的状态。
+
+### 7. 停止 daemon
+
+三种方式都可以：
+
+```bash
+better-review --stop      # 优雅关闭：发 SIGTERM，daemon 自己清理 server.json
+killall node              # 暴力（谨慎，会杀其他 node 进程）
+# 或者：什么都不做，4 小时无活动后自动 idle shutdown
+```
+
+> "活动"指任何 HTTP 请求或引擎事件——只要你浏览器开着、UI 在轮询，daemon 就不会被 idle 掉。
+
+---
+
+## CLI 参考
+
+```
+Usage: better-review [options] [pr]
+
+Arguments:
+  pr           PR 目标：数字、owner/repo#N、或完整 URL
+
+Options:
+  --stop       停掉正在运行的 daemon
+  --status     输出 daemon 状态（pid / port / startedAt）
+  -h, --help   帮助
+```
+
+例：
+
+```bash
+better-review                                       # 起 daemon + 开主页
+better-review acme/web#42                           # 起 daemon + 创建 review + 跳到 PR 页
+better-review https://github.com/acme/web/pull/42   # 同上，URL 形式
+better-review --status                              # pid=12345 port=51234 startedAt=2026-04-28T…
+better-review --stop                                # 关掉
+```
+
+---
+
+## 配置
+
+所有状态都在 `~/.better-review/` 下（用 `BETTER_REVIEW_HOME` 环境变量可以改路径）：
+
+```
+~/.better-review/
+  config.json        # 可选；不存在用默认值
+  server.json        # daemon 写的运行时元数据：{ pid, port, startedAt }
+  state.db           # SQLite：sessions / findings / submissions
+  daemon.log         # 后端结构化日志
+  review.md          # 全局 prompt（global scope）
+  sessions/          # 每条 review 的工作目录
+    pr-<owner>-<repo>-<n>-<short-id>/
+      diff.cache     # gh pr diff 的缓存
+      findings.json  # claude 写的 findings
+      claude.log     # stream-json 进度日志
+      prompt.txt     # 实际投喂给 claude 的 prompt
+```
+
+`config.json` 可改的字段（全部有默认值）：
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `port` | `0`（随机） | 想固定端口就设非 0 |
+| `idleShutdownMinutes` | `240` | 多久无活动后自动退出（分钟） |
+| `maxConcurrentReviews` | `4` | 同时跑的 claude 进程上限 |
+| `claudeStallMinutes` | `3` | claude 多久没动静就 watchdog 杀掉 |
+| `perPRGCDays` | `7` | 老的 session 工作目录留多久（v1 暂不自动 GC） |
+
+例：
+
+```json
+{
+  "port": 5555,
+  "maxConcurrentReviews": 2,
+  "claudeStallMinutes": 5
+}
+```
+
+---
+
+## Prompt 三级覆盖
+
+review prompt 模板的解析顺序：
+
+```
+1. <cwd>/.better-review/review.md     # project，仅当 daemon 是从该项目启动时
+2. ~/.better-review/review.md         # global
+3. prompts/builtin.md                 # 内置（包内自带）
+```
+
+第一个存在的就用，不会合并。
+
+模板可用的占位符：
+
+| 占位符 | 内容 |
+|---|---|
+| `{{PR_META}}` | PR 标题 / 作者 / URL / body |
+| `{{DIFF}}` | `gh pr diff` 完整结果 |
+| `{{FINDINGS_PATH}}` | claude 应该把 findings JSON 写到的绝对路径 |
+| `{{SCHEMA}}` | findings JSON 的 schema 描述（用于 prompt 内告诉 claude 字段约束） |
+
+内置模板见 [`prompts/builtin.md`](prompts/builtin.md)。
+
+---
+
+## 项目结构
+
+```
+better-review/
+  src/
+    cli/                  # commander 入口 + daemon-launcher（健康探活 / spawn）
+    server/
+      index.ts            # daemon 主进程：wire deps + 监听端口
+      start-session.ts    # 创建 session 的 orchestrator
+      api/                # Hono 路由 + 中间件（origin guard / activity 计时）
+      engine/             # claude 子进程管理、findings 解析、提交流程
+      github/             # gh CLI 包装 + PR target 解析
+      db/                 # better-sqlite3 + migrations
+      prompts/            # 三级 resolver + 渲染器 + 文件 store
+    web/                  # React + Vite，构建到 dist/web
+    shared/               # 前后端共享 zod schema 与类型
+  prompts/builtin.md      # 内置 review prompt
+  scripts/copy-assets.mjs # 构建后处理：拷贝 migrations + 给 CLI 加 +x + 修 ESM 导入扩展名
+  tests/
+    server/               # vitest（路由 + 引擎 + DB）
+    web/                  # vitest + jsdom（组件）
+    cli/                  # vitest（daemon launcher）
+    e2e/                  # Playwright happy path
+    fixtures/             # fake-claude.sh / fake-gh.sh
+  docs/
+    superpowers/specs/    # 设计文档
+    superpowers/plans/    # 实施计划
+    qa/                   # QA 验收报告
+```
+
+---
+
+## 开发
+
+```bash
+# 安装依赖
+npm install
+
+# 开发模式：分别起 daemon（tsx watch） 和 vite dev server
+npm run dev:server    # 终端 1：tsx watch src/server/index.ts
+npm run dev:web       # 终端 2：vite dev server，代理到 daemon
+
+# 测试
+npm run test          # vitest，server / cli 测试，约 100+ 用例
+npm run test:web      # vitest jsdom，前端组件测试
+npm run e2e           # Playwright happy path（需要先 npx playwright install chromium）
+
+# 构建
+npm run build         # tsc + vite build + scripts/copy-assets.mjs
+
+# 其他
+npm run lint
+npm run format
+```
+
+测试约定：
+
+- 后端测试用真实的 `better-sqlite3` 打到临时文件，不 mock DB
+- claude / gh 用 `tests/fixtures/` 里的 shell shim 替身，跑得快
+- 改路由先写失败测试，再实现，再 commit；Conventional Commits
+
+---
+
+## 常见问题
+
+**Q: 浏览器打不开 / 提示端口被占？**
+A: `better-review --status` 看 daemon 端口；`config.json` 里 `port` 留 `0` 让 OS 随机分配能避免冲突。
+
+**Q: UI 一直显示 "Loading diff…"？**
+A: 确认 PR 详情页的 session 状态已经到 `ready`；diff 是从 daemon 的 `<workdir>/diff.cache` 读的，daemon 启动 review 时会写。
+
+**Q: claude 跑很久不结束？**
+A: 默认 3 分钟无 stream-json 事件就 watchdog 杀。可以在 `config.json` 调大 `claudeStallMinutes`。被杀后 session 状态变 `failed`，可以点 Rerun。
+
+**Q: `gh` 命令找得到，但 daemon 显示 "not authenticated"？**
+A: daemon 用的是子进程，环境变量沿用启动 daemon 时的 shell。重新登录 (`gh auth login`) 后请重启 daemon (`better-review --stop && better-review`)。
+
+**Q: 我改了 prompt，旧的 PR 还会用旧的吗？**
+A: 是的。已生成的 finding 不会自动重新审。要让某条 PR 用新 prompt，去它的详情页点 **Rerun**。
+
+**Q: 多设备 / 多用户同时审同一个 PR？**
+A: 不支持。daemon 是本地单用户的；每台机器独立维护自己的 session 和 submissions。
+
+**Q: 我想绕过 `gh` 用 token 直连 GitHub？**
+A: 不在 v1 范围。所有 GitHub 操作都走 `gh` CLI，因为这样能复用你已有的 `gh auth` 凭证、企业 SSO、SAML 等设置。
+
+---
+
+## License
+
+待补。
