@@ -21,8 +21,7 @@ sleep 0.05
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"'"$FINDINGS_PATH"'"}}]}}'
 
 if [[ "$FAKE_CLAUDE_STALL" == "1" ]]; then
-  sleep 600
-  exit 0
+  exec sleep 600
 fi
 
 if [[ "$FAKE_CLAUDE_FAIL" == "1" ]]; then
