@@ -11,7 +11,9 @@ function withClient(
   data: { session: PRSession; findings: Finding[]; diff?: string | null },
 ) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  qc.setQueryData(["session", sessionId], data);
+  const { diff, ...sessionData } = data;
+  qc.setQueryData(["session", sessionId], sessionData);
+  if (diff !== undefined) qc.setQueryData(["session", sessionId, "diff"], diff);
   return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>;
 }
 

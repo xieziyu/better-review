@@ -55,6 +55,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
     queryKey: queryKeys.session(sessionId),
     queryFn: () => api.getSession(sessionId),
   });
+  const { data: diffData } = useQuery({
+    queryKey: ["session", sessionId, "diff"] as const,
+    queryFn: () => api.getSessionDiff(sessionId),
+  });
   const [step, setStep] = useState<Step>(1);
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
   const [body, setBody] = useState("");
@@ -65,7 +69,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
     [data?.findings],
   );
   const selected = useMemo(() => findings.filter((f) => f.selected), [findings]);
-  const diff = data?.diff ?? null;
+  const diff = diffData ?? null;
   const groups = useMemo(() => {
     const inline: Finding[] = [];
     const movedToBody: Finding[] = [];
