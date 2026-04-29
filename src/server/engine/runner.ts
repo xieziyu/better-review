@@ -39,7 +39,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     inserted.forEach((f) => bus.emit({ type: 'finding-added', sessionId, finding: f }))
   })
 
-  const child = spawn(claudePath, ['--output-format', 'stream-json', '-p', prompt], {
+  const child = spawn(claudePath, ['--output-format', 'stream-json', '--verbose', '-p', prompt], {
     cwd: workdir,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
