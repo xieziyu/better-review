@@ -159,7 +159,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     shuttingDown = true
     clearInterval(idleTimer)
     bus.emit({ type: 'shutting-down' })
-    await new Promise<void>((res) => server.close(() => res()))
+    await new Promise<void>((res) => {
+      server.close(() => res())
+      if ('closeAllConnections' in server) server.closeAllConnections()
+    })
     try {
       db.close()
     } catch {
