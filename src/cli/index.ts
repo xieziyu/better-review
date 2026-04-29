@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
-import { rmSync } from 'node:fs'
+import { mkdirSync, openSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -49,7 +49,8 @@ program
     }
     const info = await ensureDaemon({
       home: paths.home,
-      spawnFn: spawnDetached(paths.home),
+      spawnFn: spawnDetached(paths),
+      errorHint: paths.daemonStderr,
     })
     if (pr) {
       try {
@@ -68,21 +69,26 @@ program
     await open(url)
   })
 
-function spawnDetached(home: string): () => Promise<ServerInfo> {
+function spawnDetached(paths: {
+  home: string
+  daemonStderr: string
+}): () => Promise<ServerInfo> {
   return async () => {
+    mkdirSync(paths.home, { recursive: true })
+    const stderrFd = openSync(paths.daemonStderr, 'w')
     const child = spawn(process.execPath, [daemonScript], {
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', stderrFd],
       cwd: process.cwd(),
     })
     child.unref()
     const deadline = Date.now() + 10_000
     while (Date.now() < deadline) {
       await new Promise((res) => setTimeout(res, 100))
-      const info = readServerJson(home)
+      const info = readServerJson(paths.home)
       if (info) return info
     }
-    throw new Error('daemon did not start in time')
+    throw new Error(`daemon did not start in time (see ${paths.daemonStderr} for details)`)
   }
 }
 

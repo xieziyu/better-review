@@ -38,8 +38,14 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   mkdirSync(paths.sessionsDir, { recursive: true })
 
   const log = createLogger(paths.daemonLog)
+  log.info('startup begin', { pid: process.pid, home: paths.home })
   const config = loadConfig(paths.home)
+  log.info('config loaded', {
+    port: config.port,
+    maxConcurrentReviews: config.maxConcurrentReviews,
+  })
   const db = openDatabase(paths.dbFile)
+  log.info('db opened', { file: paths.dbFile })
   const sessions = new SessionsRepo(db)
   const findings = new FindingsRepo(db)
   const submissions = new SubmissionsRepo(db)
@@ -124,12 +130,14 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   }
 
   const app = createApp(deps)
+  log.info('binding port', { requested: config.port })
   const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
     const s = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: config.port }, (info) => {
       port = info.port
       resolve(s)
     })
   })
+  log.info('server listening', { port })
   writeFileSync(paths.serverJson, JSON.stringify({ pid: process.pid, port, startedAt }))
   log.info('daemon started', { pid: process.pid, port })
 

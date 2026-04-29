@@ -10,6 +10,7 @@ export interface Paths {
   promptsDir: string
   promptHome: string
   daemonLog: string
+  daemonStderr: string
 }
 
 export function resolvePaths(home?: string): Paths {
@@ -23,6 +24,7 @@ export function resolvePaths(home?: string): Paths {
     promptsDir: join(h, 'prompts'),
     promptHome: join(h, 'review.md'),
     daemonLog: join(h, 'daemon.log'),
+    daemonStderr: join(h, 'daemon-stderr.log'),
   }
 }
 

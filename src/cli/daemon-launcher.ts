@@ -31,6 +31,7 @@ export interface EnsureOpts {
   spawnFn: () => Promise<ServerInfo>
   pollMs?: number
   timeoutMs?: number
+  errorHint?: string
 }
 
 export async function ensureDaemon(opts: EnsureOpts): Promise<ServerInfo> {
@@ -42,5 +43,6 @@ export async function ensureDaemon(opts: EnsureOpts): Promise<ServerInfo> {
     if (await probeHealth(fresh.port)) return fresh
     await new Promise((res) => setTimeout(res, opts.pollMs ?? 100))
   }
-  throw new Error('daemon failed to become healthy in time')
+  const hint = opts.errorHint ? ` (see ${opts.errorHint} for details)` : ''
+  throw new Error(`daemon failed to become healthy in time${hint}`)
 }
