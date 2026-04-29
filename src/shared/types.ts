@@ -78,8 +78,12 @@ export interface UpdateFindingRequest {
 export interface SelectFindingRequest {
   selected: boolean
 }
-export type PromptScope = 'global' | 'project' | 'cwd'
+export type PromptScope = 'global' | 'project'
+export type RulesSource = PromptScope | 'builtin'
 export interface PromptStateResponse {
-  effective: { source: PromptScope | 'builtin'; content: string }
-  scopes: Record<PromptScope, { exists: boolean; content: string | null; path: string }>
+  framework: { content: string }
+  rules: {
+    effective: { source: RulesSource; content: string; path: string | null }
+    scopes: Record<PromptScope, { exists: boolean; content: string | null; path: string }>
+  }
 }

@@ -10,6 +10,8 @@ import type {
   PromptScope,
 } from '@shared/types'
 
+export type WritablePromptScope = PromptScope
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -41,8 +43,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (!text) return undefined as T
   return JSON.parse(text) as T
 }
-
-export type WritablePromptScope = Exclude<PromptScope, 'cwd'>
 
 export const api = {
   health: (): Promise<HealthStatus> => req<HealthStatus>('/api/health'),

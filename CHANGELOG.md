@@ -6,6 +6,18 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 ## [Unreleased]
 
+### Changed — Prompt system split into framework + rules
+
+- `prompts/builtin.md` is now split into `prompts/framework.md` (immutable) and `prompts/builtin-rules.md` (default rules). Framework owns the workflow contract (persona, placeholders, severity rubric, output format, `suggestion` semantics); rules own the review checklist categories and `category` labels.
+- Three-level overrides (`<cwd>/.better-review/review.md` → `~/.better-review/review.md` → builtin) now apply to **rules only**. The framework cannot be overridden.
+- New `{{RULES}}` placeholder injects user/builtin rules into the framework. Renderer substitutes `{{RULES}}` first, so legacy `review.md` files containing `{{DIFF}}` etc. still produce a runnable prompt (with duplicated diff/path text).
+- `GET /api/prompts` response shape changed to `{ framework: { content }, rules: { effective, scopes } }`. Web Prompt Editor adds a read-only **Framework** tab and labels rules-related fields accordingly.
+- `category` is now a free-form string in the user-facing prompt (schema/DB already permit any string); custom rules can introduce new category labels without touching code.
+
+### Breaking
+
+- Existing user-authored `~/.better-review/review.md` (or `<cwd>/.better-review/review.md`) is now interpreted as **rules**, not a full prompt. Files that contained `{{DIFF}}` / `{{PR_META}}` / `{{FINDINGS_PATH}}` / `{{SCHEMA}}` keep working but produce duplicated content; users should remove those placeholders and keep only their review checklist content.
+
 ## [0.1.0] — 2026-04-28
 
 First releasable version. v1 acceptance per spec §13: 9 ✅ / 2 ⚠️ / 0 ❌, QA verdict SHIP.

@@ -37,7 +37,7 @@ The Node-env vitest run is pinned to `pool: "forks"` with `singleFork: true` (se
 - Three tsconfigs: `tsconfig.server.json` (CLI + server + shared → `dist/`), `tsconfig.web.json` (Vite, `@/` and `@shared/` aliases), `tsconfig.test.json`. Keep server-only and web-only code separated; only `src/shared/` is consumed by both.
 - `scripts/copy-assets.mjs` runs after `tsc` and does three things:
   1. Copies `src/server/db/migrations/*.sql` into `dist/server/db/migrations/`.
-  2. Copies `prompts/builtin.md` to `dist/prompts/`.
+  2. Copies `prompts/framework.md` and `prompts/builtin-rules.md` to `dist/prompts/`.
   3. **Rewrites relative imports in compiled `.js` to add `.js` extensions** (and folds `./foo` → `./foo/index.js` where applicable). This is required because the package is ESM (`"type": "module"`) but the source uses extensionless imports. Don't manually add `.js` to `.ts` imports — rely on this step.
   4. Chmods `dist/cli/index.js` to 0755 so the bin works after `npm install -g .`.
 - Vite builds the SPA to `dist/web/`. The daemon serves it via Hono static middleware (`webDir = dist/web`) — see `src/server/index.ts:67`.

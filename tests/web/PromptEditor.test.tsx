@@ -24,20 +24,31 @@ function withClient(
 }
 
 const baseState: PromptStateResponse = {
-  effective: { source: 'builtin', content: '# builtin prompt body' },
-  scopes: {
-    cwd: { exists: false, content: null, path: '/cwd/.better-review/review.md' },
-    project: { exists: false, content: null, path: '/proj/.better-review/review.md' },
-    global: { exists: false, content: null, path: '/home/.better-review/review.md' },
+  framework: { content: '# framework body with {{RULES}} placeholder' },
+  rules: {
+    effective: { source: 'builtin', content: '# builtin rules body', path: null },
+    scopes: {
+      project: { exists: false, content: null, path: '/proj/.better-review/review.md' },
+      global: { exists: false, content: null, path: '/home/.better-review/review.md' },
+    },
   },
 }
 
 describe('PromptEditor', () => {
-  it('defaults to the Effective tab and shows the source indicator', () => {
+  it('defaults to the Effective tab and shows the rules source indicator', () => {
     render(withClient(<PromptEditor />, { prompts: baseState }))
     expect(screen.getByRole('tab', { name: /effective/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('prompt-source')).toHaveTextContent(/builtin/i)
-    expect(screen.getByLabelText(/effective prompt/i)).toHaveValue('# builtin prompt body')
+    expect(screen.getByLabelText(/effective rules/i)).toHaveValue('# builtin rules body')
+  })
+
+  it('Framework tab renders read-only framework content', async () => {
+    const user = userEvent.setup()
+    render(withClient(<PromptEditor />, { prompts: baseState }))
+    await user.click(screen.getByRole('tab', { name: /framework/i }))
+    const ta = screen.getByLabelText(/^framework$/i) as HTMLTextAreaElement
+    expect(ta).toHaveAttribute('readonly')
+    expect(ta.value).toContain('{{RULES}}')
   })
 
   it("shows 'Override at this scope' when project has no override", async () => {
@@ -51,19 +62,25 @@ describe('PromptEditor', () => {
     const user = userEvent.setup()
     const state: PromptStateResponse = {
       ...baseState,
-      effective: { source: 'project', content: '# project body' },
-      scopes: {
-        ...baseState.scopes,
-        project: {
-          exists: true,
+      rules: {
+        effective: {
+          source: 'project',
           content: '# project body',
           path: '/proj/.better-review/review.md',
+        },
+        scopes: {
+          ...baseState.rules.scopes,
+          project: {
+            exists: true,
+            content: '# project body',
+            path: '/proj/.better-review/review.md',
+          },
         },
       },
     }
     render(withClient(<PromptEditor />, { prompts: state }))
     await user.click(screen.getByRole('tab', { name: /project/i }))
-    const ta = screen.getByLabelText(/project prompt/i) as HTMLTextAreaElement
+    const ta = screen.getByLabelText(/project rules/i) as HTMLTextAreaElement
     expect(ta).not.toHaveAttribute('readonly')
     expect(ta.value).toBe('# project body')
   })
@@ -72,12 +89,15 @@ describe('PromptEditor', () => {
     const user = userEvent.setup()
     const state: PromptStateResponse = {
       ...baseState,
-      scopes: {
-        ...baseState.scopes,
-        global: {
-          exists: true,
-          content: 'old',
-          path: '/home/.better-review/review.md',
+      rules: {
+        ...baseState.rules,
+        scopes: {
+          ...baseState.rules.scopes,
+          global: {
+            exists: true,
+            content: 'old',
+            path: '/home/.better-review/review.md',
+          },
         },
       },
     }
@@ -85,7 +105,7 @@ describe('PromptEditor', () => {
     await user.click(screen.getByRole('tab', { name: /global/i }))
     const save = screen.getByRole('button', { name: /^save/i })
     expect(save).toBeDisabled()
-    await user.type(screen.getByLabelText(/global prompt/i), 'x')
+    await user.type(screen.getByLabelText(/global rules/i), 'x')
     expect(save).not.toBeDisabled()
   })
 
@@ -121,12 +141,15 @@ describe('PromptEditor', () => {
     ]
     const state: PromptStateResponse = {
       ...baseState,
-      scopes: {
-        ...baseState.scopes,
-        project: {
-          exists: true,
-          content: '# project body',
-          path: '/proj/.better-review/review.md',
+      rules: {
+        ...baseState.rules,
+        scopes: {
+          ...baseState.rules.scopes,
+          project: {
+            exists: true,
+            content: '# project body',
+            path: '/proj/.better-review/review.md',
+          },
         },
       },
     }

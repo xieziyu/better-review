@@ -204,23 +204,29 @@ UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
 
 > Tip：编辑后卡片标记为 `edited`；多个 tab 同时打开时，编辑会通过 SSE `finding-updated` 事件实时同步到其他 tab。
 
-### 4. 编辑 review prompt
+### 4. 编辑 review 规则
 
-侧栏底部点 **Prompt** 进入编辑器。三个 tab：
+侧栏底部点 **Prompt** 进入编辑器。prompt 拆成两段：
 
-| Scope     | 文件路径                         | 用途                                       |
-| --------- | -------------------------------- | ------------------------------------------ |
-| Project   | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）        |
-| Global    | `~/.better-review/review.md`     | 你跨项目复用的规则                         |
-| Effective | （只读）                         | 实际生效的 prompt：project → global → 内置 |
+- **Framework**（不可改）：persona、占位符位置、`severity` 枚举、Output 格式、`suggestion` 锚定语义。这些是 `findings-parser` / `submit` 链路的硬契约，包内自带，无法覆盖。
+- **Rules**（可三层覆盖）：review checklist 类目、`category` 标签集合、领域规范。你写的 `review.md` 替换的就是这一段。
+
+四个 tab：
+
+| Tab       | 文件路径                         | 用途                                                      |
+| --------- | -------------------------------- | --------------------------------------------------------- |
+| Effective | （只读）                         | 当前生效的 rules（project → global → builtin 第一个命中） |
+| Framework | （只读，包内自带）               | 不可变的工作流框架；只能查看，了解 rules 嵌入位置         |
+| Project   | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）                       |
+| Global    | `~/.better-review/review.md`     | 你跨项目复用的规则                                        |
 
 行为：
 
 - 在 Project / Global tab 里修改后点 **Save** 写文件，**Reset** 删除文件回退到下一级
-- 切到 Effective tab 可以核对当前到底用的是哪个 scope（左上有 `source: project / global / builtin` 标签）
-- 修改 prompt 不会自动重跑已有 review；要让旧 PR 用新 prompt，得在该 PR 详情页点 **Rerun**
+- 切到 Effective tab 可以核对当前到底用的是哪个 scope（右上 `Source: project override / global override / builtin rules` 标签）
+- 修改 rules 不会自动重跑已有 review；要让旧 PR 用新规则，得在该 PR 详情页点 **Rerun**，或者在 Project / Global tab 顶部点 **Apply to current session**
 
-模板里可以用占位符 `{{PR_META}}`、`{{DIFF}}`、`{{FINDINGS_PATH}}`，daemon 在 spawn claude 前会替换。
+> ⚠️ **从 v0.1.x 升级**：早期版本的 `review.md` 是**整体覆盖**整个 prompt（含 `{{DIFF}}` `{{FINDINGS_PATH}}` 等占位符）。从 v0.2 起 `review.md` 仅替换规则段。如果你的旧文件里还残留 `{{DIFF}}` 等占位符，建议手工清掉（占位符仍会被渲染替换，但 diff / 路径会重复出现，效果不理想）。
 
 ### 5. 提交到 GitHub
 
@@ -303,7 +309,7 @@ better-review restart                               # 重启
   server.json        # daemon 写的运行时元数据：{ pid, port, startedAt }
   state.db           # SQLite：sessions / findings / submissions
   daemon.log         # 后端结构化日志
-  review.md          # 全局 prompt（global scope）
+  review.md          # 全局 review 规则（global scope）
   sessions/          # 每条 review 的工作目录
     pr-<owner>-<repo>-<n>-<short-id>/
       diff.cache     # gh pr diff 的缓存
@@ -334,28 +340,37 @@ better-review restart                               # 重启
 
 ---
 
-## Prompt 三级覆盖
+## Prompt：framework + rules 分层
 
-review prompt 模板的解析顺序：
+最终发给 claude 的 prompt 由两段拼成：
+
+```
+prompts/framework.md   # 不可变（包内自带）：persona / 占位符位置 / 输出格式 / suggestion 语义
+                       # 内含 {{RULES}} 占位符，rules 段会注入到这里
+prompts/builtin-rules.md  # 默认 rules：8 类 review checklist + Category labels
+```
+
+只有 **rules** 段可以三层覆盖（第一个命中的就用，不合并）：
 
 ```
 1. <cwd>/.better-review/review.md     # project，仅当 daemon 是从该项目启动时
 2. ~/.better-review/review.md         # global
-3. prompts/builtin.md                 # 内置（包内自带）
+3. prompts/builtin-rules.md           # 内置（包内自带）
 ```
 
-第一个存在的就用，不会合并。
+框架里有 5 个占位符，daemon 在 spawn claude 前替换：
 
-模板可用的占位符：
+| 占位符              | 内容                                                          |
+| ------------------- | ------------------------------------------------------------- |
+| `{{RULES}}`         | resolver 解析出的 rules 段（project / global / builtin 之一） |
+| `{{PR_META}}`       | PR 标题 / 作者 / URL / body                                   |
+| `{{DIFF}}`          | `gh pr diff` 完整结果                                         |
+| `{{FINDINGS_PATH}}` | claude 应该把 findings JSON 写到的绝对路径                    |
+| `{{SCHEMA}}`        | findings JSON 的 schema 描述                                  |
 
-| 占位符              | 内容                                                               |
-| ------------------- | ------------------------------------------------------------------ |
-| `{{PR_META}}`       | PR 标题 / 作者 / URL / body                                        |
-| `{{DIFF}}`          | `gh pr diff` 完整结果                                              |
-| `{{FINDINGS_PATH}}` | claude 应该把 findings JSON 写到的绝对路径                         |
-| `{{SCHEMA}}`        | findings JSON 的 schema 描述（用于 prompt 内告诉 claude 字段约束） |
+替换顺序：`{{RULES}}` 先，剩余四个后——所以即使你的 `review.md` 里写了 `{{DIFF}}` 等旧占位符，也会被消解（不会以字面量形式漏出）。
 
-内置模板见 [`prompts/builtin.md`](prompts/builtin.md)。
+框架模板见 [`prompts/framework.md`](prompts/framework.md)，默认 rules 见 [`prompts/builtin-rules.md`](prompts/builtin-rules.md)。
 
 ---
 
@@ -375,7 +390,9 @@ better-review/
       prompts/            # 三级 resolver + 渲染器 + 文件 store
     web/                  # React + Vite，构建到 dist/web
     shared/               # 前后端共享 zod schema 与类型
-  prompts/builtin.md      # 内置 review prompt
+  prompts/
+    framework.md         # 不可变的工作流框架（含 {{RULES}} 占位符）
+    builtin-rules.md     # 默认 review 规则（8 类 checklist + category 标签）
   scripts/copy-assets.mjs # 构建后处理：拷贝 migrations + 给 CLI 加 +x + 修 ESM 导入扩展名
   tests/
     server/               # vitest（路由 + 引擎 + DB）

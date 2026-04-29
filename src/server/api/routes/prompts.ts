@@ -1,26 +1,30 @@
 import { Hono } from 'hono'
 
-import { resolveEffectivePrompt } from '../../prompts/resolver'
+import { getFramework } from '../../prompts/builtin'
+import { resolveEffectiveRules } from '../../prompts/resolver'
 import type { AppDeps } from '../app'
 
 export function promptsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
   r.get('/prompts', (c) => {
-    const eff = resolveEffectivePrompt({ cwd: deps.promptCwd, home: deps.promptHome })
+    const rules = resolveEffectiveRules({ cwd: deps.promptCwd, home: deps.promptHome })
     const project = deps.promptStore.read('project')
     const global = deps.promptStore.read('global')
     return c.json({
-      effective: { source: eff.source, content: eff.content, path: eff.path },
-      scopes: {
-        project: {
-          exists: project !== null,
-          content: project,
-          path: deps.promptStore.pathOf('project'),
-        },
-        global: {
-          exists: global !== null,
-          content: global,
-          path: deps.promptStore.pathOf('global'),
+      framework: { content: getFramework() },
+      rules: {
+        effective: { source: rules.source, content: rules.content, path: rules.path },
+        scopes: {
+          project: {
+            exists: project !== null,
+            content: project,
+            path: deps.promptStore.pathOf('project'),
+          },
+          global: {
+            exists: global !== null,
+            content: global,
+            path: deps.promptStore.pathOf('global'),
+          },
         },
       },
     })

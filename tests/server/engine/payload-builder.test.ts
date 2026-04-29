@@ -98,9 +98,7 @@ describe('buildSubmitPayload', () => {
 `
     const r = buildSubmitPayload({
       diff: MULTI,
-      findings: [
-        f({ file: 'foo.ts', line: 13, startLine: 11, suggestion: 'B\nC\nD' }),
-      ],
+      findings: [f({ file: 'foo.ts', line: 13, startLine: 11, suggestion: 'B\nC\nD' })],
       event: 'COMMENT',
     })
     expect(r.payload.comments).toHaveLength(1)

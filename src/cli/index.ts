@@ -118,10 +118,7 @@ function isAlive(pid: number): boolean {
   }
 }
 
-function spawnDetached(paths: {
-  home: string
-  daemonStderr: string
-}): () => Promise<ServerInfo> {
+function spawnDetached(paths: { home: string; daemonStderr: string }): () => Promise<ServerInfo> {
   return async () => {
     mkdirSync(paths.home, { recursive: true })
     const stderrFd = openSync(paths.daemonStderr, 'w')

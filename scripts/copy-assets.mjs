@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
@@ -47,6 +48,7 @@ mkdirSync('dist/server/db/migrations', { recursive: true })
 cpSync('src/server/db/migrations', 'dist/server/db/migrations', { recursive: true })
 
 if (existsSync('prompts')) {
+  rmSync('dist/prompts', { recursive: true, force: true })
   mkdirSync('dist/prompts', { recursive: true })
   cpSync('prompts', 'dist/prompts', { recursive: true })
 }

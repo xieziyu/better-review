@@ -1,4 +1,4 @@
-import type { PRSession, PromptScope } from '@shared/types'
+import type { PRSession, RulesSource } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -6,26 +6,25 @@ import { useNavigate } from 'react-router-dom'
 import { api, queryKeys, ApiError, type WritablePromptScope } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-type Tab = 'effective' | WritablePromptScope
+type Tab = 'effective' | 'framework' | WritablePromptScope
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'effective', label: 'Effective' },
+  { id: 'framework', label: 'Framework' },
   { id: 'project', label: 'Project' },
   { id: 'global', label: 'Global' },
 ]
 
 const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed'])
 
-function sourceLabel(source: PromptScope | 'builtin'): string {
+function sourceLabel(source: RulesSource): string {
   switch (source) {
     case 'project':
       return 'project override'
     case 'global':
       return 'global override'
-    case 'cwd':
-      return 'cwd override'
     case 'builtin':
-      return 'builtin (no overrides)'
+      return 'builtin rules (no overrides)'
   }
 }
 
@@ -41,6 +40,7 @@ export function PromptEditor() {
   const [showApplyModal, setShowApplyModal] = useState(false)
 
   const data = promptsQ.data
+  const isWritable = tab === 'project' || tab === 'global'
 
   // Reset draft when switching tabs.
   useEffect(() => {
@@ -52,7 +52,7 @@ export function PromptEditor() {
     function onKey(e: KeyboardEvent) {
       const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'
       if (!isSave) return
-      if (tab === 'effective' || draft === null) return
+      if (!isWritable || draft === null) return
       e.preventDefault()
       saveMut.mutate()
     }
@@ -62,8 +62,8 @@ export function PromptEditor() {
 
   const saveMut = useMutation({
     mutationFn: () => {
-      if (tab === 'effective' || draft === null) return Promise.reject(new Error('nothing to save'))
-      return api.putPrompt(tab, draft)
+      if (!isWritable || draft === null) return Promise.reject(new Error('nothing to save'))
+      return api.putPrompt(tab as WritablePromptScope, draft)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.prompts })
@@ -75,8 +75,8 @@ export function PromptEditor() {
 
   const resetMut = useMutation({
     mutationFn: () => {
-      if (tab === 'effective') return Promise.reject(new Error('not writable'))
-      return api.deletePrompt(tab)
+      if (!isWritable) return Promise.reject(new Error('not writable'))
+      return api.deletePrompt(tab as WritablePromptScope)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.prompts })
@@ -93,8 +93,7 @@ export function PromptEditor() {
     return <div className="p-6 text-sm text-gray-500">Loading prompt…</div>
   }
 
-  const isWritable = tab !== 'effective'
-  const scopeState = isWritable ? data.scopes[tab] : null
+  const scopeState = isWritable ? data.rules.scopes[tab as WritablePromptScope] : null
   const writableValue = isWritable && draft !== null ? draft : (scopeState?.content ?? '')
 
   return (
@@ -104,7 +103,7 @@ export function PromptEditor() {
         <span className="text-sm text-gray-500">
           Source:{' '}
           <strong data-testid="prompt-source" className="text-gray-700 dark:text-gray-300">
-            {sourceLabel(data.effective.source)}
+            {sourceLabel(data.rules.effective.source)}
           </strong>
         </span>
       </header>
@@ -114,7 +113,8 @@ export function PromptEditor() {
         className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-800"
       >
         {TABS.map((t) => {
-          const exists = t.id === 'effective' ? true : data.scopes[t.id].exists
+          const exists =
+            t.id === 'project' || t.id === 'global' ? data.rules.scopes[t.id].exists : true
           return (
             <button
               key={t.id}
@@ -130,7 +130,7 @@ export function PromptEditor() {
               )}
             >
               {t.label}
-              {t.id !== 'effective' && !exists && (
+              {(t.id === 'project' || t.id === 'global') && !exists && (
                 <span className="ml-1 text-xs text-gray-400">(empty)</span>
               )}
             </button>
@@ -150,24 +150,40 @@ export function PromptEditor() {
       {tab === 'effective' ? (
         <section className="space-y-2">
           <textarea
-            aria-label="Effective prompt"
+            aria-label="Effective rules"
             readOnly
-            value={data.effective.content}
+            value={data.rules.effective.content}
             className="w-full h-[60vh] p-3 font-mono text-sm rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300"
           />
           <p className="text-xs text-gray-500">
-            Read-only. Effective source: {sourceLabel(data.effective.source)}.
+            Read-only. Effective source: {sourceLabel(data.rules.effective.source)}.
+            {data.rules.effective.path && (
+              <span className="ml-2 font-mono">{data.rules.effective.path}</span>
+            )}
+          </p>
+        </section>
+      ) : tab === 'framework' ? (
+        <section className="space-y-2">
+          <textarea
+            aria-label="Framework"
+            readOnly
+            value={data.framework.content}
+            className="w-full h-[60vh] p-3 font-mono text-sm rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300"
+          />
+          <p className="text-xs text-gray-500">
+            Read-only. The framework is built into better-review and cannot be overridden. Your
+            rules (Project / Global) are injected at the <code>{'{{RULES}}'}</code> placeholder.
           </p>
         </section>
       ) : !scopeState!.exists && draft === null ? (
         <section className="space-y-3 rounded-md border border-dashed border-gray-300 dark:border-gray-700 p-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            No {tab} override exists. The {sourceLabel(data.effective.source)} applies.
+            No {tab} override exists. The {sourceLabel(data.rules.effective.source)} applies.
           </p>
           <p className="text-xs text-gray-500 font-mono">{scopeState!.path}</p>
           <button
             type="button"
-            onClick={() => setDraft(data.effective.content)}
+            onClick={() => setDraft(data.rules.effective.content)}
             className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
           >
             Override at this scope
@@ -176,7 +192,7 @@ export function PromptEditor() {
       ) : (
         <section className="space-y-3">
           <textarea
-            aria-label={`${tab} prompt`}
+            aria-label={`${tab} rules`}
             value={writableValue}
             onChange={(e) => setDraft(e.target.value)}
             className="w-full h-[60vh] p-3 font-mono text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -48,8 +48,9 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     mkdirSync(workdir, { recursive: true })
     writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
 
-    const tpl = resolveEffectivePrompt({ cwd: deps.cwd, home: deps.paths.home })
-    const prompt = renderPrompt(tpl.content, {
+    const resolved = resolveEffectivePrompt({ cwd: deps.cwd, home: deps.paths.home })
+    const prompt = renderPrompt(resolved.framework, {
+      rules: resolved.rules.content,
       prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,
       diff: diff.unifiedDiff,
       findingsPath: join(workdir, 'findings.json'),
