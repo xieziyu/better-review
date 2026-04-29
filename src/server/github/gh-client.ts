@@ -27,6 +27,8 @@ export interface ReviewComment {
   line: number
   body: string
   side?: 'RIGHT' | 'LEFT'
+  start_line?: number
+  start_side?: 'RIGHT' | 'LEFT'
 }
 export interface ReviewPayload {
   event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'

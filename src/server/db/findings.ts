@@ -13,6 +13,7 @@ interface Row {
   category: string
   file: string | null
   line: number | null
+  start_line: number | null
   title: string
   body: string
   suggestion: string | null
@@ -40,6 +41,7 @@ function rowToFinding(r: Row, claudeId: string): Finding {
     createdAt: r.created_at,
   }
   if (r.suggestion !== null) f.suggestion = r.suggestion
+  if (r.start_line !== null) f.startLine = r.start_line
   return f
 }
 
@@ -50,6 +52,7 @@ export interface UpdateFindingPatch {
   suggestion?: string | null
   file?: string | null
   line?: number | null
+  startLine?: number | null
 }
 
 export class FindingsRepo {
@@ -58,8 +61,8 @@ export class FindingsRepo {
   insertMany(sessionId: string, items: FindingFromClaude[]): Finding[] {
     const now = Date.now()
     const insert = this.db.prepare(`
-      INSERT INTO findings (id, session_id, ord, severity, category, file, line, title, body, suggestion, selected, edited, archived, created_at)
-      VALUES (@id, @sessionId, @ord, @severity, @category, @file, @line, @title, @body, @suggestion, 1, 0, 0, @now)
+      INSERT INTO findings (id, session_id, ord, severity, category, file, line, start_line, title, body, suggestion, selected, edited, archived, created_at)
+      VALUES (@id, @sessionId, @ord, @severity, @category, @file, @line, @startLine, @title, @body, @suggestion, 1, 0, 0, @now)
     `)
     const inserted: Finding[] = []
     this.db.transaction(() => {
@@ -81,6 +84,7 @@ export class FindingsRepo {
           category: it.category,
           file: it.file,
           line: it.line,
+          startLine: it.startLine ?? null,
           title: it.title,
           body: it.body,
           suggestion: it.suggestion ?? null,
@@ -103,6 +107,7 @@ export class FindingsRepo {
           createdAt: now,
         }
         if (it.suggestion !== undefined) f.suggestion = it.suggestion
+        if (it.startLine !== undefined) f.startLine = it.startLine
         inserted.push(f)
       })
     })()
@@ -129,7 +134,7 @@ export class FindingsRepo {
     this.db
       .prepare(
         `
-      UPDATE findings SET severity=?, title=?, body=?, suggestion=?, file=?, line=?, edited=1
+      UPDATE findings SET severity=?, title=?, body=?, suggestion=?, file=?, line=?, start_line=?, edited=1
       WHERE id=?
     `,
       )
@@ -140,6 +145,7 @@ export class FindingsRepo {
         next.suggestion ?? null,
         next.file,
         next.line,
+        next.startLine ?? null,
         dbId,
       )
   }

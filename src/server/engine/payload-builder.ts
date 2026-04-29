@@ -1,6 +1,6 @@
 import type { Finding, ReviewEvent } from '../../shared/types'
 import type { ReviewPayload, ReviewComment } from '../github/gh-client'
-import { isLineInDiff } from './diff-line-validator'
+import { isLineInDiff, isLineRangeInDiff } from './diff-line-validator'
 
 export interface BuildArgs {
   diff: string
@@ -20,9 +20,16 @@ function severityTag(s: Finding['severity']): string {
   return '[NIT]'
 }
 
+function formatLineLoc(f: Finding): string {
+  if (!f.line) return ''
+  if (f.startLine && f.startLine < f.line) return `${f.startLine}-${f.line}`
+  return String(f.line)
+}
+
 function renderFindingMarkdown(f: Finding): string {
   const tag = severityTag(f.severity)
-  const loc = f.file ? ` (${f.file}${f.line ? ':' + f.line : ''})` : ''
+  const lineLoc = formatLineLoc(f)
+  const loc = f.file ? ` (${f.file}${lineLoc ? ':' + lineLoc : ''})` : ''
   const head = `### ${tag} ${f.title}${loc}`
   const sug = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
   return `${head}\n\n${f.body}${sug}`
@@ -40,17 +47,28 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
   const bodyParts: string[] = []
   if (args.userBody) bodyParts.push(args.userBody)
   for (const f of args.findings) {
-    if (f.file && f.line && isLineInDiff(args.diff, f.file, f.line)) {
-      comments.push({
+    if (!f.file || !f.line) {
+      bodyParts.push(renderFindingMarkdown(f))
+      continue
+    }
+    const start = f.startLine && f.startLine < f.line ? f.startLine : null
+    const rangeOk = start
+      ? isLineRangeInDiff(args.diff, f.file, start, f.line)
+      : isLineInDiff(args.diff, f.file, f.line)
+    if (rangeOk) {
+      const c: ReviewComment = {
         path: f.file,
         line: f.line,
         side: 'RIGHT',
         body: renderInlineComment(f),
-      })
-    } else if (f.file && f.line) {
-      dropped.push(f)
-      bodyParts.push(renderFindingMarkdown(f))
+      }
+      if (start) {
+        c.start_line = start
+        c.start_side = 'RIGHT'
+      }
+      comments.push(c)
     } else {
+      dropped.push(f)
       bodyParts.push(renderFindingMarkdown(f))
     }
   }

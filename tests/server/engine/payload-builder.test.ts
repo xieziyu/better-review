@@ -84,4 +84,53 @@ describe('buildSubmitPayload', () => {
     expect(r.payload.comments[0]!.body).toContain('```suggestion')
     expect(r.payload.comments[0]!.body).toContain('fixed')
   })
+
+  it('multi-line range emits start_line and start_side', () => {
+    const MULTI = `diff --git a/foo.ts b/foo.ts
+--- a/foo.ts
++++ b/foo.ts
+@@ -10,3 +10,5 @@
+ a
++b
++c
++d
+ e
+`
+    const r = buildSubmitPayload({
+      diff: MULTI,
+      findings: [
+        f({ file: 'foo.ts', line: 13, startLine: 11, suggestion: 'B\nC\nD' }),
+      ],
+      event: 'COMMENT',
+    })
+    expect(r.payload.comments).toHaveLength(1)
+    expect(r.payload.comments[0]).toMatchObject({
+      path: 'foo.ts',
+      line: 13,
+      side: 'RIGHT',
+      start_line: 11,
+      start_side: 'RIGHT',
+    })
+    expect(r.droppedToBody).toHaveLength(0)
+  })
+
+  it('range that escapes the diff is dropped to body', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [f({ file: 'foo.ts', line: 11, startLine: 8 })],
+      event: 'COMMENT',
+    })
+    expect(r.payload.comments).toHaveLength(0)
+    expect(r.droppedToBody).toHaveLength(1)
+  })
+
+  it('startLine equal to line behaves as single-line', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [f({ file: 'foo.ts', line: 11, startLine: 11, suggestion: 'fixed' })],
+      event: 'COMMENT',
+    })
+    expect(r.payload.comments).toHaveLength(1)
+    expect(r.payload.comments[0]).not.toHaveProperty('start_line')
+  })
 })

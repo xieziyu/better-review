@@ -49,4 +49,60 @@ describe('parseFindings', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toMatch(/severity/i)
   })
+
+  it('accepts startLine when <= line', () => {
+    const r = parseFindings(
+      JSON.stringify([
+        {
+          id: 'R1',
+          severity: 'must',
+          category: 'Correctness',
+          file: 'a.ts',
+          line: 20,
+          startLine: 10,
+          title: 't',
+          body: 'b',
+        },
+      ]),
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.data[0]!.startLine).toBe(10)
+  })
+
+  it('rejects startLine > line', () => {
+    const r = parseFindings(
+      JSON.stringify([
+        {
+          id: 'R1',
+          severity: 'must',
+          category: 'Correctness',
+          file: 'a.ts',
+          line: 5,
+          startLine: 10,
+          title: 't',
+          body: 'b',
+        },
+      ]),
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/startLine/i)
+  })
+
+  it('rejects startLine without line', () => {
+    const r = parseFindings(
+      JSON.stringify([
+        {
+          id: 'R1',
+          severity: 'must',
+          category: 'Correctness',
+          file: 'a.ts',
+          line: null,
+          startLine: 5,
+          title: 't',
+          body: 'b',
+        },
+      ]),
+    )
+    expect(r.ok).toBe(false)
+  })
 })

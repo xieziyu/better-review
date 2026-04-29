@@ -33,3 +33,17 @@ export function isLineInDiff(diff: string, file: string, line: number): boolean 
   if (!hunks) return false
   return hunks.ranges.some((r) => line >= r.start && line < r.start + r.length)
 }
+
+export function isLineRangeInDiff(
+  diff: string,
+  file: string,
+  startLine: number,
+  endLine: number,
+): boolean {
+  const hunks = parseDiff(diff).get(file)
+  if (!hunks) return false
+  for (let l = startLine; l <= endLine; l++) {
+    if (!hunks.ranges.some((r) => l >= r.start && l < r.start + r.length)) return false
+  }
+  return true
+}

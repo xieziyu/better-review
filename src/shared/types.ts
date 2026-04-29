@@ -73,6 +73,7 @@ export interface UpdateFindingRequest {
   suggestion?: string | null
   file?: string | null
   line?: number | null
+  startLine?: number | null
 }
 export interface SelectFindingRequest {
   selected: boolean
