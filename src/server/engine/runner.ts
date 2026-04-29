@@ -89,17 +89,12 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   await new Promise((res) => setTimeout(res, 200))
   await stopWatcher()
 
-  const final = findings.listBySession(sessionId)
-  if (exitCode === 0 && final.length > 0 && !killed) {
+  if (exitCode === 0 && !killed) {
     sessions.setStatus(sessionId, 'ready')
     bus.emit({ type: 'status-changed', sessionId, status: 'ready' })
     bus.emit({ type: 'done', sessionId })
   } else {
-    const msg = killed
-      ? 'claude stalled'
-      : exitCode !== 0
-        ? `claude exited ${exitCode}`
-        : 'no findings parsed'
+    const msg = killed ? 'claude stalled' : `claude exited ${exitCode}`
     sessions.setError(sessionId, msg)
     sessions.setStatus(sessionId, 'failed')
     bus.emit({ type: 'status-changed', sessionId, status: 'failed', error: msg })

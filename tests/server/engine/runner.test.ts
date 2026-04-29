@@ -43,6 +43,34 @@ describe('runReview (happy path)', () => {
     })
   })
 
+  it('transitions to ready with empty findings when claude exits 0 and reports nothing', async () => {
+    process.env.FAKE_CLAUDE_BODY = '[]'
+    try {
+      const events: SSEEvent[] = []
+      bus.subscribeGlobal((e) => events.push(e))
+      const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 's1',
+        workdir,
+        prompt: promptText,
+        claudePath: FAKE_CLAUDE,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+      })
+      const got = sessions.getById('s1')!
+      expect(got.status).toBe('ready')
+      expect(got.error).toBeNull()
+      expect(findings.listBySession('s1')).toHaveLength(0)
+      expect(events.some((e) => e.type === 'done')).toBe(true)
+      expect(events.some((e) => e.type === 'error')).toBe(false)
+    } finally {
+      delete process.env.FAKE_CLAUDE_BODY
+    }
+  })
+
   it('spawns claude, parses findings.json, transitions to ready', async () => {
     const events: SSEEvent[] = []
     bus.subscribeGlobal((e) => events.push(e))
