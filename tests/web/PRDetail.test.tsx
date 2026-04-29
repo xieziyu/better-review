@@ -42,6 +42,7 @@ const session: PRSession = {
   baseRef: 'main',
   headRef: 'feature/x',
   status: 'ready',
+  agent: 'claude',
   createdAt: 0,
   updatedAt: Date.now(),
   workdir: '',

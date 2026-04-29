@@ -38,6 +38,7 @@ function setup() {
     baseRef: null,
     headRef: null,
     status: 'ready',
+    agent: 'claude',
     workdir: wd,
     promptUsed: 'p',
   })

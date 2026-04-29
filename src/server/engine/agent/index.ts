@@ -1,0 +1,20 @@
+import { AGENT_KINDS, type AgentKind } from '../../../shared/types'
+import { ClaudeAgent } from './claude'
+import { CodexAgent } from './codex'
+import type { ReviewAgent } from './types'
+
+const REGISTRY: Record<AgentKind, ReviewAgent> = {
+  claude: new ClaudeAgent(),
+  codex: new CodexAgent(),
+}
+
+export function getAgent(kind: AgentKind): ReviewAgent {
+  return REGISTRY[kind]
+}
+
+export function listAgents(): ReviewAgent[] {
+  return AGENT_KINDS.map((k) => REGISTRY[k])
+}
+
+export type { ReviewAgent, AgentSpawnArgs, AgentRunHandle } from './types'
+export { whichBinary } from './which'

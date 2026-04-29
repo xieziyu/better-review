@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import type { AgentKind } from '../shared/types'
 import type { Config } from './config'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
+import type { ReviewAgent } from './engine/agent'
 import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
 import { runReview } from './engine/runner'
@@ -12,6 +14,11 @@ import type { GhClient } from './github/gh-client'
 import { parsePRTarget } from './github/pr-target-parser'
 import { renderPrompt } from './prompts/renderer'
 import { resolveEffectivePrompt } from './prompts/resolver'
+
+export interface ResolvedAgent {
+  agent: ReviewAgent
+  executable: string
+}
 
 export interface StartSessionDeps {
   sessions: SessionsRepo
@@ -22,20 +29,30 @@ export interface StartSessionDeps {
   config: Config
   paths: { home: string; sessionsDir: string }
   cwd: string
-  claudePath: string
+  // Resolves a kind to a concrete agent + located executable. Throws when the
+  // CLI is not installed so the daemon can surface the error to the caller.
+  resolveAgent: (kind: AgentKind) => ResolvedAgent
   defaultRepo?: { owner: string; repo: string }
 }
 
-export type StartSessionFn = (prInput: string) => Promise<{ id: string }>
+export interface StartSessionInput {
+  prInput: string
+  agent?: AgentKind
+}
+
+export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string }>
 
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
-  return async function startSession(prInput) {
+  return async function startSession({ prInput, agent: agentKind }) {
     const parseOpts: Parameters<typeof parsePRTarget>[1] = {}
     if (deps.defaultRepo?.owner) parseOpts.defaultOwner = deps.defaultRepo.owner
     if (deps.defaultRepo?.repo) parseOpts.defaultRepo = deps.defaultRepo.repo
     const target = parsePRTarget(prInput, parseOpts)
     const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
     if (existing && existing.status !== 'failed') return { id: existing.id }
+
+    const kind = agentKind ?? deps.config.defaultAgent
+    const { agent, executable } = deps.resolveAgent(kind)
 
     const meta = await deps.gh.prView(target)
     const diff = await deps.gh.prDiff(target)
@@ -69,6 +86,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       baseRef: meta.baseRef,
       headRef: meta.headRef,
       status: 'running',
+      agent: kind,
       workdir,
       promptUsed: prompt,
     })
@@ -79,11 +97,12 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
         sessionId: id,
         workdir,
         prompt,
-        claudePath: deps.claudePath,
+        agent,
+        executable,
         sessions: deps.sessions,
         findings: deps.findings,
         bus: deps.bus,
-        stallMs: deps.config.claudeStallMinutes * 60_000,
+        stallMs: deps.config.stallMinutes * 60_000,
       }),
     )
     return { id }

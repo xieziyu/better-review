@@ -6,13 +6,13 @@ import { describe, it, expect } from 'vitest'
 
 import type { ParseResult } from '../../../src/server/engine/findings-parser'
 import { watchFindings } from '../../../src/server/engine/findings-watcher'
-import type { FindingFromClaude } from '../../../src/shared/findings-schema'
+import type { FindingFromAgent } from '../../../src/shared/findings-schema'
 
 describe('watchFindings', () => {
   it('invokes onParsed when valid JSON appears', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'br-watch-'))
     const file = join(dir, 'findings.json')
-    const seen: FindingFromClaude[][] = []
+    const seen: FindingFromAgent[][] = []
     const close = await watchFindings(file, (r: ParseResult) => {
       if (r.ok) seen.push(r.data)
     })

@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 
-import type { PRSession, SessionStatus } from '../../shared/types'
+import type { AgentKind, PRSession, SessionStatus } from '../../shared/types'
 
 export interface NewSessionInput {
   id: string
@@ -13,6 +13,7 @@ export interface NewSessionInput {
   baseRef: string | null
   headRef: string | null
   status: SessionStatus
+  agent: AgentKind
   workdir: string
   promptUsed: string
 }
@@ -28,6 +29,7 @@ interface Row {
   base_ref: string | null
   head_ref: string | null
   status: string
+  agent: string
   created_at: number
   updated_at: number
   workdir: string
@@ -47,6 +49,7 @@ function rowToSession(r: Row): PRSession {
     baseRef: r.base_ref,
     headRef: r.head_ref,
     status: r.status as SessionStatus,
+    agent: (r.agent as AgentKind) ?? 'claude',
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     workdir: r.workdir,
@@ -65,9 +68,9 @@ export class SessionsRepo {
         `
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
-         status, created_at, updated_at, workdir, prompt_used, error)
+         status, agent, created_at, updated_at, workdir, prompt_used, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
-              @status, @now, @now, @workdir, @promptUsed, NULL)
+              @status, @agent, @now, @now, @workdir, @promptUsed, NULL)
     `,
       )
       .run({ ...s, now })

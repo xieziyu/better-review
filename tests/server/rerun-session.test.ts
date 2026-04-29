@@ -28,6 +28,7 @@ function insertSubmitted(sessions: SessionsRepo, id: string): void {
     baseRef: null,
     headRef: null,
     status: 'running',
+    agent: 'claude',
     workdir: '/w',
     promptUsed: 'p',
   })
@@ -45,7 +46,7 @@ describe('makeRerunSession', () => {
     const result = await rerun('s1')
 
     expect(result.freshId).toBe('fresh-id')
-    expect(startSession).toHaveBeenCalledWith('o/r#1')
+    expect(startSession).toHaveBeenCalledWith({ prInput: 'o/r#1', agent: 'claude' })
     expect(sessions.getById('s1')?.status).toBe('archived')
   })
 

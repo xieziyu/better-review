@@ -1,6 +1,7 @@
-import type { PRSession, SessionStatus } from '@shared/types'
+import type { AgentKind, PRSession, SessionStatus } from '@shared/types'
+import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { api, queryKeys, ApiError } from '@/lib/api'
@@ -41,19 +42,26 @@ function SessionCard({ session }: SessionCardProps) {
       <h3 className="mt-2 text-sm font-medium line-clamp-2 text-gray-900 dark:text-gray-100">
         {session.title ?? '(no title)'}
       </h3>
-      {session.author && <div className="mt-2 text-xs text-gray-500">@{session.author}</div>}
+      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+        {session.author && <span>@{session.author}</span>}
+        <span className="font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+          {session.agent}
+        </span>
+      </div>
     </Link>
   )
 }
 
 export function Home() {
   const [input, setInput] = useState('')
+  const [agent, setAgent] = useState<AgentKind | null>(null)
   const nav = useNavigate()
   const qc = useQueryClient()
   const { data: sessions = [] } = useQuery({
     queryKey: queryKeys.sessions,
     queryFn: api.listSessions,
   })
+  const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
   const create = useMutation({
     mutationFn: api.createSession,
     onSuccess: ({ id }) => {
@@ -62,40 +70,79 @@ export function Home() {
     },
   })
 
+  useEffect(() => {
+    if (agent === null && health) setAgent(health.defaultAgent)
+  }, [agent, health])
+
   const trimmed = input.trim()
   const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+  const effectiveAgent = agent ?? health?.defaultAgent ?? 'claude'
 
   return (
     <div className="max-w-5xl mx-auto p-8 space-y-12">
       <header className="space-y-4">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Review GitHub PRs with claude — locally
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Review GitHub PRs locally</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Enter a PR number, <code className="font-mono">owner/repo#NN</code>, or a GitHub URL.
         </p>
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (trimmed && !create.isPending) create.mutate({ prInput: trimmed })
+            if (trimmed && !create.isPending) {
+              create.mutate({ prInput: trimmed, agent: effectiveAgent })
+            }
           }}
-          className="flex gap-2"
+          className="space-y-3"
         >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="123  ·  acme/web#42  ·  https://github.com/..."
-            className="flex-1 px-4 py-2.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="PR target"
-          />
-          <button
-            type="submit"
-            disabled={!trimmed || create.isPending}
-            className="px-5 py-2.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed"
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="123  ·  acme/web#42  ·  https://github.com/..."
+              className="flex-1 px-4 py-2.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="PR target"
+            />
+            <button
+              type="submit"
+              disabled={!trimmed || create.isPending}
+              className="px-5 py-2.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed"
+            >
+              {create.isPending ? 'Starting…' : 'Start review'}
+            </button>
+          </div>
+          <fieldset
+            className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400"
+            aria-label="Review agent"
           >
-            {create.isPending ? 'Starting…' : 'Start review'}
-          </button>
+            <span className="font-medium uppercase tracking-wide">Agent</span>
+            {AGENT_KINDS.map((k) => {
+              const found = health?.agents[k].found ?? true
+              const selected = effectiveAgent === k
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setAgent(k)}
+                  disabled={!found}
+                  aria-pressed={selected}
+                  title={found ? undefined : `${k} CLI not found in PATH`}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md font-mono border transition-colors',
+                    selected
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-blue-400',
+                    !found && 'opacity-40 cursor-not-allowed',
+                  )}
+                >
+                  {k}
+                  {health && k === health.defaultAgent && (
+                    <span className="ml-1 text-[10px] text-gray-500">default</span>
+                  )}
+                </button>
+              )
+            })}
+          </fieldset>
         </form>
         {create.isError && (
           <div className="text-sm text-red-600 dark:text-red-400">

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Orientation
 
-`better-review` is a **local PR-review tool**: a Node daemon + React SPA that wraps the `claude` CLI and `gh` CLI. It is distributed as an npm bin (`better-review`) that launches a detached daemon, opens a browser UI, and shells out to those two CLIs for actual work. There is no cloud component, no auth layer, and no multi-user state — everything lives under `~/.better-review/`.
+`better-review` is a **local PR-review tool**: a Node daemon + React SPA that drives one of several review-agent CLIs (currently `claude` and `codex`) plus the `gh` CLI. The agent layer is pluggable — see `src/server/engine/agent/`. Distributed as an npm bin (`better-review`) that launches a detached daemon, opens a browser UI, and shells out to those CLIs for actual work. There is no cloud component, no auth layer, and no multi-user state — everything lives under `~/.better-review/`.
 
 User-facing docs live in `README.md` (Chinese). Read it for end-to-end semantics (PR input formats, submit flow, prompt overrides, config keys). The notes below are about _building and changing_ the code, not using it.
 
@@ -65,10 +65,13 @@ Source: `src/server/start-session.ts` plus `src/server/engine/`.
 
 1. **Resolve PR target** — `github/pr-target-parser.ts` parses `123` / `owner/repo#N` / URL; numeric form needs `gh repo view` to discover the current remote.
 2. **Fetch metadata + diff** — `gh pr view --json` and `gh pr diff` via `github/gh-client.ts` (always `execa`, never raw `child_process`). Diff is cached at `<workdir>/diff.cache`.
-3. **Resolve prompt** — `prompts/resolver.ts` walks: project (`<cwd>/.better-review/review.md`) → global (`~/.better-review/review.md`) → builtin (`prompts/builtin.md`). First hit wins; no merging. `prompts/renderer.ts` substitutes `{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`.
-4. **Spawn claude** — `engine/runner.ts` launches `claude --output-format stream-json -p <rendered>` under a `ConcurrencyQueue` (config `maxConcurrentReviews`, default 4). `engine/stream-json.ts` parses progress events for the UI; a watchdog in the runner kills the process if no event arrives within `claudeStallMinutes`.
-5. **Parse findings** — `engine/findings-watcher.ts` uses `chokidar` on `<workdir>/findings.json`. `engine/findings-parser.ts` validates entries against the zod schema in `src/shared/findings-schema.ts` and dedupes by `(file, line, title)`. New rows go through `db/findings.ts` and get broadcast on the SSE bus.
-6. **Submit** — `engine/payload-builder.ts` separates inline-eligible findings from PR-wide / off-diff ones (validated by `engine/diff-line-validator.ts`); `engine/submit.ts` POSTs the payload via `gh api repos/.../pulls/<n>/reviews`. No retries.
+3. **Resolve prompt** — `prompts/resolver.ts` walks: project (`<cwd>/.better-review/review.md`) → global (`~/.better-review/review.md`) → builtin (`prompts/builtin.md`). First hit wins; no merging. `prompts/renderer.ts` substitutes `{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`. The framework wording is agent-neutral — it tells the agent to "write a JSON array of findings to {{FINDINGS_PATH}} using whatever file-write capability your runtime provides," not "use the Write tool."
+4. **Pick agent** — the session's `agent` field (default `config.defaultAgent`) selects a `ReviewAgent` from `engine/agent/` (`getAgent(kind)`). Each agent owns its own spawn args and stdout parsing.
+5. **Spawn agent** — `engine/runner.ts` calls `agent.spawn({ executable, prompt, workdir, logPath, onProgress })` under a `ConcurrencyQueue` (config `maxConcurrentReviews`, default 4). Each `onProgress` tick resets the watchdog; if no tick arrives for `stallMinutes`, the runner SIGTERMs (then SIGKILLs) the child. Implementations:
+   - `agent/claude.ts` — `claude --output-format stream-json --verbose -p <prompt>`; ticks once per stream-json event via `engine/stream-json.ts`.
+   - `agent/codex.ts` — `codex exec --sandbox workspace-write --skip-git-repo-check --color never -`; prompt is fed via stdin (avoids argv length limits with large diffs); ticks once per stdout line.
+6. **Parse findings** — `engine/findings-watcher.ts` uses `chokidar` on `<workdir>/findings.json`. `engine/findings-parser.ts` validates entries against the zod schema in `src/shared/findings-schema.ts` and dedupes by `(file, line, title)`. New rows go through `db/findings.ts` and get broadcast on the SSE bus.
+7. **Submit** — `engine/payload-builder.ts` separates inline-eligible findings from PR-wide / off-diff ones (validated by `engine/diff-line-validator.ts`); `engine/submit.ts` POSTs the payload via `gh api repos/.../pulls/<n>/reviews`. No retries.
 
 ### Module map
 
@@ -85,7 +88,8 @@ src/
       app.ts            Hono app + middleware composition
       routes/           sessions, findings, submit, prompts, events (SSE), health
       middleware/       origin guard (rejects non-localhost), activity bump
-    engine/           claude lifecycle, findings ingestion, submit payload
+    engine/           agent lifecycle, findings ingestion, submit payload
+      agent/          ReviewAgent abstraction + claude / codex provider implementations
     github/           gh CLI wrapper, PR-target parser, error normalisation
     db/               better-sqlite3; migrations in db/migrations/*.sql
     prompts/          three-tier resolver, mustache-style renderer, file store
@@ -93,14 +97,14 @@ src/
     pages/, components/, lib/  (router-based, TanStack Query against /api/*)
 ```
 
-The daemon depends on three shell tools at runtime: `claude` (resolved via `which`), `gh`, and `node` itself. The `/api/health` endpoint reports their presence — UI banner reads it on every load.
+The daemon depends on these shell tools at runtime: at least one review agent CLI (`claude` and/or `codex`, resolved once at startup via `which`), `gh`, and `node` itself. The `/api/health` endpoint reports presence per agent under `agents.<kind>` and the configured `defaultAgent` — UI banner only fires red when the **default** agent is missing; non-default agents that are missing show as disabled in the Home selector.
 
 ## Conventions
 
 ### Tests
 
 - **Don't mock `better-sqlite3`.** Every server test opens a real DB at a temp path. The migrations module is the source of truth for schema; tests run it on init.
-- **Don't mock `claude` or `gh`.** Use the existing shims at `tests/fixtures/fake-claude.sh` and `tests/fixtures/fake-gh.sh` — they emit deterministic stream-json / JSON output and are exercised end-to-end. Add new fixture behaviour to those scripts rather than introducing in-process mocks.
+- **Don't mock agent CLIs or `gh`.** Use the existing shims at `tests/fixtures/fake-claude.sh`, `tests/fixtures/fake-codex.sh`, and `tests/fixtures/fake-gh.sh` — they emit deterministic stream-json / line-oriented / JSON output and are exercised end-to-end. The runner test parameterizes over both agents via `describe.each`. Add new fixture behaviour to those scripts rather than introducing in-process mocks.
 - Vitest server config is single-fork; assume tests share process state and clean up explicitly.
 - TDD is the working style for routes and engine code: failing test → implementation → commit. Reflect that in PRs.
 
@@ -126,7 +130,11 @@ Conventional Commits, lowercase imperative mood: `feat(scope): …`, `fix(scope)
 config.json    state.db    daemon.log    server.json
 review.md                              (global prompt)
 sessions/pr-<owner>-<repo>-<n>-<short>/
-  diff.cache  findings.json  claude.log  prompt.txt
+  diff.cache  findings.json  agent.log  prompt.txt
 ```
+
+The session log is named `agent.log` regardless of which agent ran (its content shape varies — stream-json lines for claude, plain stdout for codex).
+
+Config keys worth knowing: `defaultAgent` (`"claude"` | `"codex"`), `stallMinutes` (replaces the deprecated `claudeStallMinutes`, which is still read for backward compatibility — emits a warn log on load).
 
 `server.json` is the daemon's liveness file — the CLI uses it to decide whether to spawn. Don't change its shape (`{pid, port, startedAt}`) without updating `cli/daemon-launcher.ts` in the same change.

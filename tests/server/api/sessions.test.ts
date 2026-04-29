@@ -21,6 +21,35 @@ describe('sessions API', () => {
     expect(((await res.json()) as { id: string }).id).toBe('new1')
   })
 
+  it('POST /api/sessions forwards a valid agent override', async () => {
+    let received: { prInput: string; agent?: string } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'new1' }
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prInput: 'owner/repo#1', agent: 'codex' }),
+    })
+    expect(res.status).toBe(201)
+    expect(received).toEqual({ prInput: 'owner/repo#1', agent: 'codex' })
+  })
+
+  it('POST /api/sessions rejects an unknown agent', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prInput: 'owner/repo#1', agent: 'gemini' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('GET /api/sessions lists', async () => {
     const deps = makeTestDeps()
     deps.sessions.insert({
@@ -34,6 +63,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'running',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })
@@ -57,6 +87,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'ready',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })
@@ -84,6 +115,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'ready',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })
@@ -108,6 +140,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'ready',
+      agent: 'claude',
       workdir: wd,
       promptUsed: 'p',
     })
@@ -132,6 +165,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'running',
+      agent: 'claude',
       workdir: wd,
       promptUsed: 'p',
     })
@@ -167,6 +201,7 @@ describe('sessions API', () => {
       baseRef: null,
       headRef: null,
       status: 'ready',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })

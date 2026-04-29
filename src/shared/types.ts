@@ -1,6 +1,9 @@
-import type { FindingFromClaude, Severity } from './findings-schema'
+import type { FindingFromAgent, Severity } from './findings-schema'
 
 export type SessionStatus = 'running' | 'ready' | 'failed' | 'submitted' | 'archived' | 'pending'
+
+export const AGENT_KINDS = ['claude', 'codex'] as const
+export type AgentKind = (typeof AGENT_KINDS)[number]
 
 export interface PRSession {
   id: string
@@ -13,6 +16,7 @@ export interface PRSession {
   baseRef: string | null
   headRef: string | null
   status: SessionStatus
+  agent: AgentKind
   createdAt: number
   updatedAt: number
   workdir: string
@@ -20,7 +24,7 @@ export interface PRSession {
   error: string | null
 }
 
-export interface Finding extends FindingFromClaude {
+export interface Finding extends FindingFromAgent {
   dbId: string
   sessionId: string
   ord: number
@@ -43,9 +47,15 @@ export interface Submission {
   error: string | null
 }
 
+export interface AgentHealth {
+  found: boolean
+  path?: string
+}
+
 export interface HealthStatus {
   ok: boolean
-  claude: { found: boolean; path?: string }
+  agents: Record<AgentKind, AgentHealth>
+  defaultAgent: AgentKind
   gh: { found: boolean; path?: string; authed: boolean }
   daemon: { pid: number; port: number; startedAt: number }
 }
@@ -61,6 +71,7 @@ export type SSEEvent =
 
 export interface CreateSessionRequest {
   prInput: string
+  agent?: AgentKind
 }
 export interface SubmitRequest {
   event: ReviewEvent

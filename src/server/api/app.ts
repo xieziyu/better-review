@@ -34,7 +34,10 @@ export interface AppDeps {
   webDir?: string
   onActivity?: () => void
   getPort: () => number
-  startSession: (input: string) => Promise<{ id: string }>
+  startSession: (input: {
+    prInput: string
+    agent?: import('../../shared/types').AgentKind
+  }) => Promise<{ id: string }>
   rerunSession: (id: string) => Promise<void>
   submitSession: (
     id: string,

@@ -24,6 +24,7 @@ describe('FindingsRepo', () => {
       baseRef: null,
       headRef: null,
       status: 'running',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })

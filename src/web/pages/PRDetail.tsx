@@ -85,6 +85,9 @@ function PRHeader({
           {session.owner}/{session.repo}#{session.number}
         </span>
         {session.author && <span>@{session.author}</span>}
+        <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+          {session.agent}
+        </span>
         {session.url && (
           <a
             href={session.url}
@@ -207,7 +210,7 @@ export function PRDetail() {
       {session.status === 'running' && activeFindings.length === 0 && (
         <div className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-4 py-6 text-sm text-blue-700 dark:text-blue-300 text-center">
           <Loader2 size={18} className="inline-block mr-2 animate-spin" />
-          claude is reviewing… findings will stream in here as they're produced.
+          {session.agent} is reviewing… findings will stream in here as they're produced.
         </div>
       )}
 

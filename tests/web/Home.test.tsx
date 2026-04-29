@@ -29,6 +29,7 @@ const session: PRSession = {
   status: 'ready',
   createdAt: 0,
   updatedAt: Date.now(),
+  agent: 'claude',
   workdir: '',
   promptUsed: '',
   error: null,

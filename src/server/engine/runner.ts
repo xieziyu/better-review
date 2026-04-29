@@ -1,18 +1,18 @@
-import { spawn } from 'node:child_process'
-import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { FindingsRepo } from '../db/findings'
 import type { SessionsRepo } from '../db/sessions'
+import type { ReviewAgent } from './agent'
 import type { EventBus } from './events'
 import { watchFindings } from './findings-watcher'
-import { parseStreamJson } from './stream-json'
 
 export interface RunReviewArgs {
   sessionId: string
   workdir: string
   prompt: string
-  claudePath: string
+  agent: ReviewAgent
+  executable: string
   sessions: SessionsRepo
   findings: FindingsRepo
   bus: EventBus
@@ -20,10 +20,10 @@ export interface RunReviewArgs {
 }
 
 export async function runReview(args: RunReviewArgs): Promise<void> {
-  const { sessionId, workdir, prompt, claudePath, sessions, findings, bus, stallMs } = args
+  const { sessionId, workdir, prompt, agent, executable, sessions, findings, bus, stallMs } = args
   mkdirSync(workdir, { recursive: true })
   const findingsPath = join(workdir, 'findings.json')
-  const logPath = join(workdir, 'claude.log')
+  const logPath = join(workdir, 'agent.log')
   writeFileSync(join(workdir, 'prompt.txt'), prompt)
 
   const seenIds = new Set<string>()
@@ -39,19 +39,35 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     inserted.forEach((f) => bus.emit({ type: 'finding-added', sessionId, finding: f }))
   })
 
-  const child = spawn(claudePath, ['--output-format', 'stream-json', '--verbose', '-p', prompt], {
-    cwd: workdir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-
   let lastEventAt = Date.now()
   let killed = false
+  const { child, drained } = agent.spawn({
+    executable,
+    prompt,
+    workdir,
+    logPath,
+    onProgress: (phase, detail) => {
+      lastEventAt = Date.now()
+      const evt: { type: 'progress'; sessionId: string; phase: string; detail?: string } = {
+        type: 'progress',
+        sessionId,
+        phase,
+      }
+      if (detail !== undefined) evt.detail = detail
+      bus.emit(evt)
+    },
+  })
+
   const watchdog = setInterval(
     () => {
       if (Date.now() - lastEventAt > stallMs) {
         if (!killed) {
           killed = true
-          bus.emit({ type: 'error', sessionId, message: 'claude stalled — killing' })
+          bus.emit({
+            type: 'error',
+            sessionId,
+            message: `${agent.displayName} stalled — killing`,
+          })
           child.kill('SIGTERM')
           setTimeout(() => {
             try {
@@ -66,26 +82,9 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     Math.min(stallMs, 5_000),
   )
 
-  const stdoutPromise = parseStreamJson(
-    child.stdout!,
-    (e) => {
-      lastEventAt = Date.now()
-      bus.emit({
-        type: 'progress',
-        sessionId,
-        phase: e.type,
-        detail: JSON.stringify(e).slice(0, 200),
-      })
-      appendFileSync(logPath, JSON.stringify(e) + '\n')
-    },
-    (err) => appendFileSync(logPath, `[stream-json error] ${err}\n`),
-  )
-
-  child.stderr?.on('data', (chunk) => appendFileSync(logPath, chunk))
-
   const exitCode: number = await new Promise((res) => child.once('close', (code) => res(code ?? 0)))
   clearInterval(watchdog)
-  await stdoutPromise
+  await drained
   await new Promise((res) => setTimeout(res, 200))
   await stopWatcher()
 
@@ -94,7 +93,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     bus.emit({ type: 'status-changed', sessionId, status: 'ready' })
     bus.emit({ type: 'done', sessionId })
   } else {
-    const msg = killed ? 'claude stalled' : `claude exited ${exitCode}`
+    const msg = killed ? `${agent.displayName} stalled` : `${agent.displayName} exited ${exitCode}`
     sessions.setError(sessionId, msg)
     sessions.setStatus(sessionId, 'failed')
     bus.emit({ type: 'status-changed', sessionId, status: 'failed', error: msg })

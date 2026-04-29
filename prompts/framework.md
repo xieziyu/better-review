@@ -22,14 +22,14 @@ Apply the rules below against the diff. Skip any rule whose preconditions don't 
 
 ## Output
 
-You MUST use the Write tool to write a JSON array of findings to: {{FINDINGS_PATH}}
+You MUST write a JSON array of findings to the file at: {{FINDINGS_PATH}}. Use whatever file-write capability your runtime provides (the Write tool, a shell write, etc.).
 
 Each finding must conform to this schema:
 {{SCHEMA}}
 
 Rules:
 
-- Do NOT print the report to stdout — use the Write tool only.
+- Do NOT print the report to stdout — write only to the findings file.
 - IDs are "R1", "R2", ... numbered globally across all findings, in the order you write them.
 - Use `file: null` and `line: null` for cross-file or PR-level findings; those will be aggregated into the review body.
 - For file-anchored findings, `line` MUST refer to a line that appears in the diff above (a changed line or a line within a hunk's context window). If a finding genuinely refers to an untouched line, set `file: null` and `line: null` so it goes into the review body.

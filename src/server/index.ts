@@ -3,15 +3,17 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { serve } from '@hono/node-server'
-import { execaSync } from 'execa'
 
-import type { ReviewEvent } from '../shared/types'
+import type { AgentKind, HealthStatus, ReviewEvent } from '../shared/types'
+import { AGENT_KINDS } from '../shared/types'
 import { createApp, type AppDeps } from './api/app'
-import { loadConfig } from './config'
+import { loadConfigWithWarnings } from './config'
 import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
 import { SessionsRepo } from './db/sessions'
 import { SubmissionsRepo } from './db/submissions'
+import { getAgent, whichBinary } from './engine/agent'
+import type { ReviewAgent } from './engine/agent'
 import { EventBus } from './engine/events'
 import { ConcurrencyQueue } from './engine/queue'
 import { submitSession } from './engine/submit'
@@ -20,7 +22,7 @@ import { createLogger } from './logger'
 import { resolvePaths } from './paths'
 import { PromptStore } from './prompts/store'
 import { makeRerunSession } from './rerun-session'
-import { makeStartSession } from './start-session'
+import { makeStartSession, type ResolvedAgent } from './start-session'
 
 export interface ServerHandle {
   port: number
@@ -40,10 +42,13 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
 
   const log = createLogger(paths.daemonLog)
   log.info('startup begin', { pid: process.pid, home: paths.home })
-  const config = loadConfig(paths.home)
+  const { config, warnings } = loadConfigWithWarnings(paths.home)
+  for (const w of warnings) log.warn(w)
   log.info('config loaded', {
     port: config.port,
     maxConcurrentReviews: config.maxConcurrentReviews,
+    defaultAgent: config.defaultAgent,
+    stallMinutes: config.stallMinutes,
   })
   const db = openDatabase(paths.dbFile)
   log.info('db opened', { file: paths.dbFile })
@@ -56,7 +61,23 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const cwd = opts.cwd ?? process.cwd()
   const promptStore = new PromptStore({ cwd, home: paths.home })
 
-  const claudePath = which('claude') ?? 'claude'
+  // Cache findExecutable() once at startup; restart the daemon to pick up
+  // newly installed agents.
+  const agentPaths: Record<AgentKind, string | null> = {
+    claude: getAgent('claude').findExecutable(),
+    codex: getAgent('codex').findExecutable(),
+  }
+
+  const resolveAgent = (kind: AgentKind): ResolvedAgent => {
+    const agent: ReviewAgent = getAgent(kind)
+    const executable = agentPaths[kind]
+    if (!executable) {
+      throw new Error(
+        `${agent.displayName} CLI not found in PATH; install it or pick a different agent`,
+      )
+    }
+    return { agent, executable }
+  }
 
   const startSession = makeStartSession({
     sessions,
@@ -67,7 +88,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     config,
     paths: { home: paths.home, sessionsDir: paths.sessionsDir },
     cwd,
-    claudePath,
+    resolveAgent,
   })
   const rerun = makeRerunSession({ sessions, findings, startSession })
 
@@ -111,18 +132,24 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       return submitSession(submitArgs)
     },
     health: async () => {
-      const claudeWhich = which('claude')
-      const ghWhich = which('gh')
-      const status: import('../shared/types').HealthStatus = {
+      const ghWhich = whichBinary('gh')
+      const status: HealthStatus = {
         ok: true,
-        claude: { found: !!claudeWhich },
+        agents: {
+          claude: { found: !!agentPaths.claude },
+          codex: { found: !!agentPaths.codex },
+        },
+        defaultAgent: config.defaultAgent,
         gh: {
           found: !!ghWhich,
           authed: await gh.authStatus().catch(() => false),
         },
         daemon: { pid: process.pid, port, startedAt },
       }
-      if (claudeWhich) status.claude.path = claudeWhich
+      for (const k of AGENT_KINDS) {
+        const p = agentPaths[k]
+        if (p) status.agents[k].path = p
+      }
       if (ghWhich) status.gh.path = ghWhich
       return status
     },
@@ -181,15 +208,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   process.on('SIGINT', () => void shutdown())
 
   return { port, pid: process.pid, shutdown }
-}
-
-function which(bin: string): string | null {
-  try {
-    const r = execaSync('which', [bin], { reject: false })
-    return r.exitCode === 0 ? String(r.stdout).trim() : null
-  } catch {
-    return null
-  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

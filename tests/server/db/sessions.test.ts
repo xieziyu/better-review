@@ -25,6 +25,7 @@ describe('SessionsRepo', () => {
     baseRef: 'main',
     headRef: 'feat',
     status: 'running' as const,
+    agent: 'claude' as const,
     workdir: '/w',
     promptUsed: 'p',
   }

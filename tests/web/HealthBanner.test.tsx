@@ -13,20 +13,43 @@ function withClient(ui: React.ReactNode, initial?: { health?: HealthStatus }): R
 
 const healthy: HealthStatus = {
   ok: true,
-  claude: { found: true, path: '/usr/local/bin/claude' },
+  agents: {
+    claude: { found: true, path: '/usr/local/bin/claude' },
+    codex: { found: true, path: '/usr/local/bin/codex' },
+  },
+  defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
   daemon: { pid: 1, port: 7345, startedAt: 0 },
 }
 
 describe('HealthBanner', () => {
-  it('renders nothing when claude and gh are healthy', () => {
+  it('renders nothing when default agent and gh are healthy', () => {
     const { container } = render(withClient(<HealthBanner />, { health: healthy }))
     expect(container.firstChild).toBeNull()
   })
 
-  it('warns when claude is missing', () => {
-    render(withClient(<HealthBanner />, { health: { ...healthy, claude: { found: false } } }))
-    expect(screen.getByRole('alert')).toHaveTextContent(/claude.*not found/i)
+  it('warns when the default agent is missing', () => {
+    render(
+      withClient(<HealthBanner />, {
+        health: {
+          ...healthy,
+          agents: { claude: { found: false }, codex: { found: true, path: '/x' } },
+        },
+      }),
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/default agent.*claude.*not found/i)
+  })
+
+  it('stays quiet when a non-default agent is missing', () => {
+    const { container } = render(
+      withClient(<HealthBanner />, {
+        health: {
+          ...healthy,
+          agents: { claude: { found: true, path: '/x' }, codex: { found: false } },
+        },
+      }),
+    )
+    expect(container.firstChild).toBeNull()
   })
 
   it('warns when gh is not authed', () => {

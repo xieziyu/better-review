@@ -1,6 +1,6 @@
-import { findingsFileSchema, type FindingFromClaude } from '../../shared/findings-schema'
+import { findingsFileSchema, type FindingFromAgent } from '../../shared/findings-schema'
 
-export type ParseResult = { ok: true; data: FindingFromClaude[] } | { ok: false; error: string }
+export type ParseResult = { ok: true; data: FindingFromAgent[] } | { ok: false; error: string }
 
 export function parseFindings(raw: string): ParseResult {
   let parsed: unknown

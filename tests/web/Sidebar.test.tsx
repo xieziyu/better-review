@@ -27,6 +27,7 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
   baseRef: 'main',
   headRef: 'feature/login',
   status: 'ready',
+  agent: 'claude',
   createdAt: 0,
   updatedAt: 0,
   workdir: '/tmp/x',

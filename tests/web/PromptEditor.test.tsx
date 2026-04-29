@@ -132,6 +132,7 @@ describe('PromptEditor', () => {
         baseRef: null,
         headRef: null,
         status: 'ready',
+        agent: 'claude',
         createdAt: 0,
         updatedAt: 0,
         workdir: '',

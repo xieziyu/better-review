@@ -1,3 +1,4 @@
+import { AGENT_KINDS } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 
 import { api, queryKeys } from '@/lib/api'
@@ -6,7 +7,8 @@ const CONFIG_SNIPPET = `{
   "port": 0,
   "idleShutdownMinutes": 240,
   "maxConcurrentReviews": 4,
-  "claudeStallMinutes": 3,
+  "stallMinutes": 3,
+  "defaultAgent": "claude",
   "perPRGCDays": 7
 }`
 
@@ -38,12 +40,18 @@ export function Settings() {
           <dt className="font-mono">idleShutdownMinutes</dt>
           <dd>Auto-shutdown when no browser tab is connected for this many minutes.</dd>
           <dt className="font-mono">maxConcurrentReviews</dt>
-          <dd>How many claude processes may run in parallel.</dd>
-          <dt className="font-mono">claudeStallMinutes</dt>
-          <dd>Watchdog kills a claude run with no stdout for this many minutes.</dd>
+          <dd>How many agent processes may run in parallel.</dd>
+          <dt className="font-mono">stallMinutes</dt>
+          <dd>Watchdog kills an agent run with no stdout for this many minutes.</dd>
+          <dt className="font-mono">defaultAgent</dt>
+          <dd>Which review agent to use when a session does not specify one.</dd>
           <dt className="font-mono">perPRGCDays</dt>
           <dd>Garbage-collect per-PR workdirs after this many days.</dd>
         </dl>
+        <p className="text-xs text-gray-500">
+          <code className="font-mono">claudeStallMinutes</code> is accepted as a deprecated alias
+          for <code className="font-mono">stallMinutes</code>.
+        </p>
       </section>
 
       {health && (
@@ -60,10 +68,13 @@ export function Settings() {
             </dd>
             <dt className="text-gray-500">started</dt>
             <dd className="text-xs">{new Date(health.daemon.startedAt).toLocaleString()}</dd>
-            <dt className="text-gray-500">claude</dt>
-            <dd data-testid="claude-path" className="font-mono text-xs">
-              {health.claude.path ?? '(not found)'}
+            <dt className="text-gray-500">default agent</dt>
+            <dd data-testid="default-agent" className="font-mono text-xs">
+              {health.defaultAgent}
             </dd>
+            {AGENT_KINDS.map((k) => (
+              <DaemonAgentRow key={k} kind={k} agent={health.agents[k]} />
+            ))}
             <dt className="text-gray-500">gh</dt>
             <dd data-testid="gh-path" className="font-mono text-xs">
               {health.gh.path ?? '(not found)'} ·{' '}
@@ -81,5 +92,22 @@ export function Settings() {
         </section>
       )}
     </div>
+  )
+}
+
+function DaemonAgentRow({
+  kind,
+  agent,
+}: {
+  kind: 'claude' | 'codex'
+  agent: { found: boolean; path?: string }
+}) {
+  return (
+    <>
+      <dt className="text-gray-500">{kind}</dt>
+      <dd data-testid={`${kind}-path`} className="font-mono text-xs">
+        {agent.path ?? '(not found)'}
+      </dd>
+    </>
   )
 }

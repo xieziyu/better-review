@@ -36,7 +36,8 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
       port: 5555,
       idleShutdownMinutes: 1,
       maxConcurrentReviews: 1,
-      claudeStallMinutes: 1,
+      stallMinutes: 1,
+      defaultAgent: 'claude',
       perPRGCDays: 1,
     },
     getPort: () => 5555,
@@ -48,7 +49,11 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
       overrides.health ??
       (async () => ({
         ok: true,
-        claude: { found: true, path: '/usr/bin/claude' },
+        agents: {
+          claude: { found: true, path: '/usr/bin/claude' },
+          codex: { found: false },
+        },
+        defaultAgent: 'claude',
         gh: { found: true, path: '/usr/bin/gh', authed: true },
         daemon: { pid: 1, port: 5555, startedAt: 1 },
       })),

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import type Database from 'better-sqlite3'
 
-import type { FindingFromClaude } from '../../shared/findings-schema'
+import type { FindingFromAgent } from '../../shared/findings-schema'
 import type { Finding } from '../../shared/types'
 
 interface Row {
@@ -23,11 +23,11 @@ interface Row {
   created_at: number
 }
 
-function rowToFinding(r: Row, claudeId: string): Finding {
+function rowToFinding(r: Row, agentId: string): Finding {
   const f: Finding = {
     dbId: r.id,
     sessionId: r.session_id,
-    id: claudeId,
+    id: agentId,
     ord: r.ord,
     severity: r.severity as Finding['severity'],
     category: r.category,
@@ -58,7 +58,7 @@ export interface UpdateFindingPatch {
 export class FindingsRepo {
   constructor(private db: Database.Database) {}
 
-  insertMany(sessionId: string, items: FindingFromClaude[]): Finding[] {
+  insertMany(sessionId: string, items: FindingFromAgent[]): Finding[] {
     const now = Date.now()
     const insert = this.db.prepare(`
       INSERT INTO findings (id, session_id, ord, severity, category, file, line, start_line, title, body, suggestion, selected, edited, archived, created_at)

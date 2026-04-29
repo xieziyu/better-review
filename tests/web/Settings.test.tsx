@@ -13,7 +13,11 @@ function withClient(ui: React.ReactNode, health?: HealthStatus) {
 
 const healthy: HealthStatus = {
   ok: true,
-  claude: { found: true, path: '/usr/local/bin/claude' },
+  agents: {
+    claude: { found: true, path: '/usr/local/bin/claude' },
+    codex: { found: true, path: '/usr/local/bin/codex' },
+  },
+  defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
   daemon: { pid: 4242, port: 7345, startedAt: 1700000000000 },
 }
@@ -24,14 +28,17 @@ describe('Settings', () => {
     const snippet = screen.getByTestId('config-snippet').textContent ?? ''
     expect(snippet).toMatch(/idleShutdownMinutes/)
     expect(snippet).toMatch(/maxConcurrentReviews/)
-    expect(snippet).toMatch(/claudeStallMinutes/)
+    expect(snippet).toMatch(/stallMinutes/)
+    expect(snippet).toMatch(/defaultAgent/)
   })
 
   it('shows daemon and tooling info from health', () => {
     render(withClient(<Settings />, healthy))
     expect(screen.getByTestId('daemon-pid')).toHaveTextContent('4242')
     expect(screen.getByTestId('daemon-port')).toHaveTextContent('7345')
+    expect(screen.getByTestId('default-agent')).toHaveTextContent('claude')
     expect(screen.getByTestId('claude-path')).toHaveTextContent('/usr/local/bin/claude')
+    expect(screen.getByTestId('codex-path')).toHaveTextContent('/usr/local/bin/codex')
     expect(screen.getByTestId('gh-path')).toHaveTextContent('/usr/local/bin/gh')
   })
 

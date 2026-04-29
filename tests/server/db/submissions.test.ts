@@ -24,6 +24,7 @@ describe('SubmissionsRepo', () => {
       baseRef: null,
       headRef: null,
       status: 'ready',
+      agent: 'claude',
       workdir: '/w',
       promptUsed: 'p',
     })

@@ -10,7 +10,10 @@ export function HealthBanner() {
   })
   if (!data) return null
   const issues: string[] = []
-  if (!data.claude.found) issues.push('`claude` CLI not found in PATH')
+  const def = data.defaultAgent
+  if (!data.agents[def].found) {
+    issues.push(`default agent \`${def}\` not found in PATH`)
+  }
   if (!data.gh.found) issues.push('`gh` CLI not found in PATH')
   else if (!data.gh.authed) issues.push('`gh` is not authenticated — run `gh auth login`')
   if (issues.length === 0) return null

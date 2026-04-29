@@ -21,5 +21,5 @@ export const findingSchema = z
 
 export const findingsFileSchema = z.array(findingSchema)
 
-export type FindingFromClaude = z.infer<typeof findingSchema>
+export type FindingFromAgent = z.infer<typeof findingSchema>
 export type Severity = z.infer<typeof severitySchema>

@@ -8,14 +8,41 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
+import { getAgent } from '../../../src/server/engine/agent'
 import { EventBus } from '../../../src/server/engine/events'
 import { runReview } from '../../../src/server/engine/runner'
-import type { SSEEvent } from '../../../src/shared/types'
+import type { AgentKind, SSEEvent } from '../../../src/shared/types'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const FAKE_CLAUDE = resolve(here, '../../fixtures/fake-claude.sh')
+const FAKE_CODEX = resolve(here, '../../fixtures/fake-codex.sh')
 
-describe('runReview (happy path)', () => {
+interface AgentFixture {
+  kind: AgentKind
+  executable: string
+  bodyEnv: string
+  failEnv: string
+  stallEnv: string
+}
+
+const FIXTURES: AgentFixture[] = [
+  {
+    kind: 'claude',
+    executable: FAKE_CLAUDE,
+    bodyEnv: 'FAKE_CLAUDE_BODY',
+    failEnv: 'FAKE_CLAUDE_FAIL',
+    stallEnv: 'FAKE_CLAUDE_STALL',
+  },
+  {
+    kind: 'codex',
+    executable: FAKE_CODEX,
+    bodyEnv: 'FAKE_CODEX_BODY',
+    failEnv: 'FAKE_CODEX_FAIL',
+    stallEnv: 'FAKE_CODEX_STALL',
+  },
+]
+
+describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
   let workdir: string
   let sessions: SessionsRepo
   let findings: FindingsRepo
@@ -38,13 +65,14 @@ describe('runReview (happy path)', () => {
       baseRef: null,
       headRef: null,
       status: 'running',
+      agent: fx.kind,
       workdir,
       promptUsed: 'p',
     })
   })
 
-  it('transitions to ready with empty findings when claude exits 0 and reports nothing', async () => {
-    process.env.FAKE_CLAUDE_BODY = '[]'
+  it('transitions to ready with empty findings when the agent reports nothing', async () => {
+    process.env[fx.bodyEnv] = '[]'
     try {
       const events: SSEEvent[] = []
       bus.subscribeGlobal((e) => events.push(e))
@@ -54,7 +82,8 @@ describe('runReview (happy path)', () => {
         sessionId: 's1',
         workdir,
         prompt: promptText,
-        claudePath: FAKE_CLAUDE,
+        agent: getAgent(fx.kind),
+        executable: fx.executable,
         sessions,
         findings,
         bus,
@@ -67,11 +96,11 @@ describe('runReview (happy path)', () => {
       expect(events.some((e) => e.type === 'done')).toBe(true)
       expect(events.some((e) => e.type === 'error')).toBe(false)
     } finally {
-      delete process.env.FAKE_CLAUDE_BODY
+      delete process.env[fx.bodyEnv]
     }
   })
 
-  it('spawns claude, parses findings.json, transitions to ready', async () => {
+  it('spawns the agent, parses findings.json, transitions to ready', async () => {
     const events: SSEEvent[] = []
     bus.subscribeGlobal((e) => events.push(e))
     const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
@@ -80,7 +109,8 @@ describe('runReview (happy path)', () => {
       sessionId: 's1',
       workdir,
       prompt: promptText,
-      claudePath: FAKE_CLAUDE,
+      agent: getAgent(fx.kind),
+      executable: fx.executable,
       sessions,
       findings,
       bus,
@@ -94,7 +124,7 @@ describe('runReview (happy path)', () => {
   })
 })
 
-describe('runReview (failure paths)', () => {
+describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
   let workdir: string
   let sessions: SessionsRepo
   let findings: FindingsRepo
@@ -117,20 +147,22 @@ describe('runReview (failure paths)', () => {
       baseRef: null,
       headRef: null,
       status: 'running',
+      agent: fx.kind,
       workdir,
       promptUsed: 'p',
     })
   })
 
   it('transitions to failed on non-zero exit', async () => {
-    process.env.FAKE_CLAUDE_FAIL = '1'
+    process.env[fx.failEnv] = '1'
     try {
       const promptText = `FINDINGS_PATH=${join(workdir, 'findings.json')}`
       await runReview({
         sessionId: 's2',
         workdir,
         prompt: promptText,
-        claudePath: FAKE_CLAUDE,
+        agent: getAgent(fx.kind),
+        executable: fx.executable,
         sessions,
         findings,
         bus,
@@ -138,19 +170,20 @@ describe('runReview (failure paths)', () => {
       })
       expect(sessions.getById('s2')!.status).toBe('failed')
     } finally {
-      delete process.env.FAKE_CLAUDE_FAIL
+      delete process.env[fx.failEnv]
     }
   })
 
-  it('kills stalled claude and marks failed', async () => {
-    process.env.FAKE_CLAUDE_STALL = '1'
+  it('kills a stalled agent and marks failed', async () => {
+    process.env[fx.stallEnv] = '1'
     try {
       const promptText = `FINDINGS_PATH=${join(workdir, 'findings.json')}`
       await runReview({
         sessionId: 's2',
         workdir,
         prompt: promptText,
-        claudePath: FAKE_CLAUDE,
+        agent: getAgent(fx.kind),
+        executable: fx.executable,
         sessions,
         findings,
         bus,
@@ -158,7 +191,7 @@ describe('runReview (failure paths)', () => {
       })
       expect(sessions.getById('s2')!.status).toBe('failed')
     } finally {
-      delete process.env.FAKE_CLAUDE_STALL
+      delete process.env[fx.stallEnv]
     }
   }, 15_000)
 })

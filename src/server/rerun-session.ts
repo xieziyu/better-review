@@ -16,7 +16,10 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     if (!s) throw new Error('not found')
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
-    const fresh = await deps.startSession(`${s.owner}/${s.repo}#${s.number}`)
+    const fresh = await deps.startSession({
+      prInput: `${s.owner}/${s.repo}#${s.number}`,
+      agent: s.agent,
+    })
     return { freshId: fresh.id }
   }
 }
