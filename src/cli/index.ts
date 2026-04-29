@@ -72,9 +72,9 @@ async function cmdRestart(): Promise<void> {
     spawnFn: spawnDetached(paths),
     errorHint: paths.daemonStderr,
   })
-  process.stdout.write(
-    `daemon restarted (pid=${fresh.pid}): http://127.0.0.1:${fresh.port}/\n`,
-  )
+  const url = `http://127.0.0.1:${fresh.port}/`
+  process.stdout.write(`daemon restarted (pid=${fresh.pid}): ${url}\n`)
+  await open(url)
 }
 
 async function stopDaemon(info: ServerInfo, paths: Paths): Promise<void> {
