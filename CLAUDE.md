@@ -11,23 +11,23 @@ User-facing docs live in `README.md` (Chinese). Read it for end-to-end semantics
 ## Common commands
 
 ```bash
-npm run build          # tsc(server) + vite(web) + scripts/copy-assets.mjs
-npm run dev:server     # tsx watch src/server/index.ts (daemon)
-npm run dev:web        # Vite dev server on :5174, proxies /api → 127.0.0.1:7345
-npm run test           # vitest: server + cli + shared (Node env, single fork)
-npm run test:web       # vitest jsdom: tests/web + src/web component tests
-npm run e2e            # Playwright happy path (run `npx playwright install chromium` once)
-npm run lint           # oxlint
-npm run format         # oxfmt (writes); `npm run format:check` to verify in CI
+pnpm run build          # tsc(server) + vite(web) + scripts/copy-assets.mjs
+pnpm run dev:server     # tsx watch src/server/index.ts (daemon)
+pnpm run dev:web        # Vite dev server on :5174, proxies /api → 127.0.0.1:7345
+pnpm run test           # vitest: server + cli + shared (Node env, single fork)
+pnpm run test:web       # vitest jsdom: tests/web + src/web component tests
+pnpm run e2e            # Playwright happy path (run `pnpm exec playwright install chromium` once)
+pnpm run lint           # oxlint
+pnpm run format         # oxfmt (writes); `pnpm run format:check` to verify in CI
 ```
 
 Single-test patterns:
 
 ```bash
-npx vitest run tests/server/engine/findings-parser.test.ts
-npx vitest run -t "fragment of test name"
-npx vitest run --config vitest.web.config.ts tests/web/FindingCard.test.tsx
-npx playwright test tests/e2e/<file>.spec.ts
+pnpm exec vitest run tests/server/engine/findings-parser.test.ts
+pnpm exec vitest run -t "fragment of test name"
+pnpm exec vitest run --config vitest.web.config.ts tests/web/FindingCard.test.tsx
+pnpm exec playwright test tests/e2e/<file>.spec.ts
 ```
 
 The Node-env vitest run is pinned to `pool: "forks"` with `singleFork: true` (see `vitest.config.ts`) because tests share a `better-sqlite3` temp file pattern. Don't parallelize without checking that.
@@ -39,7 +39,7 @@ The Node-env vitest run is pinned to `pool: "forks"` with `singleFork: true` (se
   1. Copies `src/server/db/migrations/*.sql` into `dist/server/db/migrations/`.
   2. Copies `prompts/builtin.md` to `dist/prompts/`.
   3. **Rewrites relative imports in compiled `.js` to add `.js` extensions** (and folds `./foo` → `./foo/index.js` where applicable). This is required because the package is ESM (`"type": "module"`) but the source uses extensionless imports. Don't manually add `.js` to `.ts` imports — rely on this step.
-  4. Chmods `dist/cli/index.js` to 0755 so the bin works after `npm install -g .`.
+  4. Chmods `dist/cli/index.js` to 0755 so the bin works after `pnpm add -g .`.
 - Vite builds the SPA to `dist/web/`. The daemon serves it via Hono static middleware (`webDir = dist/web`) — see `src/server/index.ts:67`.
 
 ## Architecture

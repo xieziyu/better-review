@@ -77,9 +77,9 @@ claude --version         # 任意版本
 ```bash
 git clone <repo-url> better-review
 cd better-review
-npm install
-npm run build
-npm install -g .
+pnpm install
+pnpm run build
+pnpm add -g .
 ```
 
 装完后 `better-review` 命令应该全局可用：
@@ -94,8 +94,8 @@ better-review --help
 ```bash
 git clone <repo-url> better-review
 cd better-review
-npm install
-npm run build
+pnpm install
+pnpm run build
 node dist/cli/index.js --help
 ```
 
@@ -382,23 +382,23 @@ better-review/
 
 ```bash
 # 安装依赖
-npm install
+pnpm install
 
 # 开发模式：分别起 daemon（tsx watch） 和 vite dev server
-npm run dev:server    # 终端 1：tsx watch src/server/index.ts
-npm run dev:web       # 终端 2：vite dev server，代理到 daemon
+pnpm run dev:server    # 终端 1：tsx watch src/server/index.ts
+pnpm run dev:web       # 终端 2：vite dev server，代理到 daemon
 
 # 测试
-npm run test          # vitest，server / cli 测试，约 100+ 用例
-npm run test:web      # vitest jsdom，前端组件测试
-npm run e2e           # Playwright happy path（需要先 npx playwright install chromium）
+pnpm run test          # vitest，server / cli 测试，约 100+ 用例
+pnpm run test:web      # vitest jsdom，前端组件测试
+pnpm run e2e           # Playwright happy path（需要先 pnpm exec playwright install chromium）
 
 # 构建
-npm run build         # tsc + vite build + scripts/copy-assets.mjs
+pnpm run build         # tsc + vite build + scripts/copy-assets.mjs
 
 # 其他
-npm run lint
-npm run format
+pnpm run lint
+pnpm run format
 ```
 
 测试约定：
