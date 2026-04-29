@@ -19,6 +19,7 @@ import { GhClient } from './github/gh-client'
 import { createLogger } from './logger'
 import { resolvePaths } from './paths'
 import { PromptStore } from './prompts/store'
+import { makeRerunSession } from './rerun-session'
 import { makeStartSession } from './start-session'
 
 export interface ServerHandle {
@@ -68,6 +69,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     cwd,
     claudePath,
   })
+  const rerun = makeRerunSession({ sessions, findings, startSession })
 
   let port = 0
   const startedAt = Date.now()
@@ -93,11 +95,8 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     getPort: () => port,
     startSession,
     rerunSession: async (id) => {
-      const s = sessions.getById(id)
-      if (!s) throw new Error('not found')
-      findings.archiveAllForSession(id)
-      const fresh = await startSession(`${s.owner}/${s.repo}#${s.number}`)
-      log.info('rerun started', { id, fresh })
+      const { freshId } = await rerun(id)
+      log.info('rerun started', { id, freshId })
     },
     submitSession: (id, event: ReviewEvent, body) => {
       const submitArgs: Parameters<typeof submitSession>[0] = {

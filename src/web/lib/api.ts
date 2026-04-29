@@ -25,18 +25,21 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
   })
+  const text = await res.text()
   if (!res.ok) {
     let msg = res.statusText
-    try {
-      const body = (await res.json()) as { error?: string }
-      msg = body.error ?? msg
-    } catch {
-      /* ignore */
+    if (text) {
+      try {
+        const body = JSON.parse(text) as { error?: string }
+        msg = body.error ?? msg
+      } catch {
+        /* ignore */
+      }
     }
     throw new ApiError(res.status, msg)
   }
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
 }
 
 export type WritablePromptScope = Exclude<PromptScope, 'cwd'>
