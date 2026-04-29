@@ -83,8 +83,10 @@ git clone <repo-url> better-review
 cd better-review
 pnpm install
 pnpm run build
-pnpm add -g .
+npm install -g .
 ```
+
+如果你希望全程使用 pnpm，也可以在项目目录执行：`pnpm link --global`。
 
 装完后 `better-review` 命令应该全局可用：
 
