@@ -101,15 +101,6 @@ function PreviewFindingRow({
   )
 }
 
-function StatBlock({ label, count }: { label: string; count: number }) {
-  return (
-    <div>
-      <div className="text-caps tracking-caps text-ink-muted uppercase">{label}</div>
-      <div className="font-mono text-display text-ink-primary tabular-nums">{count}</div>
-    </div>
-  )
-}
-
 export function SubmitDrawer({ sessionId, onClose }: Props) {
   const qc = useQueryClient()
   const { data } = useQuery({
@@ -205,20 +196,20 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
       <div className="px-8 pb-32 max-w-3xl space-y-10">
         {step === 1 ? (
           <>
-            <section className="grid grid-cols-3 gap-8 border-y border-rule py-6">
-              <StatBlock label="Inline" count={inline.length} />
-              <StatBlock label="Moved to body" count={movedToBody.length} />
-              <StatBlock label="PR-wide" count={prWide.length} />
-            </section>
-
-            <section data-testid="selection-summary" className="text-meta text-ink-secondary">
-              <span className="font-mono tabular-nums">
+            <section
+              data-testid="selection-summary"
+              className="border-y border-rule py-5 space-y-2"
+            >
+              <div className="font-mono text-h2 text-ink-primary tabular-nums">
                 {selected.length} finding{selected.length === 1 ? '' : 's'} selected of{' '}
                 {findings.length} total
-              </span>
-              <span className="ml-3 font-mono tabular-nums text-ink-muted">
+              </div>
+              <div className="font-mono text-meta text-ink-secondary tabular-nums">
+                inline {inline.length} · body {movedToBody.length} · pr-wide {prWide.length}
+              </div>
+              <div className="font-mono text-meta text-ink-muted tabular-nums">
                 {counts.must} must · {counts.should} should · {counts.nit} nit
-              </span>
+              </div>
             </section>
 
             {inline.length > 0 ? (
@@ -363,9 +354,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               </div>
             ) : (
               <div className="border-y border-rule py-5 space-y-2">
-                <div className="text-caps tracking-caps text-ink-muted uppercase">
-                  Confirmation
-                </div>
+                <div className="text-caps tracking-caps text-ink-muted uppercase">Confirmation</div>
                 <div className="text-h2 text-ink-primary font-mono">
                   {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                 </div>

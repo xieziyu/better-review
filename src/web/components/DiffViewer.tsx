@@ -112,9 +112,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
         </div>
       </header>
       {hunks.length === 0 ? (
-        <div className="px-3 py-2 text-meta text-ink-muted">
-          No diff context near line {line}.
-        </div>
+        <div className="px-3 py-2 text-meta text-ink-muted">No diff context near line {line}.</div>
       ) : (
         <Diff
           viewType="unified"

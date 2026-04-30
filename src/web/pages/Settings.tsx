@@ -120,9 +120,7 @@ export function Settings() {
                 label={k}
                 value={health.agents[k].path ?? '(not found)'}
                 testId={`${k}-path`}
-                trail={
-                  health.agents[k].found ? null : <Tag tone="danger">missing</Tag>
-                }
+                trail={health.agents[k].found ? null : <Tag tone="danger">missing</Tag>}
               />
             ))}
             <Row

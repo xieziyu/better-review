@@ -190,7 +190,10 @@ export function Home() {
         <KbdHint keys={['⏎']} label="start review" />
         <span>·</span>
         <span>Configure default agent in</span>
-        <Link to="/settings" className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline">
+        <Link
+          to="/settings"
+          className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
+        >
           settings
         </Link>
       </footer>

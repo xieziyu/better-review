@@ -13,16 +13,15 @@ import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
-const STATUS_TONE: Record<SessionStatus, 'brand' | 'success' | 'warning' | 'danger' | 'neutral'> =
-  {
-    running: 'success',
-    pending: 'warning',
-    ready: 'brand',
-    failed: 'danger',
-    submitted: 'neutral',
-    archived: 'neutral',
-    cancelled: 'neutral',
-  }
+const STATUS_TONE: Record<SessionStatus, 'brand' | 'success' | 'warning' | 'danger' | 'neutral'> = {
+  running: 'success',
+  pending: 'warning',
+  ready: 'brand',
+  failed: 'danger',
+  submitted: 'neutral',
+  archived: 'neutral',
+  cancelled: 'neutral',
+}
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   running: 'Running',

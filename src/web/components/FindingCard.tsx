@@ -173,10 +173,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
 
         {!editing ? (
           <>
-            <h3
-              id={`f-${finding.dbId}-title`}
-              className="text-h2 text-ink-primary"
-            >
+            <h3 id={`f-${finding.dbId}-title`} className="text-h2 text-ink-primary">
               {finding.title}
             </h3>
             <div className="prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">

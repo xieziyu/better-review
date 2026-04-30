@@ -30,9 +30,9 @@ product
 
 **Confident · Editorial · Quiet-when-quiet, Loud-when-loud**
 
-- *Confident*：每一处选择都是有立场的（「我们就是用 caps wordmark 标 severity，我们就是不用绿色加号红色减号」），不假装中立。
-- *Editorial*：信息有节奏、有层级、像被排版过。不是把每条 finding 包成一张卡，而是像编辑过的批注。
-- *Quiet-when-quiet, Loud-when-loud*：默认状态低噪音；但「有 PR 在 streaming」「daemon 失健」「准备提交 review」这些时刻必须立刻被看见，并且是有美感地被看见。
+- _Confident_：每一处选择都是有立场的（「我们就是用 caps wordmark 标 severity，我们就是不用绿色加号红色减号」），不假装中立。
+- _Editorial_：信息有节奏、有层级、像被排版过。不是把每条 finding 包成一张卡，而是像编辑过的批注。
+- _Quiet-when-quiet, Loud-when-loud_：默认状态低噪音；但「有 PR 在 streaming」「daemon 失健」「准备提交 review」这些时刻必须立刻被看见，并且是有美感地被看见。
 
 ## Anti-references
 
@@ -43,7 +43,7 @@ product
 - **GitHub PR 页**：信息密度可以借鉴，但视觉上是行政化、缺乏立场的。我们要做出态度。
 - **SaaS hero-metric template**：大数字 + 小标签 + 渐变 accent，强 banned。
 - **AI workflow tool 通用模板**：白底 / 浅紫 accent / 圆角卡片 + dot-grid 背景，避免。
-- **Cursor / Warp 那种「重设计的终端」**：他们做的是 IDE / 终端本身；我们是 *围绕* PR review 的窄工具，不该撞他们的形。
+- **Cursor / Warp 那种「重设计的终端」**：他们做的是 IDE / 终端本身；我们是 _围绕_ PR review 的窄工具，不该撞他们的形。
 
 ## Design Principles
 
@@ -56,7 +56,7 @@ product
 ## Accessibility & Inclusion
 
 - 目标 WCAG AA。light / dark 两套 token 中，正文（`--ink-primary`）对画布（`--bg-canvas`）保证 ≥ 4.5:1，meta 文（`--ink-secondary`）保证 ≥ 3:1。
-- Severity 的颜色（`--severity-must / should / nit`）只是 *额外信号*；首要载体是 caps wordmark 文字，色弱用户不会丢失信息。
+- Severity 的颜色（`--severity-must / should / nit`）只是 _额外信号_；首要载体是 caps wordmark 文字，色弱用户不会丢失信息。
 - 所有动效遵守 `prefers-reduced-motion`：sidebar running pulse、drawer transition、hover transition 都在 `@media (prefers-reduced-motion: reduce)` 下退化为 instant。
 - 键盘可达：所有交互（编辑 finding、切换 tab、提交 review、关闭 drawer）都有键盘路径；focus ring 用 `--brand` 1.5px outline-offset 2px，不依赖背景色变化。
 - 不依赖 hover 才能发现的功能：关键 affordance（如 finding 的「按 e 编辑」）默认半透显示，不是只在 hover 时出现。

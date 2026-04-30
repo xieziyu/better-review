@@ -115,9 +115,7 @@ export function PromptEditor() {
               onClick={() => setTab(t.id)}
               className={cn(
                 'relative w-full px-5 py-3 text-left text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
-                tab === t.id
-                  ? 'text-ink-primary'
-                  : 'text-ink-muted hover:text-ink-primary',
+                tab === t.id ? 'text-ink-primary' : 'text-ink-muted hover:text-ink-primary',
               )}
             >
               {tab === t.id ? (
@@ -149,20 +147,12 @@ export function PromptEditor() {
           </div>
           <div className="text-meta text-ink-secondary">
             Source:{' '}
-            <strong
-              data-testid="prompt-source"
-              className="text-ink-primary font-semibold"
-            >
+            <strong data-testid="prompt-source" className="text-ink-primary font-semibold">
               {sourceLabel(data.rules.effective.source)}
             </strong>
           </div>
           {isWritable && eligibleSessions.length > 0 && draft === null ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowApplyModal(true)}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowApplyModal(true)}>
               Apply to current session
             </Button>
           ) : null}
@@ -251,10 +241,10 @@ export function PromptEditor() {
                     Reset to fallback
                   </Button>
                 ) : null}
-                {savedFlash ? (
-                  <Tag tone="success">saved</Tag>
-                ) : null}
-                <span className="ml-auto font-mono text-meta text-ink-muted">{scopeState!.path}</span>
+                {savedFlash ? <Tag tone="success">saved</Tag> : null}
+                <span className="ml-auto font-mono text-meta text-ink-muted">
+                  {scopeState!.path}
+                </span>
               </div>
               {saveMut.isError ? (
                 <div className="text-meta text-severity-must">

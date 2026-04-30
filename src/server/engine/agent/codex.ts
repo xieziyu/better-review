@@ -57,9 +57,7 @@ export class CodexAgent implements ReviewAgent {
       onOutput?.(line)
     }
     const stdoutDone = consumeLines(child.stdout!, handleLine)
-    const stderrDone = child.stderr
-      ? consumeLines(child.stderr, handleLine)
-      : Promise.resolve()
+    const stderrDone = child.stderr ? consumeLines(child.stderr, handleLine) : Promise.resolve()
     const drained = Promise.all([stdoutDone, stderrDone]).then(() => undefined)
 
     return { child, drained }
