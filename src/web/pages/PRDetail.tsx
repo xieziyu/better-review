@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
-import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
+import { Button, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
@@ -376,8 +376,7 @@ export function PRDetail() {
         ) : null}
 
         {selectedCount > 0 ? (
-          <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase flex items-center gap-2">
-            <KbdHint keys={['s']} label="submit" />
+          <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase">
             <span className="text-ink-secondary">{selectedCount} selected</span>
           </div>
         ) : null}

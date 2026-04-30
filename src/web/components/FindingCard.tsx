@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 
 import { DiffViewer } from '@/components/DiffViewer'
-import { Button, KbdHint, SeverityLabel, Tag } from '@/components/ui'
+import { Button, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -82,20 +82,19 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
   })
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
-    if (editing) return
+    if (editing) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setEditing(false)
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        save.mutate()
+      }
+      return
+    }
     if (e.key === 'e' && e.target === cardRef.current) {
       e.preventDefault()
       setEditing(true)
-    }
-  }
-
-  const onEditorKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault()
-      save.mutate()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      setEditing(false)
     }
   }
 
@@ -146,17 +145,16 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
           ) : null}
           {!editing ? (
             <div className="ml-auto flex items-center gap-1">
-              <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-180 ease-out-quart">
-                <KbdHint keys={['e']} label="edit" />
-              </span>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                aria-label="Edit"
-                className="p-1 rounded-sm text-ink-muted hover:text-ink-primary hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-              >
-                <Pencil size={14} aria-hidden="true" />
-              </button>
+              <KbdTooltip keys={['e']} label="edit">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  aria-label="Edit"
+                  className="p-1 rounded-sm text-ink-muted hover:text-ink-primary hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                >
+                  <Pencil size={14} aria-hidden="true" />
+                </button>
+              </KbdTooltip>
               <button
                 type="button"
                 onClick={() => {
@@ -199,7 +197,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             ) : null}
           </>
         ) : (
-          <div onKeyDown={onEditorKeyDown} className="space-y-4">
+          <div className="space-y-4">
             <label className="block">
               <span className="text-caps tracking-caps text-ink-muted uppercase">Title</span>
               <input
@@ -283,19 +281,22 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             </label>
 
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ink"
-                size="sm"
-                onClick={() => save.mutate()}
-                disabled={save.isPending}
-              >
-                {save.isPending ? 'Saving…' : 'Save'}
-              </Button>
-              <KbdHint keys={['⌘', '⏎']} label="save" />
-              <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
+              <KbdTooltip keys={['⌘', '⏎']} label="save">
+                <Button
+                  type="button"
+                  variant="ink"
+                  size="sm"
+                  onClick={() => save.mutate()}
+                  disabled={save.isPending}
+                >
+                  {save.isPending ? 'Saving…' : 'Save'}
+                </Button>
+              </KbdTooltip>
+              <KbdTooltip keys={['Esc']} label="cancel">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
+              </KbdTooltip>
               {save.isError ? (
                 <span className="text-caps tracking-caps text-severity-must uppercase">
                   {save.error instanceof ApiError ? save.error.message : 'save failed'}

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { Button, KbdHint, Tag } from '@/components/ui'
+import { Button, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError, type WritablePromptScope } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -212,16 +212,17 @@ export function PromptEditor() {
                 className="w-full h-[60vh] p-4 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
               />
               <div className="flex items-center gap-3 flex-wrap">
-                <Button
-                  type="button"
-                  variant="ink"
-                  size="sm"
-                  onClick={() => saveMut.mutate()}
-                  disabled={draft === null || saveMut.isPending}
-                >
-                  {saveMut.isPending ? 'Saving…' : `Save to ${tab}`}
-                </Button>
-                <KbdHint keys={['⌘', 'S']} label="save" />
+                <KbdTooltip keys={['⌘', 'S']} label="save">
+                  <Button
+                    type="button"
+                    variant="ink"
+                    size="sm"
+                    onClick={() => saveMut.mutate()}
+                    disabled={draft === null || saveMut.isPending}
+                  >
+                    {saveMut.isPending ? 'Saving…' : `Save to ${tab}`}
+                  </Button>
+                </KbdTooltip>
                 {scopeState!.exists ? (
                   <Button
                     type="button"

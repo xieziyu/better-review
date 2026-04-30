@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
-import { Button, KbdHint, Tag } from '@/components/ui'
+import { Button, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { isLineInDiff } from '@/lib/diff-line-check'
 import { cn } from '@/lib/utils'
@@ -425,8 +425,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 </Button>
               ) : null}
               {step === 2 && !submit.data ? (
-                <>
-                  <KbdHint keys={['⌘', '⏎']} label="submit" />
+                <KbdTooltip keys={['⌘', '⏎']} label="submit">
                   <Button
                     type="button"
                     variant="primary"
@@ -436,7 +435,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   >
                     {submit.isPending ? 'Submitting…' : 'Submit'}
                   </Button>
-                </>
+                </KbdTooltip>
               ) : null}
             </div>
           </div>
