@@ -75,13 +75,7 @@ function findingLocation(finding: Finding): string {
   return `${finding.file}${finding.line ? `:${finding.line}` : ''}`
 }
 
-function PreviewFindingRow({
-  finding,
-  destination,
-}: {
-  finding: Finding
-  destination: 'Inline' | 'Body'
-}) {
+function PreviewFindingRow({ finding }: { finding: Finding }) {
   const sev = SEVERITY_TONE[finding.severity]
   return (
     <div role="listitem" className="py-2.5 first:pt-0 last:pb-0">
@@ -90,7 +84,6 @@ function PreviewFindingRow({
         <span className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[sev])}>
           {finding.severity}
         </span>
-        <Tag tone={destination === 'Inline' ? 'brand' : 'neutral'}>{destination}</Tag>
         {finding.category ? <Tag tone="neutral">{finding.category}</Tag> : null}
         <span className="font-mono text-meta text-ink-secondary truncate min-w-0">
           {findingLocation(finding)}
@@ -233,7 +226,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   </h3>
                   <div data-testid="inline-list" role="list" className="divide-y divide-rule">
                     {inline.map((f) => (
-                      <PreviewFindingRow key={f.dbId} finding={f} destination="Inline" />
+                      <PreviewFindingRow key={f.dbId} finding={f} />
                     ))}
                   </div>
                 </section>
@@ -254,7 +247,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     className="divide-y divide-rule"
                   >
                     {movedToBody.map((f) => (
-                      <PreviewFindingRow key={f.dbId} finding={f} destination="Body" />
+                      <PreviewFindingRow key={f.dbId} finding={f} />
                     ))}
                   </div>
                 </section>
@@ -268,7 +261,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   <p className="text-meta text-ink-secondary mb-2">added to the review body</p>
                   <div data-testid="pr-wide-list" role="list" className="divide-y divide-rule">
                     {prWide.map((f) => (
-                      <PreviewFindingRow key={f.dbId} finding={f} destination="Body" />
+                      <PreviewFindingRow key={f.dbId} finding={f} />
                     ))}
                   </div>
                 </section>

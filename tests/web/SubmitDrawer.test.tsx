@@ -120,7 +120,6 @@ describe('SubmitDrawer', () => {
     const inline = screen.getByTestId('inline-list')
     expect(inline).toHaveTextContent(/R1/)
     expect(inline).toHaveTextContent(/should/)
-    expect(inline).toHaveTextContent(/Inline/)
     expect(inline).toHaveTextContent(/src\/x\.ts:10/)
     expect(inline).toHaveTextContent(/inline title/)
     expect(screen.getByLabelText(/Review body/i)).toBeInTheDocument()
@@ -150,12 +149,10 @@ describe('SubmitDrawer', () => {
     )
     const moved = screen.getByTestId('moved-to-body-list')
     expect(moved).toHaveTextContent(/R2/)
-    expect(moved).toHaveTextContent(/Body/)
     expect(moved).not.toHaveTextContent(/\bR1\b/)
 
     const inline = screen.getByTestId('inline-list')
     expect(inline).toHaveTextContent(/R1/)
-    expect(inline).toHaveTextContent(/Inline/)
   })
 
   it('renders PR-wide findings as body preview cards', () => {
@@ -177,7 +174,6 @@ describe('SubmitDrawer', () => {
 
     const prWide = screen.getByTestId('pr-wide-list')
     expect(prWide).toHaveTextContent(/R1/)
-    expect(prWide).toHaveTextContent(/Body/)
     expect(prWide).toHaveTextContent(/whole PR/)
     expect(prWide).toHaveTextContent(/Architecture note/)
     expect(prWide).toHaveTextContent(/Design/)
