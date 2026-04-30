@@ -3,6 +3,7 @@ import type { Finding, PRSession } from '@shared/types'
 import { useMemo } from 'react'
 
 import { FindingCard } from '@/components/FindingCard'
+import { EmptyState } from '@/components/ui'
 
 const SEVERITY_ORDER: Record<Severity, number> = { must: 0, should: 1, nit: 2 }
 
@@ -54,45 +55,50 @@ export function FindingList({ findings, session, unifiedDiff }: Props) {
 
   if (findings.length === 0) {
     return (
-      <div className="text-sm text-gray-500 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
-        No findings.
-      </div>
+      <EmptyState
+        eyebrow="No findings"
+        title="Nothing to review"
+        body="Either the agent ran cleanly, or it had nothing to say. Rerun to give it another pass."
+      />
     )
   }
 
   return (
-    <div className="space-y-8" role="list">
+    <div role="list">
       {fileGroups.map((g) => (
-        <section key={g.file} className="space-y-3" role="listitem">
-          <h2 className="sticky top-0 z-10 bg-white dark:bg-gray-950 py-2 text-sm font-mono text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800">
-            {g.file}
-            <span className="ml-2 text-xs text-gray-500 font-sans">
-              ({g.items.length} finding{g.items.length === 1 ? '' : 's'})
+        <section key={g.file} role="listitem" className="border-t border-rule first:border-t-0">
+          <h2 className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm py-3 flex items-baseline gap-3">
+            <span className="text-caps tracking-caps text-ink-muted uppercase">File</span>
+            <span className="font-mono text-meta text-ink-secondary tabular-nums truncate">
+              {g.file}
+            </span>
+            <span className="font-mono text-meta text-ink-muted tabular-nums">
+              {g.items.length}
             </span>
           </h2>
-          <div className="space-y-3">
+          <div className="divide-y divide-rule">
             {g.items.map((f) => (
               <FindingCard key={f.dbId} finding={f} session={session} unifiedDiff={unifiedDiff} />
             ))}
           </div>
         </section>
       ))}
-      {prWide.length > 0 && (
-        <section className="space-y-3" role="listitem">
-          <h2 className="sticky top-0 z-10 bg-white dark:bg-gray-950 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800">
-            PR-wide
-            <span className="ml-2 text-xs text-gray-500 font-normal">
-              ({prWide.length} finding{prWide.length === 1 ? '' : 's'} · added to review body on
-              submit)
+      {prWide.length > 0 ? (
+        <section role="listitem" className="border-t border-rule">
+          <h2 className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm py-3 flex items-baseline gap-3">
+            <span className="text-caps tracking-caps text-ink-muted uppercase">PR-wide</span>
+            <span className="text-meta text-ink-secondary">added to review body on submit</span>
+            <span className="ml-auto font-mono text-meta text-ink-muted tabular-nums">
+              {prWide.length}
             </span>
           </h2>
-          <div className="space-y-3">
+          <div className="divide-y divide-rule">
             {prWide.map((f) => (
               <FindingCard key={f.dbId} finding={f} session={session} unifiedDiff={unifiedDiff} />
             ))}
           </div>
         </section>
-      )}
+      ) : null}
     </div>
   )
 }

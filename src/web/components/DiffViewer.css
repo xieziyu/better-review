@@ -1,21 +1,18 @@
 .diff-code-selected {
-  background-color: rgb(254 240 138 / 0.6) !important;
-  box-shadow: inset 3px 0 0 rgb(217 119 6);
+  background-color: color-mix(in oklch, var(--brand) 14%, transparent) !important;
+  box-shadow: inset 2px 0 0 var(--brand);
 }
 
 .diff-gutter-selected {
-  background-color: rgb(254 240 138 / 0.85) !important;
-  color: rgb(120 53 15) !important;
+  background-color: color-mix(in oklch, var(--brand) 24%, transparent) !important;
+  color: var(--brand) !important;
   font-weight: 600;
 }
 
-.dark .diff-code-selected {
-  background-color: rgb(120 53 15 / 0.55) !important;
-  box-shadow: inset 3px 0 0 rgb(245 158 11);
+[data-theme='dark'] .diff-code-selected {
+  background-color: color-mix(in oklch, var(--brand) 22%, transparent) !important;
 }
 
-.dark .diff-gutter-selected {
-  background-color: rgb(120 53 15 / 0.75) !important;
-  color: rgb(252 211 77) !important;
-  font-weight: 600;
+[data-theme='dark'] .diff-gutter-selected {
+  background-color: color-mix(in oklch, var(--brand) 30%, transparent) !important;
 }

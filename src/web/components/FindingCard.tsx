@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 
 import { DiffViewer } from '@/components/DiffViewer'
+import { Button, KbdHint, SeverityLabel, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -16,36 +17,17 @@ interface Props {
   unifiedDiff: string | null
 }
 
-type SeverityTokens = { icon: string; label: string; border: string; stripe: string; text: string }
+const SEVERITY_LIST: Severity[] = ['must', 'should', 'nit']
 
-const SEVERITY_TOKENS: Record<Severity, SeverityTokens> = {
-  must: {
-    icon: '●',
-    label: 'must',
-    border: 'border-l-red-600 dark:border-l-red-500',
-    stripe: 'bg-red-50 dark:bg-red-950/40',
-    text: 'text-red-700 dark:text-red-300',
-  },
-  should: {
-    icon: '◐',
-    label: 'should',
-    border: 'border-l-amber-500 dark:border-l-amber-400',
-    stripe: 'bg-amber-50 dark:bg-amber-950/40',
-    text: 'text-amber-700 dark:text-amber-300',
-  },
-  nit: {
-    icon: '○',
-    label: 'nit',
-    border: 'border-l-emerald-600 dark:border-l-emerald-500',
-    stripe: 'bg-emerald-50 dark:bg-emerald-950/40',
-    text: 'text-emerald-700 dark:text-emerald-300',
-  },
+const SEVERITY_LABEL: Record<Severity, string> = {
+  must: 'must',
+  should: 'should',
+  nit: 'nit',
 }
 
 function githubLineLink(session: PRSession, file: string, line: number | null): string {
   const base = session.url ? `${session.url}/files` : '#'
   const anchor = line ? `R${line}` : ''
-  // Best-effort GitHub anchor; users can click to navigate.
   return `${base}#diff-${encodeURIComponent(file)}${anchor}`
 }
 
@@ -101,7 +83,6 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     if (editing) return
-    // Only trigger 'e' when the card itself (not a child input) is focused.
     if (e.key === 'e' && e.target === cardRef.current) {
       e.preventDefault()
       setEditing(true)
@@ -118,8 +99,6 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
     }
   }
 
-  const tokens = SEVERITY_TOKENS[finding.severity]!
-
   return (
     <article
       ref={(el) => {
@@ -129,57 +108,54 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
       aria-labelledby={`f-${finding.dbId}-title`}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className={cn(
-        'group relative rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 border-l-4 focus:outline-none focus:ring-2 focus:ring-blue-500',
-        tokens.border,
-      )}
+      className="group relative flex gap-5 py-5 outline-none"
     >
-      <div
-        className={cn('absolute left-0 top-0 bottom-0 w-1.5 pointer-events-none', tokens.stripe)}
-      />
-      <div className="p-4 space-y-3">
-        <header className="flex items-center gap-2 flex-wrap">
+      <div className="shrink-0 pt-0.5">
+        <SeverityLabel level={finding.severity} />
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-3">
+        <header className="flex items-center gap-2.5 flex-wrap">
           <input
             type="checkbox"
             checked={finding.selected}
             onChange={() => select.mutate()}
             aria-label={`Select finding ${finding.id}`}
-            className="h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+            className="h-3.5 w-3.5 rounded-sm border border-rule accent-brand focus:outline-none"
           />
-          <span className="font-mono text-xs text-gray-500">{finding.id}</span>
-          <span className={cn('inline-flex items-center gap-1 text-xs font-medium', tokens.text)}>
-            <span aria-hidden>{tokens.icon}</span>
-            <span>{tokens.label}</span>
-          </span>
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-            {finding.category}
-          </span>
-          <span className="font-mono text-xs text-gray-500">
+          <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+          <Tag tone="neutral">{finding.category}</Tag>
+          <span className="font-mono text-meta text-ink-secondary truncate">
             {finding.file
               ? `${finding.file}${finding.line ? `:${finding.line}` : ''}`
               : '(whole PR)'}
           </span>
-          {finding.file && session.url && (
+          {finding.file && session.url ? (
             <a
               href={githubLineLink(session, finding.file, finding.line)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600"
+              className="text-ink-muted hover:text-brand transition-colors duration-180 ease-out-quart"
               aria-label="Open on GitHub"
             >
-              <ExternalLink size={12} />
+              <ExternalLink size={12} aria-hidden="true" />
             </a>
-          )}
-          {finding.edited && <Pencil size={12} className="text-gray-500" aria-label="Edited" />}
-          {!editing && (
-            <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+          ) : null}
+          {finding.edited ? (
+            <Pencil size={12} className="text-ink-muted" aria-label="Edited" />
+          ) : null}
+          {!editing ? (
+            <div className="ml-auto flex items-center gap-1">
+              <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-180 ease-out-quart">
+                <KbdHint keys={['e']} label="edit" />
+              </span>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
                 aria-label="Edit"
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="p-1 rounded-sm text-ink-muted hover:text-ink-primary hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
               >
-                <Pencil size={14} className="text-gray-600 dark:text-gray-400" />
+                <Pencil size={14} aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -187,76 +163,76 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                   if (confirm(`Delete finding ${finding.id}?`)) remove.mutate()
                 }}
                 aria-label="Delete"
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="p-1 rounded-sm text-ink-muted hover:text-severity-must hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
               >
-                <Trash2 size={14} className="text-gray-600 dark:text-gray-400" />
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             </div>
-          )}
+          ) : null}
         </header>
 
         {!editing ? (
           <>
             <h3
               id={`f-${finding.dbId}-title`}
-              className="text-base font-medium text-gray-900 dark:text-gray-100"
+              className="text-h2 text-ink-primary"
             >
               {finding.title}
             </h3>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
               <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{finding.body}</ReactMarkdown>
             </div>
-            {finding.file && finding.line !== null && (
+            {finding.file && finding.line !== null ? (
               <DiffViewer
                 unifiedDiff={unifiedDiff}
                 file={finding.file}
                 line={finding.line}
                 findingId={finding.id}
               />
-            )}
-            {finding.suggestion && (
-              <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3">
-                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+            ) : null}
+            {finding.suggestion ? (
+              <div className="border-t border-rule pt-3">
+                <div className="text-caps tracking-caps text-ink-muted uppercase mb-1.5">
                   Suggestion
                 </div>
-                <pre className="text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                <pre className="font-mono text-code text-ink-primary bg-sunken border border-rule rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                   <code>{finding.suggestion}</code>
                 </pre>
               </div>
-            )}
+            ) : null}
           </>
         ) : (
-          <div onKeyDown={onEditorKeyDown} className="space-y-3">
+          <div onKeyDown={onEditorKeyDown} className="space-y-4">
             <label className="block">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Title</span>
+              <span className="text-caps tracking-caps text-ink-muted uppercase">Title</span>
               <input
                 type="text"
                 aria-label="Title"
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-1 w-full bg-transparent border-b border-rule py-1 text-h2 text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart"
               />
             </label>
 
             <fieldset>
-              <legend className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <legend className="text-caps tracking-caps text-ink-muted uppercase mb-1.5">
                 Severity
               </legend>
-              <div
-                role="radiogroup"
-                className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden"
-              >
-                {(Object.keys(SEVERITY_TOKENS) as Severity[]).map((sev) => {
-                  const tok = SEVERITY_TOKENS[sev]!
+              <div role="radiogroup" className="inline-flex gap-1">
+                {SEVERITY_LIST.map((sev) => {
                   const active = draft.severity === sev
                   return (
                     <label
                       key={sev}
                       className={cn(
-                        'px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1',
+                        'px-2.5 py-1 rounded-sm cursor-pointer text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
                         active
-                          ? `${tok.stripe} ${tok.text}`
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-800',
+                          ? sev === 'must'
+                            ? 'bg-severity-must/15 text-severity-must'
+                            : sev === 'should'
+                              ? 'bg-severity-should/15 text-severity-should'
+                              : 'bg-severity-nit/15 text-severity-nit'
+                          : 'text-ink-muted hover:text-ink-primary hover:bg-raised',
                       )}
                     >
                       <input
@@ -265,34 +241,31 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                         value={sev}
                         checked={active}
                         onChange={() => setDraft({ ...draft, severity: sev })}
-                        aria-label={tok.label}
+                        aria-label={SEVERITY_LABEL[sev]}
                         className="sr-only"
                       />
-                      <span aria-hidden>{tok.icon}</span>
-                      <span>{tok.label}</span>
+                      {SEVERITY_LABEL[sev]}
                     </label>
                   )
                 })}
               </div>
             </fieldset>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-caps tracking-caps text-ink-muted uppercase">
                   Body (markdown)
                 </span>
                 <textarea
                   aria-label="Body"
                   value={draft.body}
                   onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                  className="mt-1 w-full h-48 p-2 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="mt-1 w-full h-48 p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
                 />
               </label>
               <div className="block">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Preview
-                </span>
-                <div className="mt-1 h-48 p-2 text-sm rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 overflow-auto prose prose-sm dark:prose-invert max-w-none">
+                <span className="text-caps tracking-caps text-ink-muted uppercase">Preview</span>
+                <div className="mt-1 h-48 p-3 rounded-md bg-sunken border border-rule overflow-auto prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline">
                   <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                     {draft.body || '*(empty)*'}
                   </ReactMarkdown>
@@ -301,39 +274,36 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             </div>
 
             <label className="block">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-caps tracking-caps text-ink-muted uppercase">
                 Suggestion (optional)
               </span>
               <textarea
                 aria-label="Suggestion"
                 value={draft.suggestion}
                 onChange={(e) => setDraft({ ...draft, suggestion: e.target.value })}
-                className="mt-1 w-full h-24 p-2 text-xs font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                className="mt-1 w-full h-24 p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
               />
             </label>
 
-            <div className="flex items-center gap-2">
-              <button
+            <div className="flex items-center gap-3">
+              <Button
                 type="button"
+                variant="ink"
+                size="sm"
                 onClick={() => save.mutate()}
                 disabled={save.isPending}
-                className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
               >
                 {save.isPending ? 'Saving…' : 'Save'}
-              </button>
-              <span className="text-xs text-gray-500">⌘↵</span>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
+              </Button>
+              <KbdHint keys={['⌘', '⏎']} label="save" />
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
                 Cancel
-              </button>
-              {save.isError && (
-                <span className="text-xs text-red-600 dark:text-red-400">
-                  {save.error instanceof ApiError ? save.error.message : 'Save failed'}
+              </Button>
+              {save.isError ? (
+                <span className="text-caps tracking-caps text-severity-must uppercase">
+                  {save.error instanceof ApiError ? save.error.message : 'save failed'}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         )}

@@ -61,7 +61,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
       <div
         role="region"
         aria-label={`Code context for finding ${findingId}`}
-        className="rounded-md border border-dashed border-gray-300 dark:border-gray-700 px-3 py-2 text-xs text-gray-500"
+        className="border-t border-rule px-3 py-2 text-meta text-ink-muted italic"
       >
         Loading diff…
       </div>
@@ -73,9 +73,9 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
       <div
         role="region"
         aria-label={`Code context for finding ${findingId}`}
-        className="rounded-md border border-dashed border-gray-300 dark:border-gray-700 px-3 py-2 text-xs text-gray-500"
+        className="border-t border-rule px-3 py-2 text-meta text-ink-muted"
       >
-        File not in diff: <span className="font-mono">{file}</span>
+        File not in diff: <span className="font-mono text-ink-secondary">{file}</span>
       </div>
     )
   }
@@ -84,19 +84,19 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
     <div
       role="region"
       aria-label={`Code context for finding ${findingId}`}
-      className="rounded-md border border-gray-200 dark:border-gray-800 overflow-hidden"
+      className="border border-rule rounded-md overflow-hidden bg-sunken"
     >
-      <header className="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-gray-900 text-xs font-mono border-b border-gray-200 dark:border-gray-800">
-        <span className="text-gray-600 dark:text-gray-400">
+      <header className="flex items-center justify-between px-3 py-1.5 border-b border-rule">
+        <span className="font-mono text-meta text-ink-secondary tabular-nums">
           {file}
           {line ? `:${line}` : ''}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-caps tracking-caps uppercase">
           {level === 'hunk' ? (
             <button
               type="button"
               onClick={() => setLevel('full')}
-              className="text-blue-600 hover:underline"
+              className="text-ink-secondary hover:text-brand transition-colors duration-180 ease-out-quart"
             >
               Expand full file
             </button>
@@ -104,7 +104,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
             <button
               type="button"
               onClick={() => setLevel('hunk')}
-              className="text-gray-500 hover:underline"
+              className="text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
             >
               Collapse
             </button>
@@ -112,7 +112,9 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
         </div>
       </header>
       {hunks.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-gray-500">No diff context near line {line}.</div>
+        <div className="px-3 py-2 text-meta text-ink-muted">
+          No diff context near line {line}.
+        </div>
       ) : (
         <Diff
           viewType="unified"

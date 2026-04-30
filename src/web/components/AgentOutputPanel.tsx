@@ -1,8 +1,7 @@
 import type { SessionStatus } from '@shared/types'
-import { Loader2, Terminal } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { cn } from '@/lib/utils'
+import { ScrollPin } from '@/components/ui'
 
 interface Props {
   chunks: string[]
@@ -14,8 +13,8 @@ const PIN_THRESHOLD_PX = 40
 export function AgentOutputPanel({ chunks, status }: Props) {
   const isRunning = status === 'running'
   const [open, setOpen] = useState<boolean>(isRunning)
+  const [unpinned, setUnpinned] = useState(false)
   const bodyRef = useRef<HTMLDivElement | null>(null)
-  const pinnedRef = useRef<boolean>(true)
 
   useEffect(() => {
     setOpen(isRunning)
@@ -23,9 +22,9 @@ export function AgentOutputPanel({ chunks, status }: Props) {
 
   useLayoutEffect(() => {
     const el = bodyRef.current
-    if (!el || !pinnedRef.current) return
+    if (!el || unpinned) return
     el.scrollTop = el.scrollHeight
-  }, [chunks])
+  }, [chunks, unpinned])
 
   if (!isRunning && chunks.length === 0) return null
 
@@ -33,56 +32,63 @@ export function AgentOutputPanel({ chunks, status }: Props) {
     const el = bodyRef.current
     if (!el) return
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    pinnedRef.current = distanceFromBottom <= PIN_THRESHOLD_PX
+    setUnpinned(distanceFromBottom > PIN_THRESHOLD_PX)
+  }
+
+  const followBottom = () => {
+    setUnpinned(false)
+    const el = bodyRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }
 
   return (
     <details
       open={open}
       onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
-      className="rounded-md border border-gray-200 dark:border-gray-800 overflow-hidden"
+      className="group rounded-md border border-rule overflow-hidden bg-raised/40"
     >
-      <summary
-        className={cn(
-          'flex items-center gap-2 px-3 py-2 text-sm cursor-pointer select-none',
-          'bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300',
-          'hover:bg-gray-100 dark:hover:bg-gray-800/60',
-        )}
-      >
-        <Terminal size={14} className="text-gray-500" aria-hidden />
-        <span className="font-medium">Agent output</span>
-        {isRunning && (
+      <summary className="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <span className="text-caps tracking-caps text-ink-muted uppercase">Agent output</span>
+        {isRunning ? (
           <span
-            className="inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-300"
+            className="inline-flex items-center gap-1.5 text-caps tracking-caps text-accent-running uppercase"
             aria-label="streaming"
           >
-            <Loader2 size={12} className="animate-spin" />
-            streaming…
+            <span
+              className="inline-block size-1.5 rounded-full bg-accent-running animate-running-pulse"
+              aria-hidden="true"
+            />
+            streaming
           </span>
-        )}
-        <span className="ml-auto text-xs font-mono text-gray-500">{chunks.length}</span>
+        ) : null}
+        <span className="ml-auto font-mono text-meta text-ink-secondary tabular-nums">
+          {chunks.length}
+        </span>
       </summary>
-      <div
-        ref={bodyRef}
-        onScroll={onScroll}
-        role="log"
-        aria-live="polite"
-        aria-label="Agent output transcript"
-        className={cn(
-          'max-h-[360px] overflow-y-auto px-3 py-2',
-          'bg-white dark:bg-gray-950',
-          'border-t border-gray-200 dark:border-gray-800',
-        )}
-      >
-        {chunks.length === 0 ? (
-          <div className="text-xs text-gray-500 italic">
-            Waiting for the agent to start streaming…
+      <div className="relative border-t border-rule">
+        <div
+          ref={bodyRef}
+          onScroll={onScroll}
+          role="log"
+          aria-live="polite"
+          aria-label="Agent output transcript"
+          className="max-h-[420px] overflow-y-auto px-4 py-3 bg-sunken"
+        >
+          {chunks.length === 0 ? (
+            <div className="text-meta text-ink-muted italic">Waiting for the agent…</div>
+          ) : (
+            <pre className="font-mono text-code text-ink-primary whitespace-pre-wrap break-words">
+              {chunks.join('\n')}
+            </pre>
+          )}
+        </div>
+        {unpinned && chunks.length > 0 ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-end pr-3">
+            <div className="pointer-events-auto">
+              <ScrollPin pinnedLines={chunks.length} onFollow={followBottom} />
+            </div>
           </div>
-        ) : (
-          <pre className="text-xs font-mono whitespace-pre-wrap break-words text-gray-800 dark:text-gray-200 leading-relaxed">
-            {chunks.join('\n')}
-          </pre>
-        )}
+        ) : null}
       </div>
     </details>
   )

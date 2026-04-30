@@ -1,83 +1,53 @@
 import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  RotateCw,
-  ExternalLink,
-  Loader2,
-  Check,
-  AlertTriangle,
-  CheckCheck,
-  Trash2,
-  CircleSlash,
-  Square,
-} from 'lucide-react'
+import { ExternalLink, RotateCw, Square, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
+import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
-const STATUS_BADGE: Record<SessionStatus, { label: string; cls: string }> = {
-  running: {
-    label: 'running',
-    cls: 'text-blue-700 bg-blue-50 dark:text-blue-300 dark:bg-blue-950/40',
-  },
-  pending: {
-    label: 'pending',
-    cls: 'text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/40',
-  },
-  ready: {
-    label: 'ready',
-    cls: 'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
-  },
-  failed: {
-    label: 'failed',
-    cls: 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-950/40',
-  },
-  submitted: {
-    label: 'submitted',
-    cls: 'text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-950/40',
-  },
-  archived: {
-    label: 'archived',
-    cls: 'text-gray-500 bg-gray-100 dark:bg-gray-800',
-  },
-  cancelled: {
-    label: 'cancelled',
-    cls: 'text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-800',
-  },
+const STATUS_TONE: Record<SessionStatus, 'brand' | 'success' | 'warning' | 'danger' | 'neutral'> =
+  {
+    running: 'success',
+    pending: 'warning',
+    ready: 'brand',
+    failed: 'danger',
+    submitted: 'neutral',
+    archived: 'neutral',
+    cancelled: 'neutral',
+  }
+
+const STATUS_LABEL: Record<SessionStatus, string> = {
+  running: 'Running',
+  pending: 'Pending',
+  ready: 'Ready',
+  failed: 'Failed',
+  submitted: 'Submitted',
+  archived: 'Archived',
+  cancelled: 'Cancelled',
 }
 
-function StatusBadge({ status }: { status: SessionStatus }) {
-  const { label, cls } = STATUS_BADGE[status]
-  const Icon =
-    status === 'running'
-      ? Loader2
-      : status === 'ready'
-        ? Check
-        : status === 'failed'
-          ? AlertTriangle
-          : status === 'submitted'
-            ? CheckCheck
-            : status === 'cancelled'
-              ? CircleSlash
-              : null
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-        cls,
-      )}
-    >
-      {Icon && <Icon size={12} className={status === 'running' ? 'animate-spin' : undefined} />}
-      {label}
-    </span>
-  )
+interface PRHeaderProps {
+  session: PRSession
+  selectedCount: number
+  onRerun: () => void
+  onSubmit: () => void
+  onDelete: () => void
+  onCancel: () => void
+  rerunPending: boolean
+  deletePending: boolean
+  cancelPending: boolean
+  rerunAgent: AgentKind
+  onRerunAgentChange: (kind: AgentKind) => void
+  health: HealthStatus | undefined
+  justSwitched: boolean
 }
 
 function PRHeader({
@@ -94,105 +64,95 @@ function PRHeader({
   onRerunAgentChange,
   health,
   justSwitched,
-}: {
-  session: PRSession
-  selectedCount: number
-  onRerun: () => void
-  onSubmit: () => void
-  onDelete: () => void
-  onCancel: () => void
-  rerunPending: boolean
-  deletePending: boolean
-  cancelPending: boolean
-  rerunAgent: AgentKind
-  onRerunAgentChange: (kind: AgentKind) => void
-  health: HealthStatus | undefined
-  justSwitched: boolean
-}) {
+}: PRHeaderProps) {
   return (
-    <header className="space-y-2">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-        {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
-      </h1>
-      <div className="flex items-center gap-3 text-sm text-gray-500">
-        <span className="font-mono">
+    <header className="space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <Tag tone={STATUS_TONE[session.status]} data-status={session.status}>
+          {STATUS_LABEL[session.status]}
+        </Tag>
+        <span className="font-mono text-meta text-ink-secondary tabular-nums">
           {session.owner}/{session.repo}#{session.number}
         </span>
-        {session.author && <span>@{session.author}</span>}
-        <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-          {session.agent}
-        </span>
-        {session.url && (
+        {session.author ? (
+          <span className="font-mono text-meta text-ink-secondary">@{session.author}</span>
+        ) : null}
+        <span className="font-mono text-meta text-ink-muted">agent: {session.agent}</span>
+        {session.url ? (
           <a
             href={session.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 hover:text-blue-600"
+            className="inline-flex items-center gap-1 text-meta text-ink-secondary hover:text-brand transition-colors duration-180 ease-out-quart"
           >
-            <ExternalLink size={12} />
+            <ExternalLink size={12} aria-hidden="true" />
             open on GitHub
           </a>
-        )}
-      </div>
-      <div className="flex items-center gap-3 pt-2">
-        <StatusBadge status={session.status} />
-        {justSwitched && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 animate-pulse">
+        ) : null}
+        {justSwitched ? (
+          <Tag tone="brand" className="animate-running-pulse">
             new run started
-          </span>
-        )}
-        {session.status === 'submitted' && (
-          <span className="text-xs text-gray-500">Submitted to GitHub.</span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          <fieldset
-            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400"
-            aria-label="Rerun agent"
-          >
-            {AGENT_KINDS.map((k) => {
-              const found = health?.agents[k].found ?? true
-              const selected = rerunAgent === k
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => onRerunAgentChange(k)}
-                  disabled={!found || rerunPending}
-                  aria-pressed={selected}
-                  title={found ? undefined : `${k} CLI not found in PATH`}
-                  className={cn(
-                    'px-2 py-1 rounded-md font-mono border transition-colors',
-                    selected
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-blue-400',
-                    !found && 'opacity-40 cursor-not-allowed',
-                  )}
-                >
-                  {k}
-                </button>
-              )
-            })}
-          </fieldset>
-          {session.status === 'running' && (
-            <button
+          </Tag>
+        ) : null}
+        {session.status === 'submitted' ? (
+          <span className="text-meta text-ink-secondary">Submitted to GitHub.</span>
+        ) : null}
+      </div>
+      <h1 className="text-display text-ink-primary">
+        {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
+      </h1>
+
+      <div className="flex items-center gap-3 pt-2 flex-wrap">
+        <fieldset
+          className="flex items-center gap-1 text-meta text-ink-secondary"
+          aria-label="Rerun agent"
+        >
+          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Rerun</legend>
+          {AGENT_KINDS.map((k) => {
+            const found = health?.agents[k].found ?? true
+            const selected = rerunAgent === k
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => onRerunAgentChange(k)}
+                disabled={!found || rerunPending}
+                aria-pressed={selected}
+                title={found ? undefined : `${k} CLI not found in PATH`}
+                className={cn(
+                  'px-2.5 py-1 rounded-sm font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
+                  selected
+                    ? 'bg-ink-primary text-canvas'
+                    : 'text-ink-secondary hover:text-ink-primary hover:bg-raised',
+                  !found && 'opacity-40 cursor-not-allowed',
+                )}
+              >
+                {k}
+              </button>
+            )
+          })}
+        </fieldset>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {session.status === 'running' ? (
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 if (confirm('停止当前 review？已收集的 findings 会保留。')) onCancel()
               }}
               disabled={cancelPending}
               aria-label="Cancel running review"
-              title="Cancel running review"
-              className="p-1.5 rounded-md text-gray-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-50"
             >
-              <Square
-                size={14}
-                className={cancelPending ? 'animate-pulse' : undefined}
-                fill="currentColor"
-              />
-            </button>
-          )}
-          <button
+              <Square size={12} fill="currentColor" aria-hidden="true" />
+              Cancel
+            </Button>
+          ) : null}
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               const msg =
                 session.status === 'running'
@@ -202,13 +162,14 @@ function PRHeader({
             }}
             disabled={deletePending}
             aria-label="Delete session"
-            title="Delete session"
-            className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
           >
-            <Trash2 size={14} className={deletePending ? 'animate-pulse' : undefined} />
-          </button>
-          <button
+            <Trash2 size={12} aria-hidden="true" />
+            Delete
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               if (session.status === 'running') {
                 if (
@@ -221,20 +182,20 @@ function PRHeader({
               onRerun()
             }}
             disabled={rerunPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
           >
-            <RotateCw size={14} className={rerunPending ? 'animate-spin' : undefined} />
+            <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
             Rerun
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ink"
+            size="md"
             onClick={onSubmit}
             disabled={selectedCount === 0}
-            className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed"
             title={selectedCount === 0 ? 'Select at least one finding' : undefined}
           >
-            Submit{selectedCount > 0 ? ` (${selectedCount})` : ''}
-          </button>
+            Submit{selectedCount > 0 ? ` · ${selectedCount}` : ''}
+          </Button>
         </div>
       </div>
     </header>
@@ -317,10 +278,12 @@ export function PRDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="p-6 max-w-5xl mx-auto space-y-3 animate-pulse">
-        <div className="h-5 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
-        <div className="h-4 w-1/3 bg-gray-200 dark:bg-gray-800 rounded" />
-        <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded mt-6" />
+      <div className="px-8 py-10 max-w-3xl space-y-4">
+        <div className="text-caps tracking-caps text-ink-muted uppercase">Loading</div>
+        <div className="h-8 w-2/3 bg-raised rounded" />
+        <div className="h-px w-full bg-rule" />
+        <div className="h-3 w-full bg-raised/70 rounded" />
+        <div className="h-3 w-5/6 bg-raised/70 rounded" />
       </div>
     )
   }
@@ -332,79 +295,96 @@ export function PRDetail() {
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <PRHeader
-        session={session}
-        selectedCount={selectedCount}
-        onRerun={() => rerun.mutate(effectiveRerunAgent)}
-        onSubmit={() => setSubmitOpen(true)}
-        onDelete={() => remove.mutate()}
-        onCancel={() => cancel.mutate()}
-        rerunPending={rerun.isPending}
-        deletePending={remove.isPending}
-        cancelPending={cancel.isPending}
-        rerunAgent={effectiveRerunAgent}
-        onRerunAgentChange={setRerunAgent}
-        health={health}
-        justSwitched={justSwitched}
-      />
+    <div className="px-8 py-8 mx-auto" style={{ width: 'clamp(720px, 84vw, 980px)' }}>
+      <div className="space-y-8">
+        <PRHeader
+          session={session}
+          selectedCount={selectedCount}
+          onRerun={() => rerun.mutate(effectiveRerunAgent)}
+          onSubmit={() => setSubmitOpen(true)}
+          onDelete={() => remove.mutate()}
+          onCancel={() => cancel.mutate()}
+          rerunPending={rerun.isPending}
+          deletePending={remove.isPending}
+          cancelPending={cancel.isPending}
+          rerunAgent={effectiveRerunAgent}
+          onRerunAgentChange={setRerunAgent}
+          health={health}
+          justSwitched={justSwitched}
+        />
 
-      <AgentOutputPanel chunks={agentChunks} status={session.status} />
+        <AgentOutputPanel chunks={agentChunks} status={session.status} />
 
-      {session.error && (
-        <div className="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          <div className="font-medium">Session error</div>
-          <div className="mt-1">{session.error}</div>
-        </div>
-      )}
-
-      {rerun.isError && (
-        <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-          {rerun.error instanceof ApiError ? rerun.error.message : 'Rerun failed'}
-        </div>
-      )}
-
-      {remove.isError && (
-        <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-          {remove.error instanceof ApiError ? remove.error.message : 'Delete failed'}
-        </div>
-      )}
-
-      {cancel.isError && (
-        <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-          {cancel.error instanceof ApiError ? cancel.error.message : 'Cancel failed'}
-        </div>
-      )}
-
-      {session.status === 'running' && activeFindings.length === 0 && (
-        <div className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-4 py-6 text-sm text-blue-700 dark:text-blue-300 text-center">
-          <Loader2 size={18} className="inline-block mr-2 animate-spin" />
-          {session.agent} is reviewing… findings will stream in here as they're produced.
-        </div>
-      )}
-
-      {session.status === 'ready' && activeFindings.length === 0 && (
-        <div className="rounded-md border border-dashed border-gray-300 dark:border-gray-700 px-6 py-8 text-center">
-          <div className="text-sm text-gray-700 dark:text-gray-300">
-            No issues found. Either the PR is clean, or the prompt missed something.
+        {session.error ? (
+          <div className="border-l-[1px] border-severity-must pl-4 py-2">
+            <div className="text-caps tracking-caps text-severity-must uppercase mb-1">
+              Session error
+            </div>
+            <div className="text-body text-ink-primary">{session.error}</div>
           </div>
-          <div className="mt-3 flex justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => rerun.mutate(effectiveRerunAgent)}
-              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              Rerun with {effectiveRerunAgent}
-            </button>
+        ) : null}
+
+        {rerun.isError ? (
+          <div className="text-meta text-severity-must">
+            {rerun.error instanceof ApiError ? rerun.error.message : 'Rerun failed'}
           </div>
-        </div>
-      )}
+        ) : null}
 
-      {activeFindings.length > 0 && (
-        <FindingList findings={activeFindings} session={session} unifiedDiff={inlineDiff} />
-      )}
+        {remove.isError ? (
+          <div className="text-meta text-severity-must">
+            {remove.error instanceof ApiError ? remove.error.message : 'Delete failed'}
+          </div>
+        ) : null}
 
-      {submitOpen && <SubmitDrawer sessionId={id} onClose={() => setSubmitOpen(false)} />}
+        {cancel.isError ? (
+          <div className="text-meta text-severity-must">
+            {cancel.error instanceof ApiError ? cancel.error.message : 'Cancel failed'}
+          </div>
+        ) : null}
+
+        {session.status === 'running' && activeFindings.length === 0 ? (
+          <div className="border-t border-rule pt-6 flex items-center gap-3 text-ink-secondary">
+            <span
+              className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
+              aria-hidden="true"
+            />
+            <span className="text-body">
+              {session.agent} is reviewing. Findings will stream in here as they're produced.
+            </span>
+          </div>
+        ) : null}
+
+        {session.status === 'ready' && activeFindings.length === 0 ? (
+          <EmptyState
+            eyebrow="Ready"
+            title="No issues found"
+            body="Either the PR is clean, or the prompt missed something. Rerun to get a different angle."
+            action={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => rerun.mutate(effectiveRerunAgent)}
+              >
+                Rerun with {effectiveRerunAgent}
+              </Button>
+            }
+          />
+        ) : null}
+
+        {activeFindings.length > 0 ? (
+          <FindingList findings={activeFindings} session={session} unifiedDiff={inlineDiff} />
+        ) : null}
+
+        {selectedCount > 0 ? (
+          <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase flex items-center gap-2">
+            <KbdHint keys={['s']} label="submit" />
+            <span className="text-ink-secondary">{selectedCount} selected</span>
+          </div>
+        ) : null}
+
+        {submitOpen ? <SubmitDrawer sessionId={id} onClose={() => setSubmitOpen(false)} /> : null}
+      </div>
     </div>
   )
 }
