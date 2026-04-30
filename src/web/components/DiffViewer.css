@@ -1,0 +1,21 @@
+.diff-code-selected {
+  background-color: rgb(254 240 138 / 0.6) !important;
+  box-shadow: inset 3px 0 0 rgb(217 119 6);
+}
+
+.diff-gutter-selected {
+  background-color: rgb(254 240 138 / 0.85) !important;
+  color: rgb(120 53 15) !important;
+  font-weight: 600;
+}
+
+.dark .diff-code-selected {
+  background-color: rgb(120 53 15 / 0.55) !important;
+  box-shadow: inset 3px 0 0 rgb(245 158 11);
+}
+
+.dark .diff-gutter-selected {
+  background-color: rgb(120 53 15 / 0.75) !important;
+  color: rgb(252 211 77) !important;
+  font-weight: 600;
+}
