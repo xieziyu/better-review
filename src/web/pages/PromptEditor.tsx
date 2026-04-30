@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { Button, KbdTooltip, Tag } from '@/components/ui'
+import { Button, ConfirmAction, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError, type WritablePromptScope } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -224,23 +224,25 @@ export function PromptEditor() {
                   </Button>
                 </KbdTooltip>
                 {scopeState!.exists ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete ${scopeState!.path}? The next-level fallback will apply.`,
-                        )
-                      ) {
-                        resetMut.mutate()
-                      }
-                    }}
+                  <ConfirmAction
+                    title="Reset prompt override?"
+                    description={`${scopeState!.path} will be deleted. The next-level fallback will apply.`}
+                    confirmLabel="Reset"
+                    onConfirm={() => resetMut.mutate()}
                     disabled={resetMut.isPending}
                   >
-                    Reset to fallback
-                  </Button>
+                    {(requestConfirm) => (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={requestConfirm}
+                        disabled={resetMut.isPending}
+                      >
+                        Reset to fallback
+                      </Button>
+                    )}
+                  </ConfirmAction>
                 ) : null}
                 {savedFlash ? <Tag tone="success">saved</Tag> : null}
                 <span className="ml-auto font-mono text-meta text-ink-muted">

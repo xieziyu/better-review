@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
-import { Button, EmptyState, Tag } from '@/components/ui'
+import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
@@ -134,58 +134,87 @@ function PRHeader({
 
         <div className="ml-auto flex items-center gap-2">
           {session.status === 'running' ? (
+            <ConfirmAction
+              title="Cancel running review?"
+              description="Collected findings will be kept."
+              confirmLabel="Cancel run"
+              onConfirm={onCancel}
+              disabled={cancelPending}
+            >
+              {(requestConfirm) => (
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  onClick={requestConfirm}
+                  disabled={cancelPending}
+                  aria-label="Cancel running review"
+                >
+                  <Square size={12} fill="currentColor" aria-hidden="true" />
+                  Cancel
+                </Button>
+              )}
+            </ConfirmAction>
+          ) : null}
+          <ConfirmAction
+            title="Delete this session?"
+            description={
+              session.status === 'running'
+                ? 'The running review will be canceled and all findings will be lost.'
+                : 'All findings will be removed. This cannot be undone.'
+            }
+            confirmLabel="Delete"
+            onConfirm={onDelete}
+            disabled={deletePending}
+          >
+            {(requestConfirm) => (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={requestConfirm}
+                disabled={deletePending}
+                aria-label="Delete session"
+              >
+                <Trash2 size={12} aria-hidden="true" />
+                Delete
+              </Button>
+            )}
+          </ConfirmAction>
+          <span className="h-5 w-px bg-rule" aria-hidden="true" />
+          {session.status === 'running' ? (
+            <ConfirmAction
+              title="Rerun while review is still in progress?"
+              description="The current run will be canceled before starting a new one."
+              confirmLabel="Rerun"
+              onConfirm={onRerun}
+              disabled={rerunPending}
+            >
+              {(requestConfirm) => (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={requestConfirm}
+                  disabled={rerunPending}
+                >
+                  <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
+                  Rerun
+                </Button>
+              )}
+            </ConfirmAction>
+          ) : (
             <Button
               type="button"
-              variant="danger"
+              variant="ghost"
               size="sm"
-              onClick={() => {
-                if (confirm('停止当前 review？已收集的 findings 会保留。')) onCancel()
-              }}
-              disabled={cancelPending}
-              aria-label="Cancel running review"
+              onClick={onRerun}
+              disabled={rerunPending}
             >
-              <Square size={12} fill="currentColor" aria-hidden="true" />
-              Cancel
+              <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
+              Rerun
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => {
-              const msg =
-                session.status === 'running'
-                  ? 'Delete this session? The running review will be canceled and all findings will be lost.'
-                  : 'Delete this session and all findings? This cannot be undone.'
-              if (confirm(msg)) onDelete()
-            }}
-            disabled={deletePending}
-            aria-label="Delete session"
-          >
-            <Trash2 size={12} aria-hidden="true" />
-            Delete
-          </Button>
-          <span className="h-5 w-px bg-rule" aria-hidden="true" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (session.status === 'running') {
-                if (
-                  !confirm(
-                    'Rerun while a review is still in progress? Current run will be canceled.',
-                  )
-                )
-                  return
-              }
-              onRerun()
-            }}
-            disabled={rerunPending}
-          >
-            <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
-            Rerun
-          </Button>
+          )}
           <Button
             type="button"
             variant="ink"

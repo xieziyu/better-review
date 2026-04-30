@@ -1,6 +1,7 @@
 import type { Finding, PRSession, SSEEvent } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
@@ -193,12 +194,14 @@ describe('PRDetail', () => {
     })
 
     it('issues DELETE /api/sessions/:id when confirmed', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const user = userEvent.setup()
       const fetchSpy = vi
         .spyOn(window, 'fetch')
         .mockResolvedValue(new Response(null, { status: 204 }))
       render(withRoute(<PRDetail />, { session, findings: [finding] }))
-      fireEvent.click(screen.getByRole('button', { name: /Delete session/i }))
+      await user.click(screen.getByRole('button', { name: /Delete session/i }))
+      const dialog = screen.getByRole('dialog', { name: /Delete this session/i })
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }))
       await vi.waitFor(() => {
         expect(fetchSpy).toHaveBeenCalledWith(
           '/api/sessions/s1',
@@ -207,12 +210,14 @@ describe('PRDetail', () => {
       })
     })
 
-    it('skips delete when confirm is dismissed', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false)
+    it('skips delete when confirmation is dismissed', async () => {
+      const user = userEvent.setup()
       const fetchSpy = vi.spyOn(window, 'fetch')
       render(withRoute(<PRDetail />, { session, findings: [finding] }))
       fetchSpy.mockClear()
-      fireEvent.click(screen.getByRole('button', { name: /Delete session/i }))
+      await user.click(screen.getByRole('button', { name: /Delete session/i }))
+      const dialog = screen.getByRole('dialog', { name: /Delete this session/i })
+      await user.click(within(dialog).getByRole('button', { name: /^Cancel$/i }))
       const deleteCalls = fetchSpy.mock.calls.filter(
         ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
       )

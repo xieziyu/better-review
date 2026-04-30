@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 
 import { DiffViewer } from '@/components/DiffViewer'
-import { Button, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
+import { Button, ConfirmAction, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -155,16 +155,23 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                   <Pencil size={14} aria-hidden="true" />
                 </button>
               </KbdTooltip>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Delete finding ${finding.id}?`)) remove.mutate()
-                }}
-                aria-label="Delete"
-                className="p-1 rounded-sm text-ink-muted hover:text-severity-must hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+              <ConfirmAction
+                title={`Delete finding ${finding.id}?`}
+                description="This removes it from the current review session."
+                confirmLabel="Delete"
+                onConfirm={() => remove.mutate()}
               >
-                <Trash2 size={14} aria-hidden="true" />
-              </button>
+                {(requestConfirm) => (
+                  <button
+                    type="button"
+                    onClick={requestConfirm}
+                    aria-label="Delete"
+                    className="p-1 rounded-sm text-ink-muted hover:text-severity-must hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </ConfirmAction>
             </div>
           ) : null}
         </header>

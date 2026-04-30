@@ -1,5 +1,6 @@
 export { Button } from './Button'
 export type { ButtonProps } from './Button'
+export { ConfirmAction } from './ConfirmAction'
 export { EmptyState } from './EmptyState'
 export { KbdHint } from './KbdHint'
 export { KbdTooltip } from './KbdTooltip'
