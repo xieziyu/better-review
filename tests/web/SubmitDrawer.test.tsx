@@ -106,6 +106,22 @@ describe('SubmitDrawer', () => {
     await user.click(screen.getByRole('button', { name: /Next/i }))
     const body = screen.getByLabelText(/Review body/i) as HTMLTextAreaElement
     expect(body.value).toMatch(/Wider architectural concern/)
+    expect(body.value).toContain('🔴 **[must]**')
+  })
+
+  it('shows severity emoji in preview payload', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [mk({ id: 'R1', dbId: 'd1', severity: 'should', title: 'preview title' })],
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+
+    expect(screen.getByText(/🟡 \*\*\[should\]\*\* preview title/)).toBeInTheDocument()
   })
 
   it("groups findings whose line is outside the diff under 'moved to body'", () => {

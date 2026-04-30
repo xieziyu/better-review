@@ -40,6 +40,7 @@ describe('buildSubmitPayload', () => {
     })
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).toMatchObject({ path: 'foo.ts', line: 11, side: 'RIGHT' })
+    expect(r.payload.comments[0]!.body).toContain('🔴 **[must]** t')
     expect(r.droppedToBody).toHaveLength(0)
   })
 
@@ -50,7 +51,24 @@ describe('buildSubmitPayload', () => {
       event: 'COMMENT',
     })
     expect(r.payload.comments).toHaveLength(0)
+    expect(r.payload.body).toContain('### 🔴 **[must]** t')
     expect(r.payload.body).toContain('body text')
+  })
+
+  it('renders each severity with its emoji marker', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [
+        f({ file: 'foo.ts', line: 11, severity: 'must', title: 'must title' }),
+        f({ file: null, line: null, severity: 'should', title: 'should title' }),
+        f({ file: 'foo.ts', line: 999, severity: 'nit', title: 'nit title' }),
+      ],
+      event: 'COMMENT',
+    })
+
+    expect(r.payload.comments[0]!.body).toContain('🔴 **[must]** must title')
+    expect(r.payload.body).toContain('### 🟡 **[should]** should title')
+    expect(r.payload.body).toContain('### 🟢 **[nit]** nit title')
   })
 
   it('line outside diff drops to body', () => {

@@ -35,11 +35,17 @@ const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: str
   { value: 'APPROVE', label: 'APPROVE', description: 'Mark as ready to merge.' },
 ]
 
+function severityTag(severity: Finding['severity']): string {
+  if (severity === 'must') return '🔴 **[must]**'
+  if (severity === 'should') return '🟡 **[should]**'
+  return '🟢 **[nit]**'
+}
+
 function formatPRWideBody(prWide: Finding[]): string {
   if (prWide.length === 0) return ''
   const lines = ['**PR-wide notes:**']
   for (const f of prWide) {
-    lines.push(`- **${f.title}** (${f.severity})`)
+    lines.push(`- ${severityTag(f.severity)} **${f.title}**`)
     if (f.body.trim()) {
       const indented = f.body
         .trim()
@@ -126,7 +132,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
       comments: inline.map((f) => ({
         path: f.file,
         line: f.line,
-        body: `**${f.severity} · ${f.category}**\n\n${f.title}\n\n${f.body}${
+        body: `${severityTag(f.severity)} ${f.title}\n\n${f.body}${
           f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
         }`,
       })),

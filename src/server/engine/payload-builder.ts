@@ -15,9 +15,9 @@ export interface BuildResult {
 }
 
 function severityTag(s: Finding['severity']): string {
-  if (s === 'must') return '[MUST]'
-  if (s === 'should') return '[SHOULD]'
-  return '[NIT]'
+  if (s === 'must') return '🔴 **[must]**'
+  if (s === 'should') return '🟡 **[should]**'
+  return '🟢 **[nit]**'
 }
 
 function formatLineLoc(f: Finding): string {
@@ -36,7 +36,7 @@ function renderFindingMarkdown(f: Finding): string {
 }
 
 function renderInlineComment(f: Finding): string {
-  const tag = `**[${f.severity.toUpperCase()}]**`
+  const tag = severityTag(f.severity)
   const sug = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
   return `${tag} ${f.title}\n\n${f.body}${sug}`
 }
