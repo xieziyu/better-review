@@ -32,7 +32,6 @@ export interface StartSessionDeps {
   // Resolves a kind to a concrete agent + located executable. Throws when the
   // CLI is not installed so the daemon can surface the error to the caller.
   resolveAgent: (kind: AgentKind) => ResolvedAgent
-  defaultRepo?: { owner: string; repo: string }
 }
 
 export interface StartSessionInput {
@@ -44,10 +43,7 @@ export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string 
 
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
   return async function startSession({ prInput, agent: agentKind }) {
-    const parseOpts: Parameters<typeof parsePRTarget>[1] = {}
-    if (deps.defaultRepo?.owner) parseOpts.defaultOwner = deps.defaultRepo.owner
-    if (deps.defaultRepo?.repo) parseOpts.defaultRepo = deps.defaultRepo.repo
-    const target = parsePRTarget(prInput, parseOpts)
+    const target = parsePRTarget(prInput)
     const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
     if (existing && existing.status !== 'failed') return { id: existing.id }
 

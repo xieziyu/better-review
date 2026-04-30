@@ -63,7 +63,7 @@ The CLI is a thin launcher (`src/cli/index.ts`, `src/cli/daemon-launcher.ts`). A
 
 Source: `src/server/start-session.ts` plus `src/server/engine/`.
 
-1. **Resolve PR target** — `github/pr-target-parser.ts` parses `123` / `owner/repo#N` / URL; numeric form needs `gh repo view` to discover the current remote.
+1. **Resolve PR target** — `github/pr-target-parser.ts` accepts only the canonical HTTPS GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`) and throws on anything else.
 2. **Fetch metadata + diff** — `gh pr view --json` and `gh pr diff` via `github/gh-client.ts` (always `execa`, never raw `child_process`). Diff is cached at `<workdir>/diff.cache`.
 3. **Resolve prompt** — `prompts/resolver.ts` walks: project (`<cwd>/.better-review/review.md`) → global (`~/.better-review/review.md`) → builtin (`prompts/builtin.md`). First hit wins; no merging. `prompts/renderer.ts` substitutes `{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`. The framework wording is agent-neutral — it tells the agent to "write a JSON array of findings to {{FINDINGS_PATH}} using whatever file-write capability your runtime provides," not "use the Write tool."
 4. **Pick agent** — the session's `agent` field (default `config.defaultAgent`) selects a `ReviewAgent` from `engine/agent/` (`getAgent(kind)`). Each agent owns its own spawn args and stdout parsing.

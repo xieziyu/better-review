@@ -67,7 +67,7 @@ test('create session via API and find it on homepage', async ({ page }) => {
   const res = await fetch(`http://127.0.0.1:${port}/api/sessions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prInput: 'owner/repo#1' }),
+    body: JSON.stringify({ prInput: 'https://github.com/owner/repo/pull/1' }),
   })
   expect(res.status).toBe(201)
   const { id } = (await res.json()) as { id: string }

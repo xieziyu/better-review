@@ -142,7 +142,7 @@ const program = new Command()
 program
   .name('better-review')
   .description('Local PR review helper')
-  .argument('[pr]', 'PR target (number, owner/repo#N, or URL)')
+  .argument('[pr]', 'PR target (GitHub PR URL)')
   .action(async (pr: string | undefined) => {
     await cmdStart(pr)
   })

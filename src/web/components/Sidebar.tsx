@@ -102,8 +102,8 @@ function NewPRInput() {
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Enter PR # or URL"
-        aria-label="Enter PR number or URL"
+        placeholder="Paste GitHub PR URL"
+        aria-label="GitHub PR URL"
         className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {create.isError && (

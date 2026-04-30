@@ -39,7 +39,7 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
 describe('Sidebar', () => {
   it('renders the new-PR input', () => {
     render(withClient(<Sidebar />, { sessions: [] }))
-    expect(screen.getByPlaceholderText(/Enter PR # or URL/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Paste GitHub PR URL/i)).toBeInTheDocument()
   })
 
   it('renders a session entry with repo#num and title', () => {

@@ -121,7 +121,7 @@ node dist/cli/index.js --help
 better-review
 
 # 2. 直接拉起对某个 PR 的 review（同时打开 UI）
-better-review owner/repo#123
+better-review https://github.com/owner/repo/pull/123
 
 # 3. 看看 daemon 状态
 better-review status
@@ -162,20 +162,14 @@ better-review
 
 **A. 在浏览器主页输入框里填**
 
-PR 输入支持三种格式：
-
-| 格式                        | 例子                                  |
-| --------------------------- | ------------------------------------- |
-| 纯数字（用当前 git remote） | `123`                                 |
-| `owner/repo#N`              | `acme/web#42`                         |
-| 完整 URL                    | `https://github.com/acme/web/pull/42` |
+PR 输入只接受 GitHub PR URL，例如 `https://github.com/acme/web/pull/42`。
 
 回车或点 **Start review**。输入框下方有一行 segmented agent selector，本次 review 用哪个 agent 在这里选；不点就用 `defaultAgent`，刷新页面会重置回默认。
 
 **B. 命令行直接传**
 
 ```bash
-better-review owner/repo#123
+better-review https://github.com/acme/web/pull/123
 ```
 
 这会同时打开 UI 并在后台创建好 session。
@@ -283,7 +277,7 @@ killall node              # 暴力（谨慎，会杀其他 node 进程）
 Usage: better-review [options] [command] [pr]
 
 Arguments:
-  pr           PR 目标：数字、owner/repo#N、或完整 URL
+  pr           PR 目标：GitHub PR URL（例如 https://github.com/owner/repo/pull/123）
 
 Commands:
   stop         停掉正在运行的 daemon
@@ -298,8 +292,7 @@ Options:
 
 ```bash
 better-review                                       # 起 daemon + 开主页
-better-review acme/web#42                           # 起 daemon + 创建 review + 跳到 PR 页
-better-review https://github.com/acme/web/pull/42   # 同上，URL 形式
+better-review https://github.com/acme/web/pull/42   # 起 daemon + 创建 review + 跳到 PR 页
 better-review status                                # pid=12345 port=51234 startedAt=2026-04-28T…
 better-review stop                                  # 关掉
 better-review restart                               # 重启

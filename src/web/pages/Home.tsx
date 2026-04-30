@@ -83,7 +83,8 @@ export function Home() {
       <header className="space-y-4">
         <h1 className="text-3xl font-semibold tracking-tight">Review GitHub PRs locally</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Enter a PR number, <code className="font-mono">owner/repo#NN</code>, or a GitHub URL.
+          Paste a GitHub PR URL (e.g.{' '}
+          <code className="font-mono">https://github.com/owner/repo/pull/123</code>).
         </p>
         <form
           onSubmit={(e) => {
@@ -99,7 +100,7 @@ export function Home() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="123  ·  acme/web#42  ·  https://github.com/..."
+              placeholder="https://github.com/owner/repo/pull/123"
               className="flex-1 px-4 py-2.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="PR target"
             />

@@ -15,7 +15,7 @@ describe('sessions API', () => {
     const res = await app.request('/api/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prInput: 'owner/repo#1' }),
+      body: JSON.stringify({ prInput: 'https://github.com/owner/repo/pull/1' }),
     })
     expect(res.status).toBe(201)
     expect(((await res.json()) as { id: string }).id).toBe('new1')
@@ -33,10 +33,10 @@ describe('sessions API', () => {
     const res = await app.request('/api/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prInput: 'owner/repo#1', agent: 'codex' }),
+      body: JSON.stringify({ prInput: 'https://github.com/owner/repo/pull/1', agent: 'codex' }),
     })
     expect(res.status).toBe(201)
-    expect(received).toEqual({ prInput: 'owner/repo#1', agent: 'codex' })
+    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1', agent: 'codex' })
   })
 
   it('POST /api/sessions rejects an unknown agent', async () => {
@@ -45,7 +45,7 @@ describe('sessions API', () => {
     const res = await app.request('/api/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prInput: 'owner/repo#1', agent: 'gemini' }),
+      body: JSON.stringify({ prInput: 'https://github.com/owner/repo/pull/1', agent: 'gemini' }),
     })
     expect(res.status).toBe(400)
   })
