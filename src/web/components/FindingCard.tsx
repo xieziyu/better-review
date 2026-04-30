@@ -37,6 +37,29 @@ function githubLineLink(session: PRSession, file: string, line: number | null): 
   return `${base}#diff-${encodeURIComponent(file)}${anchor}`
 }
 
+function FindingLocation({ file, line }: { file: string | null; line: number | null }) {
+  if (!file) {
+    return <span className="font-mono text-meta text-ink-secondary">(whole PR)</span>
+  }
+
+  const slash = file.lastIndexOf('/')
+  const dirname = slash >= 0 ? file.slice(0, slash + 1) : ''
+  const basename = slash >= 0 ? file.slice(slash + 1) : file
+  const label = `${file}${line ? `:${line}` : ''}`
+
+  return (
+    <span
+      className="inline-flex min-w-[7rem] max-w-full items-baseline overflow-hidden font-mono text-meta text-ink-secondary"
+      title={label}
+      aria-label={label}
+    >
+      {dirname ? <span className="min-w-0 truncate">{dirname}</span> : null}
+      <span className="shrink-0">{basename}</span>
+      {line ? <span className="shrink-0 text-ink-muted">:{line}</span> : null}
+    </span>
+  )
+}
+
 export function FindingCard({ finding, session, unifiedDiff }: Props) {
   const qc = useQueryClient()
   const cardRef = useRef<HTMLElement | null>(null)
@@ -140,35 +163,35 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
       </div>
 
       <div className="min-w-0 flex-1 space-y-3">
-        <header className="flex items-center gap-2.5 flex-wrap">
-          <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
-          <span
-            className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[finding.severity])}
-          >
-            {finding.severity}
-          </span>
-          <Tag tone="neutral">{finding.category}</Tag>
-          <span className="font-mono text-meta text-ink-secondary truncate">
-            {finding.file
-              ? `${finding.file}${finding.line ? `:${finding.line}` : ''}`
-              : '(whole PR)'}
-          </span>
-          {finding.file && session.url ? (
-            <a
-              href={githubLineLink(session, finding.file, finding.line)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-ink-muted hover:text-brand transition-colors duration-180 ease-out-quart"
-              aria-label="Open on GitHub"
+        <header className="flex items-start gap-2.5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+            <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+            <span
+              className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[finding.severity])}
             >
-              <ExternalLink size={12} aria-hidden="true" />
-            </a>
-          ) : null}
-          {finding.edited ? (
-            <Pencil size={12} className="text-ink-muted" aria-label="Edited" />
-          ) : null}
+              {finding.severity}
+            </span>
+            <Tag tone="neutral">{finding.category}</Tag>
+            <span className="inline-flex min-w-0 max-w-full items-center gap-2">
+              <FindingLocation file={finding.file} line={finding.line} />
+              {finding.file && session.url ? (
+                <a
+                  href={githubLineLink(session, finding.file, finding.line)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-ink-muted hover:text-brand transition-colors duration-180 ease-out-quart"
+                  aria-label="Open on GitHub"
+                >
+                  <ExternalLink size={12} aria-hidden="true" />
+                </a>
+              ) : null}
+            </span>
+            {finding.edited ? (
+              <Pencil size={12} className="shrink-0 text-ink-muted" aria-label="Edited" />
+            ) : null}
+          </div>
           {!editing ? (
-            <div className="ml-auto flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <KbdTooltip keys={['e']} label="edit">
                 <button
                   type="button"

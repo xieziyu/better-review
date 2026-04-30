@@ -56,7 +56,29 @@ describe('FindingCard', () => {
     expect(screen.getByText(/Don't trust unsigned JWT/)).toBeInTheDocument()
     expect(screen.getByText(/must/i)).toBeInTheDocument()
     expect(screen.getByText('R1')).toBeInTheDocument()
-    expect(screen.getByText(/src\/x\.ts:42/)).toBeInTheDocument()
+    expect(screen.getByLabelText('src/x.ts:42')).toBeInTheDocument()
+  })
+
+  it('keeps basename and line number as non-truncated suffixes for long file paths', () => {
+    const longPath =
+      'apps/ai-agent-service/src/domains/episode-collection-copywriting/episode-collection-copywriting-processor.service.ts'
+    render(
+      withClient(
+        <FindingCard
+          finding={{ ...baseFinding, file: longPath, line: 847 }}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const location = screen.getByLabelText(`${longPath}:847`)
+    expect(location).toHaveAttribute('title', `${longPath}:847`)
+    expect(location.children[1]).toHaveClass('shrink-0')
+    expect(location.children[1]).toHaveTextContent(
+      'episode-collection-copywriting-processor.service.ts',
+    )
+    expect(location.lastElementChild).toHaveClass('shrink-0')
+    expect(location.lastElementChild).toHaveTextContent(':847')
   })
 
   it('does not show body editor in read mode', () => {
