@@ -284,8 +284,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     <label
                       key={opt.value}
                       className={cn(
-                        'flex items-baseline gap-3 py-2 cursor-pointer transition-colors duration-180 ease-out-quart border-b border-rule',
-                        event === opt.value ? 'text-ink-primary' : 'text-ink-secondary',
+                        'group grid grid-cols-[auto_1fr] sm:grid-cols-[auto_11rem_1fr] gap-x-3 gap-y-1 rounded-md border px-3.5 py-3 cursor-pointer transition-[background-color,border-color,color] duration-180 ease-out-quart focus-within:outline focus-within:outline-[1.5px] focus-within:outline-brand focus-within:outline-offset-2',
+                        event === opt.value
+                          ? 'border-brand bg-raised text-ink-primary'
+                          : 'border-rule bg-transparent text-ink-secondary hover:border-ink-muted hover:bg-raised/45 hover:text-ink-primary',
                       )}
                     >
                       <input
@@ -300,14 +302,25 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'shrink-0 inline-block size-2',
-                          event === opt.value ? 'bg-brand' : 'bg-rule',
+                          'flex size-4 shrink-0 self-center items-center justify-center rounded-full border transition-colors duration-180 ease-out-quart',
+                          event === opt.value
+                            ? 'border-brand bg-brand'
+                            : 'border-rule bg-canvas group-hover:border-ink-muted',
                         )}
-                      />
-                      <span className="font-mono text-meta tabular-nums w-40 shrink-0">
+                      >
+                        <span
+                          className={cn(
+                            'size-1.5 rounded-full transition-colors duration-180 ease-out-quart',
+                            event === opt.value ? 'bg-brand-ink' : 'bg-transparent',
+                          )}
+                        />
+                      </span>
+                      <span className="flex min-h-5 items-center font-mono text-meta tabular-nums">
                         {opt.label}
                       </span>
-                      <span className="text-meta text-ink-muted">{opt.description}</span>
+                      <span className="col-start-2 flex min-h-5 items-center text-meta text-ink-muted sm:col-start-auto">
+                        {opt.description}
+                      </span>
                     </label>
                   ))}
                 </fieldset>
