@@ -125,7 +125,8 @@ export function Home() {
             className="flex items-center gap-1.5 text-meta text-ink-secondary"
             aria-label="Review agent"
           >
-            <legend className="text-caps tracking-caps text-ink-muted uppercase mr-1">Agent</legend>
+            <legend className="sr-only">Review agent</legend>
+            <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">Agent</span>
             {AGENT_KINDS.map((k) => {
               const found = health?.agents[k].found ?? true
               const selected = effectiveAgent === k
@@ -153,7 +154,7 @@ export function Home() {
                         selected ? 'text-canvas/70' : 'text-ink-muted',
                       )}
                     >
-                      default
+                      (default)
                     </span>
                   ) : null}
                 </button>

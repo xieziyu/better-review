@@ -9,6 +9,14 @@ import { Home } from '@/pages/Home'
 function withClient(ui: React.ReactNode, sessions: PRSession[] = []) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   qc.setQueryData(['sessions'], sessions)
+  qc.setQueryData(['health'], {
+    ok: true,
+    defaultAgent: 'claude',
+    agents: {
+      claude: { found: true, path: '/usr/bin/claude' },
+      codex: { found: true, path: '/usr/bin/codex' },
+    },
+  })
   return (
     <QueryClientProvider client={qc}>
       <MemoryRouter>{ui}</MemoryRouter>
@@ -65,5 +73,10 @@ describe('Home', () => {
     const input = screen.getByLabelText(/PR target/i)
     fireEvent.change(input, { target: { value: '123' } })
     expect(btn).not.toBeDisabled()
+  })
+
+  it('marks the default agent with parenthesized copy', () => {
+    render(withClient(<Home />))
+    expect(screen.getByRole('button', { name: /claude \(default\)/i })).toBeInTheDocument()
   })
 })
