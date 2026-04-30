@@ -100,7 +100,7 @@ function NewPRInput() {
   })
   return (
     <form
-      className="px-5 pt-5 pb-3 border-b border-rule"
+      className="px-5 pt-5 pb-4 border-b border-rule"
       onSubmit={(e) => {
         e.preventDefault()
         const trimmed = value.trim()
@@ -108,7 +108,7 @@ function NewPRInput() {
       }}
     >
       <label className="block text-caps tracking-caps text-ink-muted mb-2">New review</label>
-      <div className="flex items-center gap-1.5 border-b border-rule focus-within:border-brand transition-colors duration-180 ease-out-quart">
+      <div className="flex items-center gap-1.5 rounded-md bg-canvas border border-rule px-2.5 py-1 transition-[border-color,box-shadow] duration-180 ease-out-quart focus-within:border-brand focus-within:shadow-[0_0_0_2px_color-mix(in_oklch,var(--brand)_14%,transparent)]">
         <ChevronRight size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
         <input
           type="text"
@@ -116,7 +116,7 @@ function NewPRInput() {
           onChange={(e) => setValue(e.target.value)}
           placeholder="Paste GitHub PR URL · press ⏎"
           aria-label="GitHub PR URL"
-          className="w-full py-1.5 bg-transparent text-body text-ink-primary placeholder:text-ink-muted focus:outline-none"
+          className="w-full py-1 bg-transparent text-body text-ink-primary placeholder:text-ink-muted focus:outline-none"
           disabled={create.isPending}
         />
       </div>

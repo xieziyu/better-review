@@ -106,14 +106,14 @@ export function Home() {
           }}
           className="space-y-4"
         >
-          <div className="flex items-center gap-2 border-b border-rule focus-within:border-brand transition-colors duration-180 ease-out-quart">
+          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-1.5 py-1.5 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
             <ChevronRight size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="https://github.com/owner/repo/pull/123"
-              className="flex-1 py-2.5 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
+              className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
               aria-label="PR target"
             />
             <Button type="submit" variant="ink" size="md" disabled={!trimmed || create.isPending}>
