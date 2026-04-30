@@ -41,6 +41,17 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
 
   let lastEventAt = Date.now()
   let killed = false
+  let resultOk: boolean | null = null
+  const reapAfterResult = () => {
+    child.kill('SIGTERM')
+    setTimeout(() => {
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        /* may already be dead */
+      }
+    }, 2_000)
+  }
   const { child, drained } = agent.spawn({
     executable,
     prompt,
@@ -56,10 +67,16 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       if (detail !== undefined) evt.detail = detail
       bus.emit(evt)
     },
+    onResult: (info) => {
+      if (resultOk !== null) return
+      resultOk = info.ok
+      reapAfterResult()
+    },
   })
 
   const watchdog = setInterval(
     () => {
+      if (resultOk !== null) return
       if (Date.now() - lastEventAt > stallMs) {
         if (!killed) {
           killed = true
@@ -88,12 +105,18 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   await new Promise((res) => setTimeout(res, 200))
   await stopWatcher()
 
-  if (exitCode === 0 && !killed) {
+  const succeeded = resultOk === true || (resultOk === null && exitCode === 0 && !killed)
+  if (succeeded) {
     sessions.setStatus(sessionId, 'ready')
     bus.emit({ type: 'status-changed', sessionId, status: 'ready' })
     bus.emit({ type: 'done', sessionId })
   } else {
-    const msg = killed ? `${agent.displayName} stalled` : `${agent.displayName} exited ${exitCode}`
+    const msg =
+      resultOk === false
+        ? `${agent.displayName} reported error result`
+        : killed
+          ? `${agent.displayName} stalled`
+          : `${agent.displayName} exited ${exitCode}`
     sessions.setError(sessionId, msg)
     sessions.setStatus(sessionId, 'failed')
     bus.emit({ type: 'status-changed', sessionId, status: 'failed', error: msg })

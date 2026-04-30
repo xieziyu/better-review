@@ -195,3 +195,62 @@ describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
     }
   }, 15_000)
 })
+
+describe('runReview (claude result-after-linger)', () => {
+  let workdir: string
+  let sessions: SessionsRepo
+  let findings: FindingsRepo
+  let bus: EventBus
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-run-'))
+    const db = openDatabase(join(dir, 's.db'))
+    sessions = new SessionsRepo(db)
+    findings = new FindingsRepo(db)
+    bus = new EventBus()
+    workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    sessions.insert({
+      id: 's3',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir,
+      promptUsed: 'p',
+    })
+  })
+
+  it('marks session ready when claude emits result then lingers past stallMs', async () => {
+    process.env.FAKE_CLAUDE_LINGER = '1'
+    try {
+      const events: SSEEvent[] = []
+      bus.subscribeGlobal((e) => events.push(e))
+      const promptText = `FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 's3',
+        workdir,
+        prompt: promptText,
+        agent: getAgent('claude'),
+        executable: FAKE_CLAUDE,
+        sessions,
+        findings,
+        bus,
+        stallMs: 500,
+      })
+      const got = sessions.getById('s3')!
+      expect(got.status).toBe('ready')
+      expect(got.error).toBeNull()
+      expect(findings.listBySession('s3')).toHaveLength(1)
+      expect(events.some((e) => e.type === 'done')).toBe(true)
+      expect(events.some((e) => e.type === 'error')).toBe(false)
+    } finally {
+      delete process.env.FAKE_CLAUDE_LINGER
+    }
+  }, 15_000)
+})

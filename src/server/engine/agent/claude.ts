@@ -14,7 +14,7 @@ export class ClaudeAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, logPath, onProgress } = args
+    const { executable, prompt, workdir, logPath, onProgress, onResult } = args
     const child = spawn(executable, ['--output-format', 'stream-json', '--verbose', '-p', prompt], {
       cwd: workdir,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -26,6 +26,9 @@ export class ClaudeAgent implements ReviewAgent {
         const detail = JSON.stringify(e).slice(0, 200)
         onProgress(e.type, detail)
         appendFileSync(logPath, JSON.stringify(e) + '\n')
+        if (e.type === 'result') {
+          onResult?.({ ok: e.subtype === 'success' })
+        }
       },
       (err) => appendFileSync(logPath, `[stream-json error] ${err}\n`),
     )

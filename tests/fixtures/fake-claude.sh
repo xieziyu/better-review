@@ -39,4 +39,9 @@ fi
 
 sleep 0.05
 echo '{"type":"result","subtype":"success"}'
+
+if [[ "$FAKE_CLAUDE_LINGER" == "1" ]]; then
+  exec sleep 600
+fi
+
 exit 0
