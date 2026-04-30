@@ -68,10 +68,29 @@ describe('FindingList', () => {
         />,
       ),
     )
-    expect(screen.getByText('src/a.ts:1')).toBeInTheDocument()
-    expect(screen.getByText('src/b.ts:2')).toBeInTheDocument()
+    expect(screen.getByLabelText('src/a.ts:1')).toBeInTheDocument()
+    expect(screen.getByLabelText('src/b.ts:2')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /src\/a\.ts/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /src\/b\.ts/ })).not.toBeInTheDocument()
+  })
+
+  it('uses the same divider container across different file groups', () => {
+    render(
+      withClient(
+        <FindingList
+          findings={[
+            mk({ id: 'R1', dbId: 'd1', file: 'src/a.ts', line: 1 }),
+            mk({ id: 'R2', dbId: 'd2', file: 'src/b.ts', line: 2 }),
+          ]}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(items[0]!.parentElement).toBe(items[1]!.parentElement)
+    expect(items[0]!.parentElement).toHaveClass('divide-y')
   })
 
   it('renders file=null findings in a separate PR-wide section at the bottom', () => {
