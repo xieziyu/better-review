@@ -1,8 +1,9 @@
 import type { Finding, ReviewEvent } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, ExternalLink } from 'lucide-react'
+import { ExternalLink, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
+import { Button, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { isLineInDiff } from '@/lib/diff-line-check'
 import { cn } from '@/lib/utils'
@@ -13,11 +14,6 @@ interface Props {
 }
 
 type Step = 1 | 2
-
-const STEP_LABELS: Record<Step, string> = {
-  1: 'Prepare',
-  2: 'Confirm',
-}
 
 const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: string }> = [
   {
@@ -33,31 +29,16 @@ const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: str
   { value: 'APPROVE', label: 'APPROVE', description: 'Mark as ready to merge.' },
 ]
 
-const SEVERITY_TOKENS: Record<
-  Finding['severity'],
-  { icon: string; dot: string; border: string; bg: string; text: string }
-> = {
-  must: {
-    icon: '●',
-    dot: 'bg-red-500',
-    border: 'border-l-red-500',
-    bg: 'bg-red-50 dark:bg-red-950/30',
-    text: 'text-red-700 dark:text-red-300',
-  },
-  should: {
-    icon: '◐',
-    dot: 'bg-amber-500',
-    border: 'border-l-amber-500',
-    bg: 'bg-amber-50 dark:bg-amber-950/30',
-    text: 'text-amber-700 dark:text-amber-300',
-  },
-  nit: {
-    icon: '○',
-    dot: 'bg-emerald-500',
-    border: 'border-l-emerald-500',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-    text: 'text-emerald-700 dark:text-emerald-300',
-  },
+const SEVERITY_TONE: Record<Finding['severity'], 'must' | 'should' | 'nit'> = {
+  must: 'must',
+  should: 'should',
+  nit: 'nit',
+}
+
+const SEVERITY_TEXT: Record<Finding['severity'], string> = {
+  must: 'text-severity-must',
+  should: 'text-severity-should',
+  nit: 'text-severity-nit',
 }
 
 function severityTag(severity: Finding['severity']): string {
@@ -94,65 +75,37 @@ function findingLocation(finding: Finding): string {
   return `${finding.file}${finding.line ? `:${finding.line}` : ''}`
 }
 
-function PreviewFindingCard({
+function PreviewFindingRow({
   finding,
   destination,
 }: {
   finding: Finding
   destination: 'Inline' | 'Body'
 }) {
-  const tokens = SEVERITY_TOKENS[finding.severity]
-
+  const sev = SEVERITY_TONE[finding.severity]
   return (
-    <div
-      role="listitem"
-      className={cn(
-        'relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-800 border-l-4 bg-white dark:bg-gray-950 p-3',
-        tokens.border,
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', tokens.dot)}
-        />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] leading-5">
-            <span className="font-mono text-gray-500 dark:text-gray-400">{finding.id}</span>
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium',
-                tokens.bg,
-                tokens.text,
-              )}
-            >
-              <span aria-hidden>{tokens.icon}</span>
-              {finding.severity}
-            </span>
-            <span
-              className={cn(
-                'inline-flex rounded px-1.5 py-0.5 font-medium',
-                destination === 'Inline'
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-              )}
-            >
-              {destination}
-            </span>
-            {finding.category && (
-              <span className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                {finding.category}
-              </span>
-            )}
-            <span className="min-w-0 truncate font-mono text-gray-500 dark:text-gray-400">
-              {findingLocation(finding)}
-            </span>
-          </div>
-          <div className="text-sm font-medium leading-5 text-gray-900 dark:text-gray-100">
-            {finding.title}
-          </div>
-        </div>
+    <div role="listitem" className="py-2.5 first:pt-0 last:pb-0">
+      <div className="flex items-baseline gap-2.5 flex-wrap">
+        <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+        <span className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[sev])}>
+          {finding.severity}
+        </span>
+        <Tag tone={destination === 'Inline' ? 'brand' : 'neutral'}>{destination}</Tag>
+        {finding.category ? <Tag tone="neutral">{finding.category}</Tag> : null}
+        <span className="font-mono text-meta text-ink-secondary truncate min-w-0">
+          {findingLocation(finding)}
+        </span>
       </div>
+      <div className="mt-1 text-body text-ink-primary">{finding.title}</div>
+    </div>
+  )
+}
+
+function StatBlock({ label, count }: { label: string; count: number }) {
+  return (
+    <div>
+      <div className="text-caps tracking-caps text-ink-muted uppercase">{label}</div>
+      <div className="font-mono text-display text-ink-primary tabular-nums">{count}</div>
     </div>
   )
 }
@@ -198,7 +151,6 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
   const prWide = groups.prWide
   const counts = useMemo(() => severityCounts(selected), [selected])
 
-  // Prefill body with PR-wide findings the first time we have data; user can edit.
   useEffect(() => {
     if (!bodyTouched) {
       const auto = formatPRWideBody(prWide)
@@ -224,66 +176,114 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 z-40 flex justify-end"
-      onClick={requestClose}
+      className="fixed inset-0 z-40 bg-canvas overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-label="Submit review"
     >
-      <div
-        className="w-full max-w-2xl bg-white dark:bg-gray-950 h-full overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-950 z-10">
-          <h2 className="text-lg font-semibold">Submit review</h2>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close"
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <X size={18} />
-          </button>
-        </header>
+      <div aria-hidden="true" className="sticky top-0 h-px bg-brand z-20" />
+      <header className="px-8 pt-7 pb-5 flex items-start gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="text-caps tracking-caps text-brand uppercase mb-2">Ready to submit</div>
+          <h2 className="text-display text-ink-primary">Review</h2>
+          {data?.session ? (
+            <div className="mt-1 font-mono text-meta text-ink-secondary tabular-nums">
+              {data.session.owner}/{data.session.repo}#{data.session.number}
+            </div>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={requestClose}
+          aria-label="Close"
+          className="p-2 -m-2 text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
 
-        <nav className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-          <ol className="flex items-center gap-2 text-xs text-gray-500">
-            {([1, 2] as Step[]).map((s, i) => (
-              <li key={s} className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    'inline-flex w-5 h-5 items-center justify-center rounded-full border text-[11px]',
-                    s === step
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : s < step
-                        ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                        : 'border-gray-300 dark:border-gray-700',
-                  )}
-                >
-                  {s}
-                </span>
-                <span className={cn(s === step && 'text-gray-900 dark:text-gray-100 font-medium')}>
-                  {STEP_LABELS[s]}
-                </span>
-                {i < 1 && <span aria-hidden>·</span>}
-              </li>
-            ))}
-          </ol>
-        </nav>
+      <div className="px-8 pb-32 max-w-3xl space-y-10">
+        {step === 1 ? (
+          <>
+            <section className="grid grid-cols-3 gap-8 border-y border-rule py-6">
+              <StatBlock label="Inline" count={inline.length} />
+              <StatBlock label="Moved to body" count={movedToBody.length} />
+              <StatBlock label="PR-wide" count={prWide.length} />
+            </section>
 
-        <div className="p-4 space-y-4">
-          {step === 1 && (
+            <section data-testid="selection-summary" className="text-meta text-ink-secondary">
+              <span className="font-mono tabular-nums">
+                {selected.length} finding{selected.length === 1 ? '' : 's'} selected of{' '}
+                {findings.length} total
+              </span>
+              <span className="ml-3 font-mono tabular-nums text-ink-muted">
+                {counts.must} must · {counts.should} should · {counts.nit} nit
+              </span>
+            </section>
+
+            {inline.length > 0 ? (
+              <section>
+                <h3 className="text-caps tracking-caps text-ink-muted uppercase mb-2">
+                  Inline · {inline.length}
+                </h3>
+                <div data-testid="inline-list" role="list" className="divide-y divide-rule">
+                  {inline.map((f) => (
+                    <PreviewFindingRow key={f.dbId} finding={f} destination="Inline" />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {movedToBody.length > 0 ? (
+              <section>
+                <h3 className="text-caps tracking-caps text-severity-should uppercase mb-1">
+                  Moved to body · {movedToBody.length}
+                </h3>
+                <p className="text-meta text-ink-secondary mb-2">
+                  Their <code className="font-mono">file:line</code> is outside the PR diff, so
+                  GitHub would reject them as inline comments.
+                </p>
+                <div data-testid="moved-to-body-list" role="list" className="divide-y divide-rule">
+                  {movedToBody.map((f) => (
+                    <PreviewFindingRow key={f.dbId} finding={f} destination="Body" />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {prWide.length > 0 ? (
+              <section>
+                <h3 className="text-caps tracking-caps text-ink-muted uppercase mb-1">
+                  PR-wide · {prWide.length}
+                </h3>
+                <p className="text-meta text-ink-secondary mb-2">added to the review body</p>
+                <div data-testid="pr-wide-list" role="list" className="divide-y divide-rule">
+                  {prWide.map((f) => (
+                    <PreviewFindingRow key={f.dbId} finding={f} destination="Body" />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {selected.length === 0 ? (
+              <p className="text-meta text-ink-muted border-t border-rule pt-4">
+                No findings selected.
+              </p>
+            ) : null}
+
+            <hr className="border-t border-brand" />
+
             <section className="space-y-4">
-              <fieldset className="space-y-2" role="radiogroup" aria-label="Review event type">
-                <legend className="text-sm font-medium">Event type</legend>
+              <fieldset role="radiogroup" aria-label="Review event type" className="space-y-2">
+                <legend className="text-caps tracking-caps text-ink-muted uppercase mb-1">
+                  Event type
+                </legend>
                 {EVENT_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
                     className={cn(
-                      'flex items-start gap-3 p-3 rounded-md border cursor-pointer',
-                      event === opt.value
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                        : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900',
+                      'flex items-baseline gap-3 py-2 cursor-pointer transition-colors duration-180 ease-out-quart border-b border-rule',
+                      event === opt.value ? 'text-ink-primary' : 'text-ink-secondary',
                     )}
                   >
                     <input
@@ -293,18 +293,27 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                       checked={event === opt.value}
                       onChange={() => setEvent(opt.value)}
                       aria-label={opt.label}
-                      className="mt-0.5 h-4 w-4 text-blue-600"
+                      className="sr-only"
                     />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{opt.label}</div>
-                      <div className="text-xs text-gray-500">{opt.description}</div>
-                    </div>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'shrink-0 inline-block size-2',
+                        event === opt.value ? 'bg-brand' : 'bg-rule',
+                      )}
+                    />
+                    <span className="font-mono text-meta tabular-nums w-40 shrink-0">
+                      {opt.label}
+                    </span>
+                    <span className="text-meta text-ink-muted">{opt.description}</span>
                   </label>
                 ))}
               </fieldset>
 
               <label className="block">
-                <span className="text-sm font-medium">Review body (markdown)</span>
+                <span className="text-caps tracking-caps text-ink-muted uppercase">
+                  Review body (markdown)
+                </span>
                 <textarea
                   aria-label="Review body"
                   value={body}
@@ -312,184 +321,124 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     setBody(e.target.value)
                     setBodyTouched(true)
                   }}
-                  className="mt-1 w-full h-40 p-2 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-1 w-full h-40 p-3 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
                 />
-                {prWide.length > 0 && !bodyTouched && (
-                  <span className="block text-xs text-gray-500 mt-1">
-                    Auto-filled from {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'}
-                    .
+                {prWide.length > 0 && !bodyTouched ? (
+                  <span className="block text-meta text-ink-muted mt-1">
+                    Auto-filled from {prWide.length} PR-wide finding
+                    {prWide.length === 1 ? '' : 's'}.
                   </span>
-                )}
+                ) : null}
               </label>
 
-              <div>
-                <div className="text-sm" data-testid="selection-summary">
-                  <strong>{selected.length}</strong> finding{selected.length === 1 ? '' : 's'}{' '}
-                  selected of {findings.length} total
-                </div>
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
-                  <span>● {counts.must} must</span>
-                  <span>◐ {counts.should} should</span>
-                  <span>○ {counts.nit} nit</span>
-                </div>
+              {!diff && selected.some((f) => f.file !== null) ? (
+                <p className="text-meta text-ink-muted">
+                  Diff not loaded. Line-in-diff check will run on submit.
+                </p>
+              ) : null}
+            </section>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <section className="space-y-5">
+            {submit.data ? (
+              <div className="border-t border-brand pt-5 space-y-2">
+                <div className="text-caps tracking-caps text-brand uppercase">Submitted</div>
+                <a
+                  href={submit.data.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-body text-ink-primary hover:text-brand transition-colors duration-180 ease-out-quart break-all"
+                >
+                  <ExternalLink size={12} aria-hidden="true" />
+                  {submit.data.url}
+                </a>
+                {submit.data.droppedToBody.length > 0 ? (
+                  <div className="text-meta text-severity-should">
+                    {submit.data.droppedToBody.length} finding(s) dropped to review body (line not
+                    in diff).
+                  </div>
+                ) : null}
               </div>
-              {!diff && selected.some((f) => f.file !== null) && (
-                <div className="text-xs text-gray-500">
-                  Diff not loaded — line-in-diff check will run on submit.
+            ) : (
+              <div className="border-y border-rule py-5 space-y-2">
+                <div className="text-caps tracking-caps text-ink-muted uppercase">
+                  Confirmation
                 </div>
-              )}
-              {inline.length > 0 && (
-                <div className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/40 p-3">
-                  <div className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {inline.length} inline comment{inline.length === 1 ? '' : 's'}
-                  </div>
-                  <div
-                    data-testid="inline-list"
-                    role="list"
-                    className="space-y-2"
-                  >
-                    {inline.map((f) => (
-                      <PreviewFindingCard key={f.dbId} finding={f} destination="Inline" />
-                    ))}
-                  </div>
+                <div className="text-h2 text-ink-primary font-mono">
+                  {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                 </div>
-              )}
-              {movedToBody.length > 0 && (
-                <div className="rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3">
-                  <div className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                    {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} will be moved
-                    to the review body
-                  </div>
-                  <div className="mb-2 mt-1 text-xs text-amber-700 dark:text-amber-400">
-                    Their <code className="font-mono">file:line</code> is outside the PR diff, so
-                    GitHub would reject them as inline comments.
-                  </div>
-                  <div
-                    data-testid="moved-to-body-list"
-                    role="list"
-                    className="space-y-2"
-                  >
-                    {movedToBody.map((f) => (
-                      <PreviewFindingCard key={f.dbId} finding={f} destination="Body" />
-                    ))}
-                  </div>
+                <div className="text-meta text-ink-secondary">
+                  {inline.length} inline comment{inline.length === 1 ? '' : 's'}
                 </div>
-              )}
-              {prWide.length > 0 && (
-                <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3">
-                  <div className="mb-2 text-xs font-medium text-blue-700 dark:text-blue-300">
-                    {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'} will be added to
+                {movedToBody.length > 0 ? (
+                  <div className="text-meta text-ink-secondary">
+                    {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} may move to
                     the review body
                   </div>
-                  <div data-testid="pr-wide-list" role="list" className="space-y-2">
-                    {prWide.map((f) => (
-                      <PreviewFindingCard key={f.dbId} finding={f} destination="Body" />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {selected.length === 0 && (
-                <div className="text-xs text-gray-500 rounded-md border border-gray-200 dark:border-gray-800 p-3">
-                  No findings selected.
-                </div>
-              )}
-            </section>
-          )}
+                ) : null}
+                {body.trim() || prWide.length > 0 ? (
+                  <div className="text-meta text-ink-secondary">1 review body comment</div>
+                ) : null}
+                <p className="text-meta text-ink-muted pt-2">
+                  This will post immediately. There is no &quot;draft&quot; mode.
+                </p>
+              </div>
+            )}
+            {submit.isError ? (
+              <div className="text-meta text-severity-must border-t border-severity-must/40 pt-3">
+                {submit.error instanceof ApiError ? submit.error.message : 'Submit failed'}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
 
-          {step === 2 && (
-            <section className="space-y-4">
-              {submit.data ? (
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 p-4 text-sm space-y-2">
-                  <div className="font-medium text-emerald-800 dark:text-emerald-300">
-                    Submitted
-                  </div>
-                  <a
-                    href={submit.data.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-600 hover:underline break-all"
-                  >
-                    <ExternalLink size={12} />
-                    {submit.data.url}
-                  </a>
-                  {submit.data.droppedToBody.length > 0 && (
-                    <div className="text-xs text-amber-700 dark:text-amber-400">
-                      {submit.data.droppedToBody.length} finding(s) dropped to review body (line not
-                      in diff).
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-md border border-gray-200 dark:border-gray-800 p-4 text-sm space-y-1">
-                  <div>
-                    <strong>{event}</strong> on {data?.session.owner}/{data?.session.repo}#
-                    {data?.session.number}
-                  </div>
-                  <div>
-                    {inline.length} inline comment{inline.length === 1 ? '' : 's'}
-                  </div>
-                  {movedToBody.length > 0 && (
-                    <div>
-                      {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} may move to
-                      the review body
-                    </div>
-                  )}
-                  {(body.trim() || prWide.length > 0) && <div>1 review body comment</div>}
-                  <div className="text-xs text-gray-500 mt-2">
-                    This will post immediately. There is no &quot;draft&quot; mode.
-                  </div>
-                </div>
-              )}
-              {submit.isError && (
-                <div className="rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 p-3 text-sm text-red-700 dark:text-red-300">
-                  {submit.error instanceof ApiError ? submit.error.message : 'Submit failed'}
-                </div>
-              )}
-            </section>
-          )}
-        </div>
-
-        <footer className="sticky bottom-0 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 p-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={requestClose}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
+      <footer className="fixed bottom-0 inset-x-0 bg-canvas/95 backdrop-blur-sm border-t border-rule z-30">
+        <div className="px-8 py-4 max-w-3xl flex items-center justify-between">
+          <Button type="button" variant="ghost" size="md" onClick={requestClose}>
             {submit.data ? 'Close' : 'Cancel'}
-          </button>
-          <div className="flex items-center gap-2">
-            {step > 1 && !submit.data && (
-              <button
+          </Button>
+          <div className="flex items-center gap-3">
+            {step > 1 && !submit.data ? (
+              <Button
                 type="button"
+                variant="ghost"
+                size="md"
                 onClick={() => setStep((s) => (s - 1) as Step)}
-                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Back
-              </button>
-            )}
-            {step < 2 && (
-              <button
+              </Button>
+            ) : null}
+            {step < 2 ? (
+              <Button
                 type="button"
+                variant="ink"
+                size="md"
                 onClick={() => setStep((s) => (s + 1) as Step)}
                 disabled={step === 1 && selected.length === 0}
-                className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
               >
                 Next
-              </button>
-            )}
-            {step === 2 && !submit.data && (
-              <button
-                type="button"
-                onClick={() => submit.mutate()}
-                disabled={submit.isPending || selected.length === 0}
-                className="px-4 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
-              >
-                {submit.isPending ? 'Submitting…' : 'Submit'}
-              </button>
-            )}
+              </Button>
+            ) : null}
+            {step === 2 && !submit.data ? (
+              <>
+                <KbdHint keys={['⌘', '⏎']} label="submit" />
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  onClick={() => submit.mutate()}
+                  disabled={submit.isPending || selected.length === 0}
+                >
+                  {submit.isPending ? 'Submitting…' : 'Submit'}
+                </Button>
+              </>
+            ) : null}
           </div>
-        </footer>
-      </div>
+        </div>
+      </footer>
     </div>
   )
 }
