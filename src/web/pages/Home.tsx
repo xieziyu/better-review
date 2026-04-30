@@ -1,54 +1,61 @@
-import type { AgentKind, PRSession, SessionStatus } from '@shared/types'
+import type { AgentKind, PRSession } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-const STATUS_BADGE: Record<SessionStatus, string> = {
-  running: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  pending: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  ready: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  failed: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  submitted: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
-  archived: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-  cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+const STATUS_TONE: Record<
+  PRSession['status'],
+  'brand' | 'success' | 'warning' | 'danger' | 'neutral'
+> = {
+  running: 'success',
+  pending: 'warning',
+  ready: 'brand',
+  failed: 'danger',
+  submitted: 'neutral',
+  archived: 'neutral',
+  cancelled: 'neutral',
 }
 
-interface SessionCardProps {
-  session: PRSession
+function relativeTime(updatedAt: number): string {
+  const diffMs = Date.now() - updatedAt
+  if (diffMs < 0) return 'just now'
+  const seconds = Math.floor(diffMs / 1000)
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
-function SessionCard({ session }: SessionCardProps) {
+function RecentRow({ session }: { session: PRSession }) {
   return (
     <Link
       to={`/pr/${session.id}`}
-      className="block rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+      className="group block py-3 border-b border-rule last:border-b-0"
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-xs text-gray-500">
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-meta text-ink-secondary tabular-nums">
           {session.owner}/{session.repo}#{session.number}
         </span>
-        <span
-          className={cn(
-            'text-xs px-2 py-0.5 rounded-full font-medium',
-            STATUS_BADGE[session.status],
-          )}
-        >
-          {session.status}
+        <Tag tone={STATUS_TONE[session.status]}>{session.status}</Tag>
+        <span className="ml-auto text-caps tracking-caps text-ink-muted uppercase">
+          {relativeTime(session.updatedAt)}
         </span>
       </div>
-      <h3 className="mt-2 text-sm font-medium line-clamp-2 text-gray-900 dark:text-gray-100">
+      <div className="mt-1 text-h2 text-ink-primary group-hover:text-brand transition-colors duration-180 ease-out-quart">
         {session.title ?? '(no title)'}
-      </h3>
-      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-        {session.author && <span>@{session.author}</span>}
-        <span className="font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-          {session.agent}
-        </span>
       </div>
+      {session.author ? (
+        <div className="mt-0.5 font-mono text-meta text-ink-muted">@{session.author}</div>
+      ) : null}
     </Link>
   )
 }
@@ -76,17 +83,20 @@ export function Home() {
   }, [agent, health])
 
   const trimmed = input.trim()
-  const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+  const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3)
   const effectiveAgent = agent ?? health?.defaultAgent ?? 'claude'
 
   return (
-    <div className="max-w-5xl mx-auto p-8 space-y-12">
-      <header className="space-y-4">
-        <h1 className="text-3xl font-semibold tracking-tight">Review GitHub PRs locally</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Paste a GitHub PR URL (e.g.{' '}
-          <code className="font-mono">https://github.com/owner/repo/pull/123</code>).
-        </p>
+    <div className="px-8 py-12 mx-auto" style={{ width: 'clamp(680px, 80vw, 880px)' }}>
+      <header className="space-y-7">
+        <div>
+          <div className="text-caps tracking-caps text-ink-muted uppercase mb-3">better-review</div>
+          <h1 className="text-display text-ink-primary">Review GitHub PRs locally</h1>
+          <p className="mt-3 text-h2 text-ink-secondary font-normal">
+            Paste a pull request to start a session.
+          </p>
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -94,30 +104,28 @@ export function Home() {
               create.mutate({ prInput: trimmed, agent: effectiveAgent })
             }
           }}
-          className="space-y-3"
+          className="space-y-4"
         >
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 border-b border-rule focus-within:border-brand transition-colors duration-180 ease-out-quart">
+            <ChevronRight size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="https://github.com/owner/repo/pull/123"
-              className="flex-1 px-4 py-2.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 py-2.5 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
               aria-label="PR target"
             />
-            <button
-              type="submit"
-              disabled={!trimmed || create.isPending}
-              className="px-5 py-2.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" variant="ink" size="md" disabled={!trimmed || create.isPending}>
               {create.isPending ? 'Starting…' : 'Start review'}
-            </button>
+            </Button>
           </div>
+
           <fieldset
-            className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400"
+            className="flex items-center gap-3 text-meta text-ink-secondary"
             aria-label="Review agent"
           >
-            <span className="font-medium uppercase tracking-wide">Agent</span>
+            <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Agent</legend>
             {AGENT_KINDS.map((k) => {
               const found = health?.agents[k].found ?? true
               const selected = effectiveAgent === k
@@ -130,45 +138,62 @@ export function Home() {
                   aria-pressed={selected}
                   title={found ? undefined : `${k} CLI not found in PATH`}
                   className={cn(
-                    'px-2.5 py-1 rounded-md font-mono border transition-colors',
+                    'px-3 py-1.5 rounded-sm font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
                     selected
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-blue-400',
+                      ? 'bg-ink-primary text-canvas'
+                      : 'text-ink-secondary hover:text-ink-primary hover:bg-raised',
                     !found && 'opacity-40 cursor-not-allowed',
                   )}
                 >
                   {k}
-                  {health && k === health.defaultAgent && (
-                    <span className="ml-1 text-[10px] text-gray-500">default</span>
-                  )}
+                  {health && k === health.defaultAgent ? (
+                    <span className="ml-1.5 text-[10px] text-ink-muted">default</span>
+                  ) : null}
                 </button>
               )
             })}
           </fieldset>
         </form>
-        {create.isError && (
-          <div className="text-sm text-red-600 dark:text-red-400">
+
+        {create.isError ? (
+          <div className="text-meta text-severity-must">
             {create.error instanceof ApiError ? create.error.message : 'Failed to start review'}
           </div>
-        )}
+        ) : null}
       </header>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
-          Recent sessions
-        </h2>
+      <section className="mt-16">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-caps tracking-caps text-ink-muted uppercase">Recent</h2>
+          {sessions.length > 3 ? (
+            <span className="text-caps tracking-caps text-ink-muted uppercase">
+              {sessions.length} total
+            </span>
+          ) : null}
+        </div>
         {recent.length === 0 ? (
-          <div className="text-sm text-gray-500 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
-            No sessions yet.
-          </div>
+          <EmptyState
+            eyebrow="No history"
+            title="Nothing to recall yet"
+            body="Sessions you start here will be available in the sidebar across browser restarts."
+          />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
             {recent.map((s) => (
-              <SessionCard key={s.id} session={s} />
+              <RecentRow key={s.id} session={s} />
             ))}
           </div>
         )}
       </section>
+
+      <footer className="mt-12 border-t border-rule pt-4 flex items-center gap-3 text-meta text-ink-muted">
+        <KbdHint keys={['⏎']} label="start review" />
+        <span>·</span>
+        <span>Configure default agent in</span>
+        <Link to="/settings" className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline">
+          settings
+        </Link>
+      </footer>
     </div>
   )
 }
