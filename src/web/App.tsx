@@ -11,7 +11,11 @@ import { Settings } from '@/pages/Settings'
 function TopBar() {
   return (
     <header className="h-12 flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-      <Link to="/" className="font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+      <Link
+        to="/"
+        className="inline-flex items-center gap-2 font-semibold tracking-tight text-gray-900 dark:text-gray-100"
+      >
+        <img src="/logo.svg" alt="" className="size-6 rounded-md" aria-hidden="true" />
         better-review
       </Link>
       <div className="flex-1 mx-4">
