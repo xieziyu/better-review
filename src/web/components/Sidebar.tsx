@@ -1,7 +1,7 @@
 import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
 import { EmptyState } from '@/components/ui'
@@ -42,11 +42,35 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
 const STATUS_TONE: Record<SessionStatus, string> = {
   running: 'text-accent-running',
   pending: 'text-severity-should',
-  ready: 'text-ink-primary',
-  submitted: 'text-ink-secondary',
+  ready: 'text-brand',
+  submitted: 'text-ink-muted',
   failed: 'text-severity-must',
   cancelled: 'text-ink-muted',
   archived: 'text-ink-muted',
+}
+
+const CLOSED_STATUSES: ReadonlySet<SessionStatus> = new Set([
+  'submitted',
+  'archived',
+  'cancelled',
+])
+
+const SIDEBAR_MIN = 256
+const SIDEBAR_MAX = 560
+const SIDEBAR_DEFAULT = 320
+const SIDEBAR_KEY = 'better-review:sidebar-width'
+
+function readStoredWidth(): number {
+  if (typeof window === 'undefined') return SIDEBAR_DEFAULT
+  const raw = window.localStorage.getItem(SIDEBAR_KEY)
+  const n = raw ? Number.parseInt(raw, 10) : Number.NaN
+  if (!Number.isFinite(n)) return SIDEBAR_DEFAULT
+  return Math.min(Math.max(n, SIDEBAR_MIN), SIDEBAR_MAX)
+}
+
+function persistWidth(w: number): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(SIDEBAR_KEY, String(w))
 }
 
 function relativeTime(updatedAt: number): string {
@@ -110,13 +134,14 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session }: SessionRowProps) {
+  const closed = CLOSED_STATUSES.has(session.status)
   return (
     <NavLink
       to={`/pr/${session.id}`}
       className={({ isActive }) =>
         cn(
-          'group relative block py-2.5 pl-4 pr-3 transition-colors duration-180 ease-out-quart',
-          isActive ? 'bg-canvas' : 'hover:bg-canvas/60',
+          'group relative block py-3 pl-5 pr-4 transition-colors duration-180 ease-out-quart',
+          isActive ? 'bg-canvas' : 'hover:bg-canvas/50',
         )
       }
     >
@@ -125,34 +150,54 @@ function SessionRow({ session }: SessionRowProps) {
           <span
             aria-hidden="true"
             className={cn(
-              'absolute inset-y-1 left-0 w-px',
-              session.status === 'running'
-                ? 'bg-accent-running animate-running-pulse'
-                : isActive
-                  ? 'bg-brand'
-                  : 'bg-rule',
+              'absolute left-0 top-2 bottom-2',
+              isActive
+                ? 'w-[2px] bg-brand'
+                : session.status === 'running'
+                  ? 'w-px bg-accent-running animate-running-pulse'
+                  : 'w-px bg-transparent',
             )}
           />
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-meta text-ink-secondary tabular-nums truncate">
-              {session.owner}/{session.repo}#{session.number}
-            </span>
+          <h3
+            className={cn(
+              'text-h2 line-clamp-2',
+              closed ? 'text-ink-secondary' : 'text-ink-primary',
+            )}
+          >
+            {session.title ?? '(no title)'}
+          </h3>
+          <div className="mt-1.5 flex items-baseline gap-1.5 text-meta min-w-0">
             <span
               className={cn(
-                'ml-auto text-caps tracking-caps uppercase shrink-0',
+                'text-caps tracking-caps uppercase shrink-0',
                 STATUS_TONE[session.status],
               )}
               data-status={session.status}
             >
               {STATUS_LABEL[session.status]}
             </span>
-          </div>
-          <div className="mt-1 text-body text-ink-primary line-clamp-2">
-            {session.title ?? '(no title)'}
-          </div>
-          <div className="mt-1 text-caps tracking-caps text-ink-muted">
-            {session.author ? `${session.author} · ` : ''}
-            {relativeTime(session.updatedAt)}
+            <span aria-hidden="true" className="text-ink-muted shrink-0">
+              ·
+            </span>
+            <span className="font-mono text-ink-secondary tabular-nums truncate min-w-0">
+              {session.owner}/{session.repo}#{session.number}
+            </span>
+            {session.author ? (
+              <>
+                <span aria-hidden="true" className="text-ink-muted shrink-0">
+                  ·
+                </span>
+                <span className="text-ink-muted shrink-0 truncate max-w-[12ch]">
+                  @{session.author}
+                </span>
+              </>
+            ) : null}
+            <span aria-hidden="true" className="text-ink-muted shrink-0">
+              ·
+            </span>
+            <span className="text-ink-muted shrink-0 tabular-nums">
+              {relativeTime(session.updatedAt)}
+            </span>
           </div>
         </>
       )}
@@ -187,8 +232,49 @@ export function Sidebar() {
   }
   for (const arr of grouped.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
 
+  const [width, setWidth] = useState<number>(() => readStoredWidth())
+  const dragRef = useRef<{ startX: number; startW: number } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const onSplitterPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startX: e.clientX, startW: width }
+    setIsDragging(true)
+  }
+  const onSplitterPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag) return
+    const dx = e.clientX - drag.startX
+    const next = Math.min(Math.max(drag.startW + dx, SIDEBAR_MIN), SIDEBAR_MAX)
+    setWidth(next)
+  }
+  const onSplitterPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    dragRef.current = null
+    setIsDragging(false)
+    persistWidth(width)
+  }
+  const onSplitterKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const step = e.shiftKey ? 32 : 8
+    setWidth((w) => {
+      const next =
+        e.key === 'ArrowLeft'
+          ? Math.max(w - step, SIDEBAR_MIN)
+          : Math.min(w + step, SIDEBAR_MAX)
+      persistWidth(next)
+      return next
+    })
+  }
+
   return (
-    <aside className="w-80 shrink-0 border-r border-rule bg-raised flex flex-col min-h-0">
+    <aside
+      style={{ width }}
+      className="relative shrink-0 border-r border-rule bg-raised flex flex-col min-h-0"
+    >
       <NewPRInput />
       <nav className="flex-1 overflow-y-auto" aria-label="Sessions">
         {sessions.length === 0 ? (
@@ -205,9 +291,15 @@ export function Sidebar() {
               const items = grouped.get(g)
               if (!items || items.length === 0) return null
               return (
-                <section key={g} className="pt-4">
-                  <h3 className="px-5 pb-1 text-caps tracking-caps text-ink-muted uppercase">
-                    {GROUP_LABEL[g]} · {items.length}
+                <section key={g} className="pt-5 first:pt-3">
+                  <h3 className="flex items-center gap-2 px-5 pb-1.5">
+                    <span className="text-caps tracking-caps text-ink-muted uppercase">
+                      {GROUP_LABEL[g]}
+                    </span>
+                    <span className="font-mono text-meta text-ink-muted tabular-nums">
+                      {items.length}
+                    </span>
+                    <span aria-hidden="true" className="flex-1 h-px bg-rule" />
                   </h3>
                   <div>
                     {items.map((s) => (
@@ -220,6 +312,25 @@ export function Sidebar() {
           </div>
         )}
       </nav>
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        aria-valuenow={width}
+        aria-valuemin={SIDEBAR_MIN}
+        aria-valuemax={SIDEBAR_MAX}
+        tabIndex={0}
+        onPointerDown={onSplitterPointerDown}
+        onPointerMove={onSplitterPointerMove}
+        onPointerUp={onSplitterPointerUp}
+        onPointerCancel={onSplitterPointerUp}
+        onKeyDown={onSplitterKeyDown}
+        className={cn(
+          'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none',
+          'transition-colors duration-180 ease-out-quart',
+          isDragging ? 'bg-brand' : 'hover:bg-brand/30',
+        )}
+      />
     </aside>
   )
 }
