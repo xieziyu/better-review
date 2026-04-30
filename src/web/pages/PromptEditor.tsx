@@ -10,11 +10,16 @@ import { cn } from '@/lib/utils'
 type Tab = 'effective' | 'framework' | WritablePromptScope
 
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'effective', label: 'Effective' },
+  { id: 'effective', label: 'Guidelines' },
   { id: 'framework', label: 'Framework' },
   { id: 'project', label: 'Project' },
   { id: 'global', label: 'Global' },
 ]
+
+function tabTitle(tab: Tab): string {
+  if (tab === 'effective') return 'Review Guidelines'
+  return TABS.find((t) => t.id === tab)?.label ?? 'Prompt'
+}
 
 const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed', 'cancelled'])
 
@@ -141,9 +146,7 @@ export function PromptEditor() {
         <header className="px-8 pt-7 pb-4 border-b border-rule flex items-baseline gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="text-caps tracking-caps text-ink-muted uppercase">Prompt</div>
-            <h1 className="text-h1 text-ink-primary mt-1">
-              {TABS.find((t) => t.id === tab)?.label ?? 'Prompt'}
-            </h1>
+            <h1 className="text-h1 text-ink-primary mt-1">{tabTitle(tab)}</h1>
           </div>
           <div className="text-meta text-ink-secondary">
             Source:{' '}
@@ -162,13 +165,13 @@ export function PromptEditor() {
           {tab === 'effective' ? (
             <section className="space-y-2">
               <textarea
-                aria-label="Effective rules"
+                aria-label="Review guidelines"
                 readOnly
                 value={data.rules.effective.content}
                 className="w-full h-[60vh] p-4 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary resize-y"
               />
               <p className="text-meta text-ink-muted">
-                Read-only. Effective source: {sourceLabel(data.rules.effective.source)}.
+                Read-only. Current source: {sourceLabel(data.rules.effective.source)}.
                 {data.rules.effective.path ? (
                   <span className="ml-2 font-mono">{data.rules.effective.path}</span>
                 ) : null}

@@ -35,11 +35,14 @@ const baseState: PromptStateResponse = {
 }
 
 describe('PromptEditor', () => {
-  it('defaults to the Effective tab and shows the rules source indicator', () => {
+  it('defaults to the Guidelines tab and shows the rules source indicator', () => {
     render(withClient(<PromptEditor />, { prompts: baseState }))
-    expect(screen.getByRole('tab', { name: /effective/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /guidelines/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     expect(screen.getByTestId('prompt-source')).toHaveTextContent(/builtin/i)
-    expect(screen.getByLabelText(/effective rules/i)).toHaveValue('# builtin rules body')
+    expect(screen.getByLabelText(/review guidelines/i)).toHaveValue('# builtin rules body')
   })
 
   it('Framework tab renders read-only framework content', async () => {

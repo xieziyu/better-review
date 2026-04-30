@@ -217,15 +217,15 @@ UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
 
 | Tab       | 文件路径                         | 用途                                                      |
 | --------- | -------------------------------- | --------------------------------------------------------- |
-| Effective | （只读）                         | 当前生效的 rules（project → global → builtin 第一个命中） |
-| Framework | （只读，包内自带）               | 不可变的工作流框架；只能查看，了解 rules 嵌入位置         |
-| Project   | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）                       |
-| Global    | `~/.better-review/review.md`     | 你跨项目复用的规则                                        |
+| Guidelines | （只读）                         | 当前生效的 review guidelines（project → global → builtin 第一个命中） |
+| Framework  | （只读，包内自带）               | 不可变的工作流框架；只能查看，了解 rules 嵌入位置                    |
+| Project    | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）                                  |
+| Global     | `~/.better-review/review.md`     | 你跨项目复用的规则                                                   |
 
 行为：
 
 - 在 Project / Global tab 里修改后点 **Save** 写文件，**Reset** 删除文件回退到下一级
-- 切到 Effective tab 可以核对当前到底用的是哪个 scope（右上 `Source: project override / global override / builtin rules` 标签）
+- 切到 Guidelines tab 可以核对当前到底用的是哪个 scope（右上 `Source: project override / global override / builtin rules` 标签）
 - 修改 rules 不会自动重跑已有 review；要让旧 PR 用新规则，得在该 PR 详情页点 **Rerun**，或者在 Project / Global tab 顶部点 **Apply to current session**
 
 > ⚠️ **从 v0.1.x 升级**：早期版本的 `review.md` 是**整体覆盖**整个 prompt（含 `{{DIFF}}` `{{FINDINGS_PATH}}` 等占位符）。从 v0.2 起 `review.md` 仅替换规则段。如果你的旧文件里还残留 `{{DIFF}}` 等占位符，建议手工清掉（占位符仍会被渲染替换，但 diff / 路径会重复出现，效果不理想）。
