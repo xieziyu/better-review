@@ -1,30 +1,33 @@
 import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Loader2,
-  Check,
-  AlertTriangle,
-  CheckCheck,
-  Archive,
-  Clock,
-  CircleSlash,
-} from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
+import { EmptyState } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
-const STATUS_ORDER: SessionStatus[] = [
-  'running',
-  'pending',
-  'ready',
-  'failed',
-  'cancelled',
-  'submitted',
-  'archived',
-]
+type GroupKey = 'active' | 'done' | 'stale'
+
+const GROUP_OF: Record<SessionStatus, GroupKey> = {
+  running: 'active',
+  pending: 'active',
+  ready: 'done',
+  submitted: 'done',
+  failed: 'stale',
+  cancelled: 'stale',
+  archived: 'stale',
+}
+
+const GROUP_ORDER: GroupKey[] = ['active', 'done', 'stale']
+
+const GROUP_LABEL: Record<GroupKey, string> = {
+  active: 'Active',
+  done: 'Done',
+  stale: 'Stale',
+}
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   running: 'Running',
@@ -36,46 +39,14 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   archived: 'Archived',
 }
 
-interface StatusIconProps {
-  status: SessionStatus
-  size?: number
-}
-
-function StatusIcon({ status, size = 14 }: StatusIconProps) {
-  const cls = (() => {
-    switch (status) {
-      case 'running':
-        return 'text-blue-600 dark:text-blue-300'
-      case 'pending':
-        return 'text-amber-600 dark:text-amber-300'
-      case 'ready':
-        return 'text-emerald-600 dark:text-emerald-300'
-      case 'failed':
-        return 'text-red-600 dark:text-red-300'
-      case 'submitted':
-        return 'text-violet-600 dark:text-violet-300'
-      case 'archived':
-        return 'text-gray-500'
-      case 'cancelled':
-        return 'text-gray-500 dark:text-gray-400'
-    }
-  })()
-  switch (status) {
-    case 'running':
-      return <Loader2 size={size} className={cn(cls, 'animate-spin')} aria-label="Running" />
-    case 'pending':
-      return <Clock size={size} className={cls} aria-label="Pending" />
-    case 'ready':
-      return <Check size={size} className={cls} aria-label="Ready" />
-    case 'failed':
-      return <AlertTriangle size={size} className={cls} aria-label="Failed" />
-    case 'submitted':
-      return <CheckCheck size={size} className={cls} aria-label="Submitted" />
-    case 'archived':
-      return <Archive size={size} className={cls} aria-label="Archived" />
-    case 'cancelled':
-      return <CircleSlash size={size} className={cls} aria-label="Cancelled" />
-  }
+const STATUS_TONE: Record<SessionStatus, string> = {
+  running: 'text-accent-running',
+  pending: 'text-severity-should',
+  ready: 'text-ink-primary',
+  submitted: 'text-ink-secondary',
+  failed: 'text-severity-must',
+  cancelled: 'text-ink-muted',
+  archived: 'text-ink-muted',
 }
 
 function relativeTime(updatedAt: number): string {
@@ -105,26 +76,31 @@ function NewPRInput() {
   })
   return (
     <form
-      className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-2"
+      className="px-5 pt-5 pb-3 border-b border-rule"
       onSubmit={(e) => {
         e.preventDefault()
         const trimmed = value.trim()
         if (trimmed) create.mutate({ prInput: trimmed })
       }}
     >
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Paste GitHub PR URL"
-        aria-label="GitHub PR URL"
-        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      {create.isError && (
-        <div className="text-xs text-red-600 dark:text-red-400">
-          {create.error instanceof ApiError ? create.error.message : 'Failed to create session'}
+      <label className="block text-caps tracking-caps text-ink-muted mb-2">New review</label>
+      <div className="flex items-center gap-1.5 border-b border-rule focus-within:border-brand transition-colors duration-180 ease-out-quart">
+        <ChevronRight size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Paste GitHub PR URL · press ⏎"
+          aria-label="GitHub PR URL"
+          className="w-full py-1.5 bg-transparent text-body text-ink-primary placeholder:text-ink-muted focus:outline-none"
+          disabled={create.isPending}
+        />
+      </div>
+      {create.isError ? (
+        <div className="mt-2 text-caps tracking-caps text-severity-must uppercase">
+          {create.error instanceof ApiError ? create.error.message : 'failed to create session'}
         </div>
-      )}
+      ) : null}
     </form>
   )
 }
@@ -139,23 +115,47 @@ function SessionRow({ session }: SessionRowProps) {
       to={`/pr/${session.id}`}
       className={({ isActive }) =>
         cn(
-          'block px-3 py-2 rounded-md text-sm border-l-2',
-          isActive
-            ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600'
-            : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-900',
+          'group relative block py-2.5 pl-4 pr-3 transition-colors duration-180 ease-out-quart',
+          isActive ? 'bg-canvas' : 'hover:bg-canvas/60',
         )
       }
     >
-      <div className="flex items-center gap-2">
-        <StatusIcon status={session.status} />
-        <span className="font-mono text-xs text-gray-600 dark:text-gray-400 truncate">
-          {session.owner}/{session.repo}#{session.number}
-        </span>
-        <span className="ml-auto text-xs text-gray-500">{relativeTime(session.updatedAt)}</span>
-      </div>
-      <div className="mt-1 text-sm truncate text-gray-900 dark:text-gray-100">
-        {session.title ?? '(no title)'}
-      </div>
+      {({ isActive }) => (
+        <>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute inset-y-1 left-0 w-px',
+              session.status === 'running'
+                ? 'bg-accent-running animate-running-pulse'
+                : isActive
+                  ? 'bg-brand'
+                  : 'bg-rule',
+            )}
+          />
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-meta text-ink-secondary tabular-nums truncate">
+              {session.owner}/{session.repo}#{session.number}
+            </span>
+            <span
+              className={cn(
+                'ml-auto text-caps tracking-caps uppercase shrink-0',
+                STATUS_TONE[session.status],
+              )}
+              data-status={session.status}
+            >
+              {STATUS_LABEL[session.status]}
+            </span>
+          </div>
+          <div className="mt-1 text-body text-ink-primary line-clamp-2">
+            {session.title ?? '(no title)'}
+          </div>
+          <div className="mt-1 text-caps tracking-caps text-ink-muted">
+            {session.author ? `${session.author} · ` : ''}
+            {relativeTime(session.updatedAt)}
+          </div>
+        </>
+      )}
     </NavLink>
   )
 }
@@ -178,39 +178,47 @@ export function Sidebar() {
     }
   })
 
-  const grouped = new Map<SessionStatus, PRSession[]>()
+  const grouped = new Map<GroupKey, PRSession[]>()
   for (const s of sessions) {
-    const arr = grouped.get(s.status) ?? []
+    const g = GROUP_OF[s.status]
+    const arr = grouped.get(g) ?? []
     arr.push(s)
-    grouped.set(s.status, arr)
+    grouped.set(g, arr)
   }
   for (const arr of grouped.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
 
   return (
-    <aside className="w-72 lg:w-[280px] shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <aside className="w-80 shrink-0 border-r border-rule bg-raised flex flex-col min-h-0">
       <NewPRInput />
-      <nav className="flex-1 overflow-y-auto p-2 space-y-3" aria-label="Sessions">
-        {sessions.length === 0 && (
-          <div className="text-xs text-gray-500 px-3 py-4">
-            No sessions yet. Enter a PR above to start.
+      <nav className="flex-1 overflow-y-auto" aria-label="Sessions">
+        {sessions.length === 0 ? (
+          <div className="px-5 py-8">
+            <EmptyState
+              eyebrow="No sessions"
+              title="Paste a PR to begin"
+              body="The agent runs locally; this list shows everything in flight, done, or stale."
+            />
+          </div>
+        ) : (
+          <div className="pb-6">
+            {GROUP_ORDER.map((g) => {
+              const items = grouped.get(g)
+              if (!items || items.length === 0) return null
+              return (
+                <section key={g} className="pt-4">
+                  <h3 className="px-5 pb-1 text-caps tracking-caps text-ink-muted uppercase">
+                    {GROUP_LABEL[g]} · {items.length}
+                  </h3>
+                  <div>
+                    {items.map((s) => (
+                      <SessionRow key={s.id} session={s} />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
           </div>
         )}
-        {STATUS_ORDER.map((status) => {
-          const items = grouped.get(status)
-          if (!items || items.length === 0) return null
-          return (
-            <section key={status} className="space-y-1">
-              <h3 className="px-3 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {STATUS_LABEL[status]}
-              </h3>
-              <div className="space-y-1">
-                {items.map((s) => (
-                  <SessionRow key={s.id} session={s} />
-                ))}
-              </div>
-            </section>
-          )
-        })}
       </nav>
     </aside>
   )

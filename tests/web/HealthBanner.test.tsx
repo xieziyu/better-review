@@ -1,6 +1,7 @@
 import type { HealthStatus } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect } from 'vitest'
 
 import { HealthBanner } from '@/components/HealthBanner'
@@ -8,7 +9,11 @@ import { HealthBanner } from '@/components/HealthBanner'
 function withClient(ui: React.ReactNode, initial?: { health?: HealthStatus }): React.ReactElement {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   if (initial?.health) qc.setQueryData(['health'], initial.health)
-  return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>
+  )
 }
 
 const healthy: HealthStatus = {

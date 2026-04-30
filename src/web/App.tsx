@@ -1,9 +1,9 @@
-import { FileText, Settings as SettingsIcon } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { Link, NavLink, Routes, Route } from 'react-router-dom'
 
 import { HealthBanner } from '@/components/HealthBanner'
 import { Sidebar } from '@/components/Sidebar'
+import { cn } from '@/lib/utils'
 
 const Home = lazy(() => import('@/pages/Home').then((m) => ({ default: m.Home })))
 const PRDetail = lazy(() => import('@/pages/PRDetail').then((m) => ({ default: m.PRDetail })))
@@ -12,34 +12,47 @@ const PromptEditor = lazy(() =>
 )
 const Settings = lazy(() => import('@/pages/Settings').then((m) => ({ default: m.Settings })))
 
+function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) =>
+        cn(
+          'relative inline-flex items-center px-1 h-14 text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
+          isActive ? 'text-ink-primary' : 'text-ink-secondary hover:text-ink-primary',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {children}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute left-0 right-0 -bottom-px h-[2px]',
+              isActive ? 'bg-brand' : 'bg-transparent',
+            )}
+          />
+        </>
+      )}
+    </NavLink>
+  )
+}
+
 function TopBar() {
   return (
-    <header className="h-12 flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+    <header className="h-14 flex items-center px-5 gap-6 border-b border-rule bg-canvas">
       <Link
         to="/"
-        className="inline-flex items-center gap-2 font-semibold tracking-tight text-gray-900 dark:text-gray-100"
+        className="inline-flex items-center gap-2 text-display text-ink-primary tracking-tight"
       >
-        <img src="/logo.svg" alt="" className="size-6 rounded-md" aria-hidden="true" />
-        better-review
+        <img src="/logo.svg" alt="" className="size-6" aria-hidden="true" />
+        <span className="text-h1 tracking-tight">better-review</span>
       </Link>
-      <div className="flex-1 mx-4">
-        <HealthBanner />
-      </div>
-      <nav className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-        <NavLink
-          to="/prompt"
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-900 dark:hover:text-gray-100 aria-[current=page]:bg-gray-100 aria-[current=page]:text-gray-900 dark:aria-[current=page]:bg-gray-900 dark:aria-[current=page]:text-gray-100"
-        >
-          <FileText size={14} aria-hidden="true" />
-          Prompt
-        </NavLink>
-        <NavLink
-          to="/settings"
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-900 dark:hover:text-gray-100 aria-[current=page]:bg-gray-100 aria-[current=page]:text-gray-900 dark:aria-[current=page]:bg-gray-900 dark:aria-[current=page]:text-gray-100"
-        >
-          <SettingsIcon size={14} aria-hidden="true" />
-          Settings
-        </NavLink>
+      <nav className="ml-auto flex items-stretch gap-5 text-meta" aria-label="Primary">
+        <NavItem to="/prompt">Prompt</NavItem>
+        <NavItem to="/settings">Settings</NavItem>
       </nav>
     </header>
   )
@@ -47,18 +60,24 @@ function TopBar() {
 
 function RouteFallback() {
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-3 animate-pulse" aria-label="Loading page">
-      <div className="h-5 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
-      <div className="h-4 w-1/3 bg-gray-200 dark:bg-gray-800 rounded" />
-      <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded mt-6" />
+    <div className="px-8 py-10 max-w-3xl space-y-4" aria-label="Loading page">
+      <div className="text-caps tracking-caps text-ink-muted uppercase">Loading</div>
+      <div className="h-8 w-2/3 bg-raised rounded" />
+      <div className="h-px w-full bg-rule" />
+      <div className="space-y-2">
+        <div className="h-3 w-full bg-raised/70 rounded" />
+        <div className="h-3 w-5/6 bg-raised/70 rounded" />
+        <div className="h-3 w-4/6 bg-raised/70 rounded" />
+      </div>
     </div>
   )
 }
 
 export function App() {
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen flex flex-col bg-canvas text-ink-primary">
       <TopBar />
+      <HealthBanner />
       <div className="flex flex-1 min-h-0">
         <Sidebar />
         <main className="flex-1 overflow-auto">
