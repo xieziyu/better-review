@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -103,7 +103,11 @@ describe('sessions API', () => {
   })
 
   it('DELETE /api/sessions/:id removes from DB', async () => {
-    const deps = makeTestDeps()
+    const sessionsDir = mkdtempSync(join(tmpdir(), 'br-del-sd-'))
+    const workdir = join(sessionsDir, 'pr-o-r-1-aaaaaaaa')
+    mkdirSync(workdir, { recursive: true })
+    writeFileSync(join(workdir, 'sentinel'), 'x')
+    const deps = makeTestDeps({ sessionsDir })
     deps.sessions.insert({
       id: 's1',
       owner: 'o',
@@ -116,12 +120,60 @@ describe('sessions API', () => {
       headRef: null,
       status: 'ready',
       agent: 'claude',
-      workdir: '/w',
+      workdir,
+      promptUsed: 'p',
+    })
+    deps.findings.insertMany('s1', [
+      { id: 'F1', severity: 'must', category: 'x', file: null, line: null, title: 't', body: 'b' },
+    ])
+    deps.submissions.insert({
+      sessionId: 's1',
+      event: 'COMMENT',
+      githubUrl: 'https://gh',
+      payloadJson: '{}',
+      findingIds: ['F1'],
+      error: null,
+    })
+
+    const app = createApp(deps)
+    expect((await app.request('/api/sessions/s1', { method: 'DELETE' })).status).toBe(204)
+    expect(deps.sessions.getById('s1')).toBeNull()
+    expect(deps.submissions.listBySession('s1')).toHaveLength(0)
+    expect(deps.findings.listBySession('s1')).toHaveLength(0)
+    expect(existsSync(workdir)).toBe(false)
+  })
+
+  it('DELETE /api/sessions/:id returns 404 for unknown id', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing', { method: 'DELETE' })
+    expect(res.status).toBe(404)
+  })
+
+  it('DELETE /api/sessions/:id leaves files outside sessionsDir untouched', async () => {
+    const sessionsDir = mkdtempSync(join(tmpdir(), 'br-del-sd-'))
+    const stranger = mkdtempSync(join(tmpdir(), 'br-stranger-'))
+    writeFileSync(join(stranger, 'keep-me'), 'x')
+    const deps = makeTestDeps({ sessionsDir })
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: stranger,
       promptUsed: 'p',
     })
     const app = createApp(deps)
     expect((await app.request('/api/sessions/s1', { method: 'DELETE' })).status).toBe(204)
     expect(deps.sessions.getById('s1')).toBeNull()
+    expect(existsSync(join(stranger, 'keep-me'))).toBe(true)
   })
 
   it('GET /api/sessions/:id/diff returns cached diff', async () => {

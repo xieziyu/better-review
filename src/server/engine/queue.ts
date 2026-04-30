@@ -53,4 +53,16 @@ export class ConcurrencyQueue {
   activeCount(): number {
     return this.active.size
   }
+
+  drop(key: string): void {
+    const remaining: Pending[] = []
+    for (const p of this.pending) {
+      if (p.key === key) {
+        p.resolve()
+      } else {
+        remaining.push(p)
+      }
+    }
+    this.pending = remaining
+  }
 }

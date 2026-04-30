@@ -10,6 +10,7 @@ import type { ReviewAgent } from './engine/agent'
 import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
 import { runReview } from './engine/runner'
+import type { RunnerRegistry } from './engine/runner-registry'
 import type { GhClient } from './github/gh-client'
 import { parsePRTarget } from './github/pr-target-parser'
 import { renderPrompt } from './prompts/renderer'
@@ -26,6 +27,7 @@ export interface StartSessionDeps {
   gh: GhClient
   bus: EventBus
   queue: ConcurrencyQueue
+  runners: RunnerRegistry
   config: Config
   paths: { home: string; sessionsDir: string }
   cwd: string
@@ -99,6 +101,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
         findings: deps.findings,
         bus: deps.bus,
         stallMs: deps.config.stallMinutes * 60_000,
+        runners: deps.runners,
       }),
     )
     return { id }

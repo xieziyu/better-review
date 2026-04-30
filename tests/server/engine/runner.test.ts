@@ -11,6 +11,7 @@ import { SessionsRepo } from '../../../src/server/db/sessions'
 import { getAgent } from '../../../src/server/engine/agent'
 import { EventBus } from '../../../src/server/engine/events'
 import { runReview } from '../../../src/server/engine/runner'
+import { RunnerRegistry } from '../../../src/server/engine/runner-registry'
 import type { AgentKind, SSEEvent } from '../../../src/shared/types'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -88,6 +89,7 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
         findings,
         bus,
         stallMs: 60_000,
+        runners: new RunnerRegistry(),
       })
       const got = sessions.getById('s1')!
       expect(got.status).toBe('ready')
@@ -115,6 +117,7 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
       findings,
       bus,
       stallMs: 60_000,
+      runners: new RunnerRegistry(),
     })
     const got = sessions.getById('s1')!
     expect(got.status).toBe('ready')
@@ -167,6 +170,7 @@ describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
         findings,
         bus,
         stallMs: 60_000,
+        runners: new RunnerRegistry(),
       })
       expect(sessions.getById('s2')!.status).toBe('failed')
     } finally {
@@ -188,10 +192,76 @@ describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
         findings,
         bus,
         stallMs: 200,
+        runners: new RunnerRegistry(),
       })
       expect(sessions.getById('s2')!.status).toBe('failed')
     } finally {
       delete process.env[fx.stallEnv]
+    }
+  }, 15_000)
+})
+
+describe('runReview (cancellation)', () => {
+  let workdir: string
+  let sessions: SessionsRepo
+  let findings: FindingsRepo
+  let bus: EventBus
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-run-'))
+    const db = openDatabase(join(dir, 's.db'))
+    sessions = new SessionsRepo(db)
+    findings = new FindingsRepo(db)
+    bus = new EventBus()
+    workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    sessions.insert({
+      id: 'cancel-1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir,
+      promptUsed: 'p',
+    })
+  })
+
+  it('runners.cancel(id) resolves runReview without emitting status-changed: failed', async () => {
+    process.env.FAKE_CLAUDE_STALL = '1'
+    try {
+      const events: SSEEvent[] = []
+      bus.subscribeGlobal((e) => events.push(e))
+      const runners = new RunnerRegistry()
+      const promptText = `FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      const run = runReview({
+        sessionId: 'cancel-1',
+        workdir,
+        prompt: promptText,
+        agent: getAgent('claude'),
+        executable: FAKE_CLAUDE,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+        runners,
+      })
+      await new Promise((r) => setTimeout(r, 200))
+      expect(runners.isRunning('cancel-1')).toBe(true)
+      await runners.cancel('cancel-1')
+      await run
+
+      const got = sessions.getById('cancel-1')!
+      expect(got.status).toBe('running')
+      expect(got.error).toBeNull()
+      expect(events.some((e) => e.type === 'status-changed' && e.status === 'failed')).toBe(false)
+      expect(events.some((e) => e.type === 'done')).toBe(false)
+      expect(runners.isRunning('cancel-1')).toBe(false)
+    } finally {
+      delete process.env.FAKE_CLAUDE_STALL
     }
   }, 15_000)
 })
@@ -242,6 +312,7 @@ describe('runReview (claude result-after-linger)', () => {
         findings,
         bus,
         stallMs: 500,
+        runners: new RunnerRegistry(),
       })
       const got = sessions.getById('s3')!
       expect(got.status).toBe('ready')

@@ -1,7 +1,15 @@
 import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCw, ExternalLink, Loader2, Check, AlertTriangle, CheckCheck } from 'lucide-react'
+import {
+  RotateCw,
+  ExternalLink,
+  Loader2,
+  Check,
+  AlertTriangle,
+  CheckCheck,
+  Trash2,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -68,7 +76,9 @@ function PRHeader({
   selectedCount,
   onRerun,
   onSubmit,
+  onDelete,
   rerunPending,
+  deletePending,
   rerunAgent,
   onRerunAgentChange,
   health,
@@ -77,7 +87,9 @@ function PRHeader({
   selectedCount: number
   onRerun: () => void
   onSubmit: () => void
+  onDelete: () => void
   rerunPending: boolean
+  deletePending: boolean
   rerunAgent: AgentKind
   onRerunAgentChange: (kind: AgentKind) => void
   health: HealthStatus | undefined
@@ -141,6 +153,22 @@ function PRHeader({
               )
             })}
           </fieldset>
+          <button
+            type="button"
+            onClick={() => {
+              const msg =
+                session.status === 'running'
+                  ? 'Delete this session? The running review will be canceled and all findings will be lost.'
+                  : 'Delete this session and all findings? This cannot be undone.'
+              if (confirm(msg)) onDelete()
+            }}
+            disabled={deletePending}
+            aria-label="Delete session"
+            title="Delete session"
+            className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
+          >
+            <Trash2 size={14} className={deletePending ? 'animate-pulse' : undefined} />
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -213,6 +241,15 @@ export function PRDetail() {
     },
   })
 
+  const remove = useMutation({
+    mutationFn: () => api.deleteSession(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+      qc.removeQueries({ queryKey: queryKeys.session(id) })
+      nav('/')
+    },
+  })
+
   if (isLoading || !data) {
     return (
       <div className="p-6 max-w-5xl mx-auto space-y-3 animate-pulse">
@@ -236,7 +273,9 @@ export function PRDetail() {
         selectedCount={selectedCount}
         onRerun={() => rerun.mutate(effectiveRerunAgent)}
         onSubmit={() => setSubmitOpen(true)}
+        onDelete={() => remove.mutate()}
         rerunPending={rerun.isPending}
+        deletePending={remove.isPending}
         rerunAgent={effectiveRerunAgent}
         onRerunAgentChange={setRerunAgent}
         health={health}
@@ -252,6 +291,12 @@ export function PRDetail() {
       {rerun.isError && (
         <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {rerun.error instanceof ApiError ? rerun.error.message : 'Rerun failed'}
+        </div>
+      )}
+
+      {remove.isError && (
+        <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          {remove.error instanceof ApiError ? remove.error.message : 'Delete failed'}
         </div>
       )}
 

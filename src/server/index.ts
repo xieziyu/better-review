@@ -12,10 +12,12 @@ import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
 import { SessionsRepo } from './db/sessions'
 import { SubmissionsRepo } from './db/submissions'
+import { makeDeleteSession } from './delete-session'
 import { getAgent, whichBinary } from './engine/agent'
 import type { ReviewAgent } from './engine/agent'
 import { EventBus } from './engine/events'
 import { ConcurrencyQueue } from './engine/queue'
+import { RunnerRegistry } from './engine/runner-registry'
 import { submitSession } from './engine/submit'
 import { GhClient } from './github/gh-client'
 import { createLogger } from './logger'
@@ -57,6 +59,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const submissions = new SubmissionsRepo(db)
   const bus = new EventBus()
   const queue = new ConcurrencyQueue(config.maxConcurrentReviews)
+  const runners = new RunnerRegistry()
   const gh = new GhClient()
   const cwd = opts.cwd ?? process.cwd()
   const promptStore = new PromptStore({ cwd, home: paths.home })
@@ -85,12 +88,21 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     gh,
     bus,
     queue,
+    runners,
     config,
     paths: { home: paths.home, sessionsDir: paths.sessionsDir },
     cwd,
     resolveAgent,
   })
   const rerun = makeRerunSession({ sessions, findings, startSession })
+  const deleteSession = makeDeleteSession({
+    db,
+    sessions,
+    submissions,
+    queue,
+    runners,
+    sessionsDir: paths.sessionsDir,
+  })
 
   let port = 0
   const startedAt = Date.now()
@@ -119,6 +131,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       const { freshId } = await rerun(id, agent)
       log.info('rerun started', { id, freshId, agent })
       return { id: freshId }
+    },
+    deleteSession: async (id) => {
+      await deleteSession(id)
+      log.info('session deleted', { id })
     },
     submitSession: (id, event: ReviewEvent, body) => {
       const submitArgs: Parameters<typeof submitSession>[0] = {

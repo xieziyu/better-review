@@ -42,6 +42,7 @@ export interface AppDeps {
     id: string,
     agent?: import('../../shared/types').AgentKind,
   ) => Promise<{ id: string }>
+  deleteSession: (id: string) => Promise<void>
   submitSession: (
     id: string,
     event: ReviewEvent,

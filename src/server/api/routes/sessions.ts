@@ -42,9 +42,15 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const diff = existsSync(cache) ? readFileSync(cache, 'utf8') : null
     return c.json({ diff })
   })
-  r.delete('/sessions/:id', (c) => {
-    deps.sessions.delete(c.req.param('id'))
-    return c.body(null, 204)
+  r.delete('/sessions/:id', async (c) => {
+    try {
+      await deps.deleteSession(c.req.param('id'))
+      return c.body(null, 204)
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg === 'not found') return c.json({ error: msg }, 404)
+      return c.json({ error: msg }, 500)
+    }
   })
   r.post('/sessions/:id/rerun', async (c) => {
     let body: { agent?: unknown } = {}

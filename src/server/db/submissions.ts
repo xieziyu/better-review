@@ -68,4 +68,8 @@ export class SubmissionsRepo {
       .all(sessionId) as Row[]
     return rows.map(rowToSubmission)
   }
+
+  deleteBySession(sessionId: string): void {
+    this.db.prepare('DELETE FROM submissions WHERE session_id=?').run(sessionId)
+  }
 }

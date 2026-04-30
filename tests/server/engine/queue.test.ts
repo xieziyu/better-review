@@ -29,4 +29,28 @@ describe('ConcurrencyQueue', () => {
     await Promise.all([p1, p2])
     expect(calls).toBe(1)
   })
+
+  it('drop(key) resolves and removes pending entries without running them', async () => {
+    const q = new ConcurrencyQueue(1)
+    let ran = 0
+    const slow = () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          ran++
+          resolve()
+        }, 50)
+      })
+    const blocker = q.run('blocker', slow)
+    const dropped = q.run('drop-me', async () => {
+      ran++
+    })
+    expect(q.pendingCount()).toBe(1)
+
+    q.drop('drop-me')
+    await dropped
+    expect(q.pendingCount()).toBe(0)
+
+    await blocker
+    expect(ran).toBe(1)
+  })
 })

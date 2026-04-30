@@ -7,15 +7,20 @@ import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
 import { SubmissionsRepo } from '../../../src/server/db/submissions'
+import { makeDeleteSession } from '../../../src/server/delete-session'
 import { EventBus } from '../../../src/server/engine/events'
+import { ConcurrencyQueue } from '../../../src/server/engine/queue'
+import { RunnerRegistry } from '../../../src/server/engine/runner-registry'
 import type { GhClient } from '../../../src/server/github/gh-client'
 import { PromptStore } from '../../../src/server/prompts/store'
 
 export interface DepsOverrides {
   startSession?: AppDeps['startSession']
   rerunSession?: AppDeps['rerunSession']
+  deleteSession?: AppDeps['deleteSession']
   submitSession?: AppDeps['submitSession']
   health?: AppDeps['health']
+  sessionsDir?: string
 }
 
 export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
@@ -23,10 +28,23 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
   const home = mkdtempSync(join(tmpdir(), 'br-phome-'))
   const dbDir = mkdtempSync(join(tmpdir(), 'br-api-'))
   const db = openDatabase(join(dbDir, 's.db'))
+  const sessions = new SessionsRepo(db)
+  const submissions = new SubmissionsRepo(db)
+  const queue = new ConcurrencyQueue(1)
+  const runners = new RunnerRegistry()
+  const sessionsDir = overrides.sessionsDir ?? mkdtempSync(join(tmpdir(), 'br-sessions-'))
+  const defaultDelete = makeDeleteSession({
+    db,
+    sessions,
+    submissions,
+    queue,
+    runners,
+    sessionsDir,
+  })
   return {
-    sessions: new SessionsRepo(db),
+    sessions,
     findings: new FindingsRepo(db),
-    submissions: new SubmissionsRepo(db),
+    submissions,
     bus: new EventBus(),
     gh: {} as GhClient,
     promptStore: new PromptStore({ cwd, home }),
@@ -43,6 +61,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     getPort: () => 5555,
     startSession: overrides.startSession ?? (async () => ({ id: 'new1' })),
     rerunSession: overrides.rerunSession ?? (async () => ({ id: 'fresh1' })),
+    deleteSession: overrides.deleteSession ?? defaultDelete,
     submitSession:
       overrides.submitSession ?? (async () => ({ url: 'https://gh', droppedToBody: [] })),
     health:

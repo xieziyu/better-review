@@ -1,8 +1,8 @@
 import type { Finding, PRSession } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { PRDetail } from '@/pages/PRDetail'
 
@@ -104,5 +104,43 @@ describe('PRDetail', () => {
       }),
     )
     expect(screen.getByText(/Submitted to GitHub/i)).toBeInTheDocument()
+  })
+
+  describe('delete', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('renders a Delete session button', () => {
+      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      expect(screen.getByRole('button', { name: /Delete session/i })).toBeInTheDocument()
+    })
+
+    it('issues DELETE /api/sessions/:id when confirmed', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const fetchSpy = vi.spyOn(window, 'fetch').mockResolvedValue(
+        new Response(null, { status: 204 }),
+      )
+      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      fireEvent.click(screen.getByRole('button', { name: /Delete session/i }))
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledWith(
+          '/api/sessions/s1',
+          expect.objectContaining({ method: 'DELETE' }),
+        )
+      })
+    })
+
+    it('skips delete when confirm is dismissed', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const fetchSpy = vi.spyOn(window, 'fetch')
+      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      fetchSpy.mockClear()
+      fireEvent.click(screen.getByRole('button', { name: /Delete session/i }))
+      const deleteCalls = fetchSpy.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
+      )
+      expect(deleteCalls).toHaveLength(0)
+    })
   })
 })
