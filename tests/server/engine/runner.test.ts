@@ -131,6 +131,11 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
     expect(outputs.every((e) => typeof e.chunk === 'string' && e.chunk.length > 0)).toBe(true)
     expect(outputs.every((e) => typeof e.ts === 'number' && Number.isFinite(e.ts))).toBe(true)
     expect(outputs.every((e) => e.sessionId === 's1')).toBe(true)
+    if (fx.kind === 'codex') {
+      // Real codex writes most live progress to stderr — make sure we surface
+      // those lines in agent-output, not just stdout.
+      expect(outputs.some((e) => e.chunk === 'codex stderr banner')).toBe(true)
+    }
   })
 })
 

@@ -46,13 +46,21 @@ export class CodexAgent implements ReviewAgent {
       child.stdin.end(prompt)
     }
 
-    const drained = consumeLines(child.stdout!, (line) => {
+    // codex 0.125+ writes the live progress (banner, prompt echo, reasoning,
+    // tool calls / exec output) to stderr and only the final answer to stdout.
+    // Treat both streams as line-oriented transcript — onOutput sees the
+    // interesting stderr lines too, and the watchdog gets fed regardless of
+    // which pipe the agent is currently writing to.
+    const handleLine = (line: string) => {
       onProgress('output', line.slice(0, 200))
       appendFileSync(logPath, line + '\n')
       onOutput?.(line)
-    })
-
-    child.stderr?.on('data', (chunk) => appendFileSync(logPath, chunk))
+    }
+    const stdoutDone = consumeLines(child.stdout!, handleLine)
+    const stderrDone = child.stderr
+      ? consumeLines(child.stderr, handleLine)
+      : Promise.resolve()
+    const drained = Promise.all([stdoutDone, stderrDone]).then(() => undefined)
 
     return { child, drained }
   }

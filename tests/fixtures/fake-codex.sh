@@ -29,6 +29,9 @@ if [[ -z "$FINDINGS_PATH" ]]; then
 fi
 
 echo "codex starting up"
+# Real codex 0.125+ writes its progress lines (banner, prompt echo, tool calls)
+# to stderr, not stdout. Mirror that here so the runner tests cover stderr.
+echo "codex stderr banner" >&2
 sleep 0.05
 echo "codex reading workspace"
 
