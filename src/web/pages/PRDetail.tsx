@@ -104,9 +104,9 @@ function PRHeader({
       <div className="flex items-center gap-3 pt-2 flex-wrap">
         <fieldset
           className="flex items-center gap-1 text-meta text-ink-secondary"
-          aria-label="Rerun agent"
+          aria-label="Review agent"
         >
-          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Rerun</legend>
+          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Agent</legend>
           {AGENT_KINDS.map((k) => {
             const found = health?.agents[k].found ?? true
             const selected = rerunAgent === k
