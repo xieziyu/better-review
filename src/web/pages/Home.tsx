@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils'
 
 const STATUS_TONE: Record<
   PRSession['status'],
-  'brand' | 'success' | 'warning' | 'danger' | 'neutral'
+  'running' | 'success' | 'warning' | 'danger' | 'neutral'
 > = {
-  running: 'success',
+  running: 'running',
   pending: 'warning',
-  ready: 'brand',
+  ready: 'success',
   failed: 'danger',
   submitted: 'neutral',
   archived: 'neutral',

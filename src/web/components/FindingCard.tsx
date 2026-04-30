@@ -1,13 +1,13 @@
 import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Check, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 
 import { DiffViewer } from '@/components/DiffViewer'
-import { Button, ConfirmAction, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
+import { Button, ConfirmAction, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +23,12 @@ const SEVERITY_LABEL: Record<Severity, string> = {
   must: 'must',
   should: 'should',
   nit: 'nit',
+}
+
+const SEVERITY_TEXT: Record<Severity, string> = {
+  must: 'text-severity-must',
+  should: 'text-severity-should',
+  nit: 'text-severity-nit',
 }
 
 function githubLineLink(session: PRSession, file: string, line: number | null): string {
@@ -107,22 +113,40 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
       aria-labelledby={`f-${finding.dbId}-title`}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="group relative flex gap-5 py-5 outline-none"
+      className="group relative flex gap-4 py-5 outline-none"
     >
-      <div className="shrink-0 pt-0.5">
-        <SeverityLabel level={finding.severity} />
+      <div className="w-11 shrink-0 pt-0.5">
+        <button
+          type="button"
+          onClick={() => select.mutate()}
+          disabled={select.isPending}
+          aria-pressed={finding.selected}
+          aria-label={`${finding.selected ? 'Unselect' : 'Select'} finding ${finding.id}`}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-md border transition-colors duration-180 ease-out-quart',
+            finding.selected
+              ? 'border-brand bg-brand text-brand-ink'
+              : 'border-rule bg-raised/35 text-ink-muted hover:border-ink-muted hover:bg-raised hover:text-ink-primary',
+            select.isPending && 'cursor-not-allowed opacity-50',
+          )}
+        >
+          <Check
+            size={16}
+            strokeWidth={3}
+            className={finding.selected ? 'opacity-100' : 'opacity-0'}
+            aria-hidden="true"
+          />
+        </button>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3">
         <header className="flex items-center gap-2.5 flex-wrap">
-          <input
-            type="checkbox"
-            checked={finding.selected}
-            onChange={() => select.mutate()}
-            aria-label={`Select finding ${finding.id}`}
-            className="h-3.5 w-3.5 rounded-sm border border-rule accent-brand focus:outline-none"
-          />
           <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+          <span
+            className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[finding.severity])}
+          >
+            {finding.severity}
+          </span>
           <Tag tone="neutral">{finding.category}</Tag>
           <span className="font-mono text-meta text-ink-secondary truncate">
             {finding.file

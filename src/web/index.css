@@ -16,6 +16,7 @@
     --severity-must: oklch(0.55 0.18 25);
     --severity-should: oklch(0.62 0.13 75);
     --severity-nit: oklch(0.55 0.1 200);
+    --accent-ready: oklch(0.54 0.13 155);
     --accent-running: oklch(0.6 0.16 140);
   }
 
@@ -32,6 +33,7 @@
     --severity-must: oklch(0.68 0.18 25);
     --severity-should: oklch(0.74 0.14 80);
     --severity-nit: oklch(0.7 0.09 200);
+    --accent-ready: oklch(0.72 0.13 155);
     --accent-running: oklch(0.78 0.17 140);
   }
 

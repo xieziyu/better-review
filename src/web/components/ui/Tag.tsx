@@ -10,7 +10,8 @@ const tag = cva(
       tone: {
         neutral: 'text-ink-secondary border border-rule',
         brand: 'bg-brand text-brand-ink',
-        success: 'text-accent-running border border-accent-running/40',
+        running: 'text-accent-running border border-accent-running/40',
+        success: 'text-accent-ready border border-accent-ready/40',
         warning: 'text-severity-should border border-severity-should/40',
         danger: 'bg-severity-must text-canvas',
         ink: 'bg-ink-primary text-canvas',

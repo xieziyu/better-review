@@ -26,6 +26,7 @@ export default {
           nit: 'var(--severity-nit)',
         },
         accent: {
+          ready: 'var(--accent-ready)',
           running: 'var(--accent-running)',
         },
       },

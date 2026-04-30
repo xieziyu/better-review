@@ -1,7 +1,12 @@
 import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import {
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
 import { EmptyState } from '@/components/ui'
@@ -42,18 +47,14 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
 const STATUS_TONE: Record<SessionStatus, string> = {
   running: 'text-accent-running',
   pending: 'text-severity-should',
-  ready: 'text-brand',
+  ready: 'text-accent-ready',
   submitted: 'text-ink-muted',
   failed: 'text-severity-must',
   cancelled: 'text-ink-muted',
   archived: 'text-ink-muted',
 }
 
-const CLOSED_STATUSES: ReadonlySet<SessionStatus> = new Set([
-  'submitted',
-  'archived',
-  'cancelled',
-])
+const CLOSED_STATUSES: ReadonlySet<SessionStatus> = new Set(['submitted', 'archived', 'cancelled'])
 
 const SIDEBAR_MIN = 256
 const SIDEBAR_MAX = 560
@@ -262,9 +263,7 @@ export function Sidebar() {
     const step = e.shiftKey ? 32 : 8
     setWidth((w) => {
       const next =
-        e.key === 'ArrowLeft'
-          ? Math.max(w - step, SIDEBAR_MIN)
-          : Math.min(w + step, SIDEBAR_MAX)
+        e.key === 'ArrowLeft' ? Math.max(w - step, SIDEBAR_MIN) : Math.min(w + step, SIDEBAR_MAX)
       persistWidth(next)
       return next
     })

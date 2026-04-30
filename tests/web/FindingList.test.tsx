@@ -55,7 +55,7 @@ describe('FindingList', () => {
     expect(screen.getByText(/No findings/i)).toBeInTheDocument()
   })
 
-  it('groups findings by file with the file path as a heading', () => {
+  it('shows file locations on each finding without separate file headings', () => {
     render(
       withClient(
         <FindingList
@@ -68,8 +68,10 @@ describe('FindingList', () => {
         />,
       ),
     )
-    expect(screen.getByRole('heading', { name: /src\/a\.ts/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /src\/b\.ts/ })).toBeInTheDocument()
+    expect(screen.getByText('src/a.ts:1')).toBeInTheDocument()
+    expect(screen.getByText('src/b.ts:2')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /src\/a\.ts/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /src\/b\.ts/ })).not.toBeInTheDocument()
   })
 
   it('renders file=null findings in a separate PR-wide section at the bottom', () => {
@@ -87,7 +89,7 @@ describe('FindingList', () => {
     )
     const headings = screen.getAllByRole('heading')
     const headingTexts = headings.map((h) => h.textContent ?? '')
-    const fileIdx = headingTexts.findIndex((t) => t.includes('src/a.ts'))
+    const fileIdx = headingTexts.findIndex((t) => t === 'Title')
     const wideIdx = headingTexts.findIndex((t) => /PR-wide/i.test(t))
     expect(fileIdx).toBeGreaterThanOrEqual(0)
     expect(wideIdx).toBeGreaterThan(fileIdx)
@@ -109,14 +111,13 @@ describe('FindingList', () => {
         />,
       ),
     )
-    const headings = Array.from(document.body.querySelectorAll('h2')).map(
+    const headings = Array.from(document.body.querySelectorAll('h3')).map(
       (h) => h.textContent ?? '',
     )
-    const idx = (needle: string) => headings.findIndex((t) => t.includes(needle))
-    const idxB = idx('src/b.ts')
-    const idxZ = idx('src/z.ts')
-    const idxM = idx('src/m.ts')
-    const idxA = idx('src/a.ts')
+    const idxB = headings.indexOf('b-must')
+    const idxZ = headings.indexOf('z-must')
+    const idxM = headings.indexOf('m-should')
+    const idxA = headings.indexOf('a-nit')
     expect(idxB).toBeGreaterThanOrEqual(0)
     expect(idxB).toBeLessThan(idxZ)
     expect(idxZ).toBeLessThan(idxM)

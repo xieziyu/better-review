@@ -64,18 +64,9 @@ export function FindingList({ findings, session, unifiedDiff }: Props) {
   }
 
   return (
-    <div role="list">
+    <div role="list" className="border-t border-rule">
       {fileGroups.map((g) => (
-        <section key={g.file} role="listitem" className="border-t border-rule first:border-t-0">
-          <h2 className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm py-3 flex items-baseline gap-3">
-            <span className="text-caps tracking-caps text-ink-muted uppercase">File</span>
-            <span className="font-mono text-meta text-ink-secondary tabular-nums truncate">
-              {g.file}
-            </span>
-            <span className="font-mono text-meta text-ink-muted tabular-nums">
-              {g.items.length}
-            </span>
-          </h2>
+        <section key={g.file} role="listitem">
           <div className="divide-y divide-rule">
             {g.items.map((f) => (
               <FindingCard key={f.dbId} finding={f} session={session} unifiedDiff={unifiedDiff} />
