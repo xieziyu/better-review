@@ -94,6 +94,35 @@ describe('FindingList', () => {
     expect(screen.getByText(/Whole-PR finding/)).toBeInTheDocument()
   })
 
+  it('orders file groups by their highest-severity finding, breaking ties alphabetically', () => {
+    render(
+      withClient(
+        <FindingList
+          findings={[
+            mk({ id: 'R1', dbId: 'd1', file: 'src/a.ts', severity: 'nit', title: 'a-nit' }),
+            mk({ id: 'R2', dbId: 'd2', file: 'src/m.ts', severity: 'should', title: 'm-should' }),
+            mk({ id: 'R3', dbId: 'd3', file: 'src/z.ts', severity: 'must', title: 'z-must' }),
+            mk({ id: 'R4', dbId: 'd4', file: 'src/b.ts', severity: 'must', title: 'b-must' }),
+          ]}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const headings = Array.from(document.body.querySelectorAll('h2')).map(
+      (h) => h.textContent ?? '',
+    )
+    const idx = (needle: string) => headings.findIndex((t) => t.includes(needle))
+    const idxB = idx('src/b.ts')
+    const idxZ = idx('src/z.ts')
+    const idxM = idx('src/m.ts')
+    const idxA = idx('src/a.ts')
+    expect(idxB).toBeGreaterThanOrEqual(0)
+    expect(idxB).toBeLessThan(idxZ)
+    expect(idxZ).toBeLessThan(idxM)
+    expect(idxM).toBeLessThan(idxA)
+  })
+
   it('orders findings within a file by severity (must, should, nit)', () => {
     render(
       withClient(

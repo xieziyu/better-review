@@ -40,8 +40,12 @@ function groupByFile(findings: Finding[]): { fileGroups: FileGroup[]; prWide: Fi
       (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99) || a.ord - b.ord,
   )
   const fileGroups: FileGroup[] = [...fileMap.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
     .map(([file, items]) => ({ file, items }))
+    .sort(
+      (a, b) =>
+        (SEVERITY_ORDER[a.items[0]!.severity] ?? 99) -
+          (SEVERITY_ORDER[b.items[0]!.severity] ?? 99) || a.file.localeCompare(b.file),
+    )
   return { fileGroups, prWide }
 }
 
