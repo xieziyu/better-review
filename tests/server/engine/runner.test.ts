@@ -242,7 +242,7 @@ describe('runReview (cancellation)', () => {
     })
   })
 
-  it('runners.cancel(id) resolves runReview without emitting status-changed: failed', async () => {
+  it('runners.cancel(id) transitions session to cancelled and emits status-changed', async () => {
     process.env.FAKE_CLAUDE_STALL = '1'
     try {
       const events: SSEEvent[] = []
@@ -267,10 +267,11 @@ describe('runReview (cancellation)', () => {
       await run
 
       const got = sessions.getById('cancel-1')!
-      expect(got.status).toBe('running')
+      expect(got.status).toBe('cancelled')
       expect(got.error).toBeNull()
       expect(events.some((e) => e.type === 'status-changed' && e.status === 'failed')).toBe(false)
-      expect(events.some((e) => e.type === 'done')).toBe(false)
+      expect(events.some((e) => e.type === 'status-changed' && e.status === 'cancelled')).toBe(true)
+      expect(events.some((e) => e.type === 'done')).toBe(true)
       expect(runners.isRunning('cancel-1')).toBe(false)
     } finally {
       delete process.env.FAKE_CLAUDE_STALL

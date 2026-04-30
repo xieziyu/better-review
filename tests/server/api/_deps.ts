@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { AppDeps } from '../../../src/server/api/app'
+import { makeCancelSession } from '../../../src/server/cancel-session'
 import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
@@ -18,6 +19,7 @@ export interface DepsOverrides {
   startSession?: AppDeps['startSession']
   rerunSession?: AppDeps['rerunSession']
   deleteSession?: AppDeps['deleteSession']
+  cancelSession?: AppDeps['cancelSession']
   submitSession?: AppDeps['submitSession']
   health?: AppDeps['health']
   sessionsDir?: string
@@ -33,6 +35,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
   const queue = new ConcurrencyQueue(1)
   const runners = new RunnerRegistry()
   const sessionsDir = overrides.sessionsDir ?? mkdtempSync(join(tmpdir(), 'br-sessions-'))
+  const bus = new EventBus()
   const defaultDelete = makeDeleteSession({
     db,
     sessions,
@@ -41,11 +44,12 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     runners,
     sessionsDir,
   })
+  const defaultCancel = makeCancelSession({ sessions, queue, runners, bus })
   return {
     sessions,
     findings: new FindingsRepo(db),
     submissions,
-    bus: new EventBus(),
+    bus,
     gh: {} as GhClient,
     promptStore: new PromptStore({ cwd, home }),
     promptCwd: cwd,
@@ -62,6 +66,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     startSession: overrides.startSession ?? (async () => ({ id: 'new1' })),
     rerunSession: overrides.rerunSession ?? (async () => ({ id: 'fresh1' })),
     deleteSession: overrides.deleteSession ?? defaultDelete,
+    cancelSession: overrides.cancelSession ?? defaultCancel,
     submitSession:
       overrides.submitSession ?? (async () => ({ url: 'https://gh', droppedToBody: [] })),
     health:

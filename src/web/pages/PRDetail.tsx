@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   CheckCheck,
   Trash2,
+  CircleSlash,
+  Square,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -45,6 +47,10 @@ const STATUS_BADGE: Record<SessionStatus, { label: string; cls: string }> = {
     label: 'archived',
     cls: 'text-gray-500 bg-gray-100 dark:bg-gray-800',
   },
+  cancelled: {
+    label: 'cancelled',
+    cls: 'text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-800',
+  },
 }
 
 function StatusBadge({ status }: { status: SessionStatus }) {
@@ -58,7 +64,9 @@ function StatusBadge({ status }: { status: SessionStatus }) {
           ? AlertTriangle
           : status === 'submitted'
             ? CheckCheck
-            : null
+            : status === 'cancelled'
+              ? CircleSlash
+              : null
   return (
     <span
       className={cn(
@@ -78,8 +86,10 @@ function PRHeader({
   onRerun,
   onSubmit,
   onDelete,
+  onCancel,
   rerunPending,
   deletePending,
+  cancelPending,
   rerunAgent,
   onRerunAgentChange,
   health,
@@ -90,8 +100,10 @@ function PRHeader({
   onRerun: () => void
   onSubmit: () => void
   onDelete: () => void
+  onCancel: () => void
   rerunPending: boolean
   deletePending: boolean
+  cancelPending: boolean
   rerunAgent: AgentKind
   onRerunAgentChange: (kind: AgentKind) => void
   health: HealthStatus | undefined
@@ -161,6 +173,24 @@ function PRHeader({
               )
             })}
           </fieldset>
+          {session.status === 'running' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('停止当前 review？已收集的 findings 会保留。')) onCancel()
+              }}
+              disabled={cancelPending}
+              aria-label="Cancel running review"
+              title="Cancel running review"
+              className="p-1.5 rounded-md text-gray-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-50"
+            >
+              <Square
+                size={14}
+                className={cancelPending ? 'animate-pulse' : undefined}
+                fill="currentColor"
+              />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -277,6 +307,14 @@ export function PRDetail() {
     },
   })
 
+  const cancel = useMutation({
+    mutationFn: () => api.cancelSession(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+    },
+  })
+
   if (isLoading || !data) {
     return (
       <div className="p-6 max-w-5xl mx-auto space-y-3 animate-pulse">
@@ -301,8 +339,10 @@ export function PRDetail() {
         onRerun={() => rerun.mutate(effectiveRerunAgent)}
         onSubmit={() => setSubmitOpen(true)}
         onDelete={() => remove.mutate()}
+        onCancel={() => cancel.mutate()}
         rerunPending={rerun.isPending}
         deletePending={remove.isPending}
+        cancelPending={cancel.isPending}
         rerunAgent={effectiveRerunAgent}
         onRerunAgentChange={setRerunAgent}
         health={health}
@@ -327,6 +367,12 @@ export function PRDetail() {
       {remove.isError && (
         <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {remove.error instanceof ApiError ? remove.error.message : 'Delete failed'}
+        </div>
+      )}
+
+      {cancel.isError && (
+        <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          {cancel.error instanceof ApiError ? cancel.error.message : 'Cancel failed'}
         </div>
       )}
 

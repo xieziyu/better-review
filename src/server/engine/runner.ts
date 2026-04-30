@@ -142,7 +142,12 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     await new Promise((res) => setTimeout(res, 200))
     await stopWatcher()
 
-    if (cancelled) return
+    if (cancelled) {
+      sessions.setStatus(sessionId, 'cancelled')
+      bus.emit({ type: 'status-changed', sessionId, status: 'cancelled' })
+      bus.emit({ type: 'done', sessionId })
+      return
+    }
 
     const succeeded = resultOk === true || (resultOk === null && exitCode === 0 && !killed)
     if (succeeded) {

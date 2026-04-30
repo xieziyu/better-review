@@ -1,6 +1,14 @@
 import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Check, AlertTriangle, CheckCheck, Archive, Clock } from 'lucide-react'
+import {
+  Loader2,
+  Check,
+  AlertTriangle,
+  CheckCheck,
+  Archive,
+  Clock,
+  CircleSlash,
+} from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
@@ -13,6 +21,7 @@ const STATUS_ORDER: SessionStatus[] = [
   'pending',
   'ready',
   'failed',
+  'cancelled',
   'submitted',
   'archived',
 ]
@@ -22,6 +31,7 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   pending: 'Pending',
   ready: 'Ready',
   failed: 'Failed',
+  cancelled: 'Cancelled',
   submitted: 'Submitted',
   archived: 'Archived',
 }
@@ -46,6 +56,8 @@ function StatusIcon({ status, size = 14 }: StatusIconProps) {
         return 'text-violet-600 dark:text-violet-300'
       case 'archived':
         return 'text-gray-500'
+      case 'cancelled':
+        return 'text-gray-500 dark:text-gray-400'
     }
   })()
   switch (status) {
@@ -61,6 +73,8 @@ function StatusIcon({ status, size = 14 }: StatusIconProps) {
       return <CheckCheck size={size} className={cls} aria-label="Submitted" />
     case 'archived':
       return <Archive size={size} className={cls} aria-label="Archived" />
+    case 'cancelled':
+      return <CircleSlash size={size} className={cls} aria-label="Cancelled" />
   }
 }
 

@@ -52,6 +52,17 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       return c.json({ error: msg }, 500)
     }
   })
+  r.post('/sessions/:id/cancel', async (c) => {
+    try {
+      await deps.cancelSession(c.req.param('id'))
+      return c.body(null, 204)
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg === 'not found') return c.json({ error: msg }, 404)
+      if (msg === 'not running') return c.json({ error: msg }, 409)
+      return c.json({ error: msg }, 500)
+    }
+  })
   r.post('/sessions/:id/rerun', async (c) => {
     let body: { agent?: unknown } = {}
     if (c.req.header('content-type')?.includes('application/json')) {

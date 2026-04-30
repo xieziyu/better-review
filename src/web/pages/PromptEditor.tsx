@@ -15,7 +15,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'global', label: 'Global' },
 ]
 
-const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed'])
+const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed', 'cancelled'])
 
 function sourceLabel(source: RulesSource): string {
   switch (source) {

@@ -47,7 +47,8 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
   return async function startSession({ prInput, agent: agentKind }) {
     const target = parsePRTarget(prInput)
     const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
-    if (existing && existing.status !== 'failed') return { id: existing.id }
+    if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
+      return { id: existing.id }
 
     const kind = agentKind ?? deps.config.defaultAgent
     const { agent, executable } = deps.resolveAgent(kind)

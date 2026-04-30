@@ -14,6 +14,7 @@ const STATUS_BADGE: Record<SessionStatus, string> = {
   failed: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
   submitted: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
   archived: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
 }
 
 interface SessionCardProps {

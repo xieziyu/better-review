@@ -7,6 +7,7 @@ import { serve } from '@hono/node-server'
 import type { AgentKind, HealthStatus, ReviewEvent } from '../shared/types'
 import { AGENT_KINDS } from '../shared/types'
 import { createApp, type AppDeps } from './api/app'
+import { makeCancelSession } from './cancel-session'
 import { loadConfigWithWarnings } from './config'
 import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
@@ -104,6 +105,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     runners,
     sessionsDir: paths.sessionsDir,
   })
+  const cancelSession = makeCancelSession({ sessions, queue, runners, bus })
 
   const gcSessions = makeGCSessions({
     sessions,
@@ -148,6 +150,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     deleteSession: async (id) => {
       await deleteSession(id)
       log.info('session deleted', { id })
+    },
+    cancelSession: async (id) => {
+      await cancelSession(id)
+      log.info('session cancelled', { id })
     },
     submitSession: (id, event: ReviewEvent, body) => {
       const submitArgs: Parameters<typeof submitSession>[0] = {

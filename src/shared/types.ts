@@ -1,6 +1,13 @@
 import type { FindingFromAgent, Severity } from './findings-schema'
 
-export type SessionStatus = 'running' | 'ready' | 'failed' | 'submitted' | 'archived' | 'pending'
+export type SessionStatus =
+  | 'running'
+  | 'ready'
+  | 'failed'
+  | 'submitted'
+  | 'archived'
+  | 'pending'
+  | 'cancelled'
 
 export const AGENT_KINDS = ['claude', 'codex'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]

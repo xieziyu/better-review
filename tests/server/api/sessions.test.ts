@@ -282,4 +282,57 @@ describe('sessions API', () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it('POST /api/sessions/:id/cancel cancels a running session and writes cancelled status', async () => {
+    const deps = makeTestDeps()
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir: '/w',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/cancel', { method: 'POST' })
+    expect(res.status).toBe(204)
+    expect(deps.sessions.getById('s1')!.status).toBe('cancelled')
+  })
+
+  it('POST /api/sessions/:id/cancel returns 409 when session is not running', async () => {
+    const deps = makeTestDeps()
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: '/w',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/cancel', { method: 'POST' })
+    expect(res.status).toBe(409)
+    expect(deps.sessions.getById('s1')!.status).toBe('ready')
+  })
+
+  it('POST /api/sessions/:id/cancel returns 404 for unknown id', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing/cancel', { method: 'POST' })
+    expect(res.status).toBe(404)
+  })
 })

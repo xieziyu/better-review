@@ -66,6 +66,8 @@ export const api = {
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> => req(`/api/sessions/${id}`, { method: 'DELETE' }),
+  cancelSession: (id: string): Promise<void> =>
+    req(`/api/sessions/${id}/cancel`, { method: 'POST' }),
   rerunSession: (id: string, body?: { agent?: AgentKind }): Promise<{ id: string }> => {
     const init: RequestInit = { method: 'POST' }
     if (body) init.body = JSON.stringify(body)
