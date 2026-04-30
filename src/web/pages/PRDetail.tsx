@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
+import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { api, queryKeys, ApiError } from '@/lib/api'
@@ -217,6 +218,7 @@ export function PRDetail() {
   const [submitOpen, setSubmitOpen] = useState(false)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
+  const [agentChunks, setAgentChunks] = useState<string[]>([])
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
@@ -233,7 +235,11 @@ export function PRDetail() {
     retry: false,
   })
 
-  useSSE(`/api/sessions/${id}/events`, () => {
+  useSSE(`/api/sessions/${id}/events`, (e) => {
+    if (e.type === 'agent-output') {
+      setAgentChunks((prev) => [...prev, e.chunk])
+      return
+    }
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
 
@@ -244,6 +250,7 @@ export function PRDetail() {
   useEffect(() => {
     document.querySelector('main')?.scrollTo({ top: 0 })
     setSubmitOpen(false)
+    setAgentChunks([])
   }, [id])
 
   useEffect(() => {
@@ -301,6 +308,8 @@ export function PRDetail() {
         health={health}
         justSwitched={justSwitched}
       />
+
+      <AgentOutputPanel chunks={agentChunks} status={session.status} />
 
       {session.error && (
         <div className="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">

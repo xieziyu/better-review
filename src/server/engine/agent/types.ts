@@ -12,6 +12,11 @@ export interface AgentSpawnArgs {
   // Called whenever the agent emits a heartbeat (stream-json event for claude,
   // stdout line for codex). Each call resets the runner's stall watchdog.
   onProgress: (phase: string, detail?: string) => void
+  // Called with one already-formatted human-readable transcript line per
+  // agent emission, for live streaming to the UI. Independent of onProgress
+  // so the watchdog stays driven by raw heartbeats while the transcript can
+  // selectively skip noisy/empty events.
+  onOutput?: (chunk: string) => void
   // Called when the agent reports its main task has terminated (e.g. claude's
   // {type:"result"} stream-json event). Lets the runner finalise the session
   // even if the child process lingers afterwards waiting on background work.

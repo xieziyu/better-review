@@ -62,6 +62,7 @@ export interface HealthStatus {
 
 export type SSEEvent =
   | { type: 'progress'; sessionId: string; phase: string; detail?: string }
+  | { type: 'agent-output'; sessionId: string; chunk: string; ts: number }
   | { type: 'finding-added'; sessionId: string; finding: Finding }
   | { type: 'finding-updated'; sessionId: string; finding: Finding }
   | { type: 'status-changed'; sessionId: string; status: SessionStatus; error?: string }

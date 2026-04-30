@@ -1,6 +1,6 @@
-import type { Finding, PRSession } from '@shared/types'
+import type { Finding, PRSession, SSEEvent } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
@@ -106,6 +106,82 @@ describe('PRDetail', () => {
     expect(screen.getByText(/Submitted to GitHub/i)).toBeInTheDocument()
   })
 
+  describe('agent output streaming', () => {
+    type Listener = (ev: MessageEvent) => void
+    interface RecordingEventSource {
+      url: string
+      listeners: Map<string, Set<Listener>>
+      addEventListener: (type: string, l: Listener) => void
+      removeEventListener: (type: string, l: Listener) => void
+      close: () => void
+      dispatch: (ev: SSEEvent) => void
+    }
+    let live: RecordingEventSource | null = null
+    const original = globalThis.EventSource
+
+    function install() {
+      class Recording {
+        url: string
+        listeners = new Map<string, Set<Listener>>()
+        constructor(url: string) {
+          this.url = url
+          live = this as unknown as RecordingEventSource
+        }
+        addEventListener(type: string, l: Listener) {
+          let set = this.listeners.get(type)
+          if (!set) {
+            set = new Set()
+            this.listeners.set(type, set)
+          }
+          set.add(l)
+        }
+        removeEventListener(type: string, l: Listener) {
+          this.listeners.get(type)?.delete(l)
+        }
+        close() {}
+        dispatch(ev: SSEEvent) {
+          const set = this.listeners.get(ev.type)
+          if (!set) return
+          const message = new MessageEvent(ev.type, { data: JSON.stringify(ev) })
+          set.forEach((l) => l(message))
+        }
+      }
+      // @ts-expect-error -- jsdom global override
+      globalThis.EventSource = Recording
+    }
+
+    afterEach(() => {
+      // @ts-expect-error -- restore
+      globalThis.EventSource = original
+      live = null
+    })
+
+    it('renders agent-output chunks streamed over SSE', () => {
+      install()
+      const running: PRSession = { ...session, status: 'running' }
+      render(withRoute(<PRDetail />, { session: running, findings: [] }))
+
+      expect(live).not.toBeNull()
+      act(() => {
+        live!.dispatch({
+          type: 'agent-output',
+          sessionId: running.id,
+          chunk: 'system: init (model=claude-opus-4-7)',
+          ts: Date.now(),
+        })
+        live!.dispatch({
+          type: 'agent-output',
+          sessionId: running.id,
+          chunk: 'Reading the diff…',
+          ts: Date.now(),
+        })
+      })
+
+      expect(screen.getByRole('log')).toHaveTextContent('system: init (model=claude-opus-4-7)')
+      expect(screen.getByRole('log')).toHaveTextContent('Reading the diff…')
+    })
+  })
+
   describe('delete', () => {
     afterEach(() => {
       vi.restoreAllMocks()
@@ -118,9 +194,9 @@ describe('PRDetail', () => {
 
     it('issues DELETE /api/sessions/:id when confirmed', async () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true)
-      const fetchSpy = vi.spyOn(window, 'fetch').mockResolvedValue(
-        new Response(null, { status: 204 }),
-      )
+      const fetchSpy = vi
+        .spyOn(window, 'fetch')
+        .mockResolvedValue(new Response(null, { status: 204 }))
       render(withRoute(<PRDetail />, { session, findings: [finding] }))
       fireEvent.click(screen.getByRole('button', { name: /Delete session/i }))
       await vi.waitFor(() => {

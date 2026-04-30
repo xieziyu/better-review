@@ -124,6 +124,13 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
     expect(findings.listBySession('s1')).toHaveLength(1)
     expect(events.some((e) => e.type === 'done')).toBe(true)
     expect(events.some((e) => e.type === 'finding-added')).toBe(true)
+    const outputs = events.filter(
+      (e): e is Extract<SSEEvent, { type: 'agent-output' }> => e.type === 'agent-output',
+    )
+    expect(outputs.length).toBeGreaterThan(0)
+    expect(outputs.every((e) => typeof e.chunk === 'string' && e.chunk.length > 0)).toBe(true)
+    expect(outputs.every((e) => typeof e.ts === 'number' && Number.isFinite(e.ts))).toBe(true)
+    expect(outputs.every((e) => e.sessionId === 's1')).toBe(true)
   })
 })
 

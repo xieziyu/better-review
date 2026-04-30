@@ -29,7 +29,7 @@ export class CodexAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, logPath, onProgress } = args
+    const { executable, prompt, workdir, logPath, onProgress, onOutput } = args
     // Prompt is fed via stdin to avoid argv length limits with large diffs.
     // workspace-write lets the agent write {{FINDINGS_PATH}} inside `workdir`;
     // skip-git-repo-check is needed because session workdirs are not git repos.
@@ -49,6 +49,7 @@ export class CodexAgent implements ReviewAgent {
     const drained = consumeLines(child.stdout!, (line) => {
       onProgress('output', line.slice(0, 200))
       appendFileSync(logPath, line + '\n')
+      onOutput?.(line)
     })
 
     child.stderr?.on('data', (chunk) => appendFileSync(logPath, chunk))

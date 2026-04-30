@@ -22,8 +22,18 @@ export interface RunReviewArgs {
 }
 
 export async function runReview(args: RunReviewArgs): Promise<void> {
-  const { sessionId, workdir, prompt, agent, executable, sessions, findings, bus, stallMs, runners } =
-    args
+  const {
+    sessionId,
+    workdir,
+    prompt,
+    agent,
+    executable,
+    sessions,
+    findings,
+    bus,
+    stallMs,
+    runners,
+  } = args
   mkdirSync(workdir, { recursive: true })
   const findingsPath = join(workdir, 'findings.json')
   const logPath = join(workdir, 'agent.log')
@@ -72,6 +82,11 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       }
       if (detail !== undefined) evt.detail = detail
       bus.emit(evt)
+    },
+    onOutput: (chunk) => {
+      if (cancelled) return
+      if (!chunk) return
+      bus.emit({ type: 'agent-output', sessionId, chunk, ts: Date.now() })
     },
     onResult: (info) => {
       if (resultOk !== null) return

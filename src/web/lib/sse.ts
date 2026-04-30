@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 
 const SSE_TYPES: Array<SSEEvent['type']> = [
   'progress',
+  'agent-output',
   'finding-added',
   'finding-updated',
   'status-changed',
