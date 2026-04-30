@@ -46,7 +46,10 @@ describe('makeRerunSession', () => {
     const result = await rerun('s1')
 
     expect(result.freshId).toBe('fresh-id')
-    expect(startSession).toHaveBeenCalledWith({ prInput: 'o/r#1', agent: 'claude' })
+    expect(startSession).toHaveBeenCalledWith({
+      prInput: 'https://github.com/o/r/pull/1',
+      agent: 'claude',
+    })
     expect(sessions.getById('s1')?.status).toBe('archived')
   })
 
@@ -59,7 +62,10 @@ describe('makeRerunSession', () => {
 
     await rerun('s1', 'codex')
 
-    expect(startSession).toHaveBeenCalledWith({ prInput: 'o/r#1', agent: 'codex' })
+    expect(startSession).toHaveBeenCalledWith({
+      prInput: 'https://github.com/o/r/pull/1',
+      agent: 'codex',
+    })
   })
 
   it('archives all findings for the original session', async () => {

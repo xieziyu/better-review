@@ -18,7 +18,7 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
     const fresh = await deps.startSession({
-      prInput: `${s.owner}/${s.repo}#${s.number}`,
+      prInput: `https://github.com/${s.owner}/${s.repo}/pull/${s.number}`,
       agent: agent ?? s.agent,
     })
     return { freshId: fresh.id }
