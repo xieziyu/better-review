@@ -82,6 +82,7 @@ function PRHeader({
   rerunAgent,
   onRerunAgentChange,
   health,
+  justSwitched,
 }: {
   session: PRSession
   selectedCount: number
@@ -93,6 +94,7 @@ function PRHeader({
   rerunAgent: AgentKind
   onRerunAgentChange: (kind: AgentKind) => void
   health: HealthStatus | undefined
+  justSwitched: boolean
 }) {
   return (
     <header className="space-y-2">
@@ -121,6 +123,11 @@ function PRHeader({
       </div>
       <div className="flex items-center gap-3 pt-2">
         <StatusBadge status={session.status} />
+        {justSwitched && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 animate-pulse">
+            new run started
+          </span>
+        )}
         {session.status === 'submitted' && (
           <span className="text-xs text-gray-500">Submitted to GitHub.</span>
         )}
@@ -209,6 +216,7 @@ export function PRDetail() {
   const qc = useQueryClient()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
+  const [justSwitched, setJustSwitched] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
@@ -230,13 +238,25 @@ export function PRDetail() {
   })
 
   useEffect(() => {
-    if (rerunAgent === null && data?.session.agent) setRerunAgent(data.session.agent)
-  }, [rerunAgent, data?.session.agent])
+    if (data?.session.agent) setRerunAgent(data.session.agent)
+  }, [id, data?.session.agent])
+
+  useEffect(() => {
+    document.querySelector('main')?.scrollTo({ top: 0 })
+    setSubmitOpen(false)
+  }, [id])
+
+  useEffect(() => {
+    if (!justSwitched) return
+    const t = setTimeout(() => setJustSwitched(false), 2500)
+    return () => clearTimeout(t)
+  }, [justSwitched])
 
   const rerun = useMutation({
     mutationFn: (kind: AgentKind) => api.rerunSession(id, { agent: kind }),
     onSuccess: ({ id: freshId }) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+      setJustSwitched(true)
       nav(`/pr/${freshId}`)
     },
   })
@@ -279,6 +299,7 @@ export function PRDetail() {
         rerunAgent={effectiveRerunAgent}
         onRerunAgentChange={setRerunAgent}
         health={health}
+        justSwitched={justSwitched}
       />
 
       {session.error && (

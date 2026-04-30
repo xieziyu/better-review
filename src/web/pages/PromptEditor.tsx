@@ -282,11 +282,15 @@ function ApplyToSessionsModal({
       const ids = Object.entries(checked)
         .filter(([, v]) => v)
         .map(([id]) => id)
-      for (const id of ids) await api.rerunSession(id)
-      return ids
+      const freshIds: string[] = []
+      for (const id of ids) {
+        const { id: freshId } = await api.rerunSession(id)
+        freshIds.push(freshId)
+      }
+      return freshIds
     },
-    onSuccess: (ids) => {
-      if (ids.length > 0) onApplied(ids[0]!)
+    onSuccess: (freshIds) => {
+      if (freshIds.length > 0) onApplied(freshIds[0]!)
       else onClose()
     },
   })
