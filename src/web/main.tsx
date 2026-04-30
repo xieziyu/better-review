@@ -5,8 +5,11 @@ import { BrowserRouter } from 'react-router-dom'
 
 import { App } from './App'
 import { queryClient } from './lib/queryClient'
+import { applyInitialTheme } from './lib/theme'
 
 import './index.css'
+
+applyInitialTheme()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
