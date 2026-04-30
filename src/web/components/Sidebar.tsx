@@ -2,7 +2,7 @@ import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Check, AlertTriangle, CheckCheck, Archive, Clock } from 'lucide-react'
 import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
@@ -198,14 +198,6 @@ export function Sidebar() {
           )
         })}
       </nav>
-      <footer className="p-3 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 flex gap-3">
-        <Link to="/prompt" className="hover:underline">
-          Prompt
-        </Link>
-        <Link to="/settings" className="hover:underline">
-          Settings
-        </Link>
-      </footer>
     </aside>
   )
 }

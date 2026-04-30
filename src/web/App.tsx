@@ -1,6 +1,6 @@
-import { Settings as SettingsIcon } from 'lucide-react'
+import { FileText, Settings as SettingsIcon } from 'lucide-react'
 import { lazy, Suspense } from 'react'
-import { Link, Routes, Route } from 'react-router-dom'
+import { Link, NavLink, Routes, Route } from 'react-router-dom'
 
 import { HealthBanner } from '@/components/HealthBanner'
 import { Sidebar } from '@/components/Sidebar'
@@ -25,17 +25,21 @@ function TopBar() {
       <div className="flex-1 mx-4">
         <HealthBanner />
       </div>
-      <nav className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-        <Link to="/prompt" className="hover:text-gray-900 dark:hover:text-gray-100">
-          Prompt
-        </Link>
-        <Link
-          to="/settings"
-          className="hover:text-gray-900 dark:hover:text-gray-100 inline-flex items-center"
-          aria-label="Settings"
+      <nav className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+        <NavLink
+          to="/prompt"
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-900 dark:hover:text-gray-100 aria-[current=page]:bg-gray-100 aria-[current=page]:text-gray-900 dark:aria-[current=page]:bg-gray-900 dark:aria-[current=page]:text-gray-100"
         >
-          <SettingsIcon size={16} />
-        </Link>
+          <FileText size={14} aria-hidden="true" />
+          Prompt
+        </NavLink>
+        <NavLink
+          to="/settings"
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-900 dark:hover:text-gray-100 aria-[current=page]:bg-gray-100 aria-[current=page]:text-gray-900 dark:aria-[current=page]:bg-gray-900 dark:aria-[current=page]:text-gray-100"
+        >
+          <SettingsIcon size={14} aria-hidden="true" />
+          Settings
+        </NavLink>
       </nav>
     </header>
   )
