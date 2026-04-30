@@ -67,26 +67,32 @@ function PRHeader({
 }: PRHeaderProps) {
   return (
     <header className="space-y-4">
-      <div className="flex items-baseline gap-3 flex-wrap">
+      <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
         <Tag tone={STATUS_TONE[session.status]} data-status={session.status}>
           {STATUS_LABEL[session.status]}
         </Tag>
-        <span className="font-mono text-meta text-ink-secondary tabular-nums">
-          {session.owner}/{session.repo}#{session.number}
+        <span
+          className="min-w-0 font-mono text-meta text-ink-secondary tabular-nums"
+          aria-label={`${session.owner}/${session.repo}#${session.number}`}
+        >
+          <span className="inline-block max-w-[38ch] truncate align-bottom">
+            {session.owner}/{session.repo}
+          </span>
+          <span className="text-ink-muted">#{session.number}</span>
         </span>
         {session.author ? (
-          <span className="font-mono text-meta text-ink-secondary">@{session.author}</span>
+          <span className="font-mono text-meta text-ink-muted">@{session.author}</span>
         ) : null}
-        <span className="font-mono text-meta text-ink-muted">agent: {session.agent}</span>
         {session.url ? (
           <a
             href={session.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-meta text-ink-secondary hover:text-brand transition-colors duration-180 ease-out-quart"
+            aria-label="Open PR on GitHub"
+            className="inline-flex items-center gap-1 text-meta text-ink-secondary transition-colors duration-180 ease-out-quart hover:text-brand"
           >
             <ExternalLink size={12} aria-hidden="true" />
-            open on GitHub
+            GitHub
           </a>
         ) : null}
         {justSwitched ? (
@@ -98,16 +104,15 @@ function PRHeader({
           <span className="text-meta text-ink-secondary">Submitted to GitHub.</span>
         ) : null}
       </div>
+
       <h1 className="text-display text-ink-primary">
         {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
       </h1>
 
-      <div className="flex items-center gap-4 pt-1 flex-wrap">
-        <fieldset
-          className="flex items-center gap-1.5 text-meta text-ink-secondary"
-          aria-label="Review agent"
-        >
-          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-1">Agent</legend>
+      <div className="flex items-center gap-4 flex-wrap">
+        <fieldset className="flex items-center gap-1.5 text-meta text-ink-secondary">
+          <legend className="sr-only">Review agent</legend>
+          <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">Agent</span>
           {AGENT_KINDS.map((k) => {
             const found = health?.agents[k].found ?? true
             const selected = rerunAgent === k

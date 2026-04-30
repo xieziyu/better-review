@@ -72,8 +72,14 @@ describe('PRDetail', () => {
   it('renders header with PR title and metadata', () => {
     render(withRoute(<PRDetail />, { session, findings: [finding] }))
     expect(screen.getByRole('heading', { name: /feat\(auth\)/ })).toBeInTheDocument()
-    expect(screen.getByText(/acme\/web#42/)).toBeInTheDocument()
+    expect(screen.getByLabelText('acme/web#42')).toBeInTheDocument()
     expect(screen.getByText(/@alice/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open pr on github/i })).toHaveAttribute(
+      'href',
+      session.url,
+    )
+    expect(screen.queryByText(/^agent:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ran with/i)).not.toBeInTheDocument()
   })
 
   it('shows submit button disabled with selection count', () => {
