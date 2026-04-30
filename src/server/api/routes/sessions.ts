@@ -47,9 +47,20 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     return c.body(null, 204)
   })
   r.post('/sessions/:id/rerun', async (c) => {
+    let body: { agent?: unknown } = {}
+    if (c.req.header('content-type')?.includes('application/json')) {
+      try {
+        body = await c.req.json<{ agent?: unknown }>()
+      } catch {
+        body = {}
+      }
+    }
+    if (body.agent !== undefined && !isAgentKind(body.agent)) {
+      return c.json({ error: `unknown agent: ${String(body.agent)}` }, 400)
+    }
     try {
-      await deps.rerunSession(c.req.param('id'))
-      return c.body(null, 202)
+      const result = await deps.rerunSession(c.req.param('id'), body.agent as AgentKind | undefined)
+      return c.json(result, 202)
     } catch (e) {
       return c.json({ error: (e as Error).message }, 400)
     }

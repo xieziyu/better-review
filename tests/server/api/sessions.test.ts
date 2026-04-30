@@ -183,31 +183,51 @@ describe('sessions API', () => {
     expect(res.status).toBe(404)
   })
 
-  it('POST /api/sessions/:id/rerun calls rerunSession', async () => {
-    let called = false
+  it('POST /api/sessions/:id/rerun calls rerunSession and returns fresh id', async () => {
+    let receivedId: string | null = null
+    let receivedAgent: string | undefined = undefined
     const deps = makeTestDeps({
-      rerunSession: async () => {
-        called = true
+      rerunSession: async (id, agent) => {
+        receivedId = id
+        receivedAgent = agent
+        return { id: 'fresh-1' }
       },
-    })
-    deps.sessions.insert({
-      id: 's1',
-      owner: 'o',
-      repo: 'r',
-      number: 1,
-      title: null,
-      author: null,
-      url: null,
-      baseRef: null,
-      headRef: null,
-      status: 'ready',
-      agent: 'claude',
-      workdir: '/w',
-      promptUsed: 'p',
     })
     const app = createApp(deps)
     const res = await app.request('/api/sessions/s1/rerun', { method: 'POST' })
     expect(res.status).toBe(202)
-    expect(called).toBe(true)
+    const body = (await res.json()) as { id: string }
+    expect(body.id).toBe('fresh-1')
+    expect(receivedId).toBe('s1')
+    expect(receivedAgent).toBeUndefined()
+  })
+
+  it('POST /api/sessions/:id/rerun forwards a valid agent override', async () => {
+    let receivedAgent: string | undefined = undefined
+    const deps = makeTestDeps({
+      rerunSession: async (_id, agent) => {
+        receivedAgent = agent
+        return { id: 'fresh-2' }
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/rerun', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ agent: 'codex' }),
+    })
+    expect(res.status).toBe(202)
+    expect(receivedAgent).toBe('codex')
+  })
+
+  it('POST /api/sessions/:id/rerun rejects an unknown agent', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/rerun', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ agent: 'gemini' }),
+    })
+    expect(res.status).toBe(400)
   })
 })

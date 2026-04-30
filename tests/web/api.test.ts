@@ -14,9 +14,21 @@ afterEach(() => {
 })
 
 describe('api req()', () => {
-  it('rerunSession resolves on 202 with empty body', async () => {
-    mockFetchOnce(new Response(null, { status: 202 }))
-    await expect(api.rerunSession('abc')).resolves.toBeUndefined()
+  it('rerunSession resolves with fresh id on 202', async () => {
+    mockFetchOnce(new Response(JSON.stringify({ id: 'fresh-1' }), { status: 202 }))
+    await expect(api.rerunSession('abc')).resolves.toEqual({ id: 'fresh-1' })
+  })
+
+  it('rerunSession sends agent override in JSON body', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(new Response(JSON.stringify({ id: 'fresh-2' }), { status: 202 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await api.rerunSession('abc', { agent: 'codex' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBe(JSON.stringify({ agent: 'codex' }))
   })
 
   it('deleteSession resolves on 204 (existing behavior preserved)', async () => {

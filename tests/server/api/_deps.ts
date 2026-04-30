@@ -42,7 +42,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     },
     getPort: () => 5555,
     startSession: overrides.startSession ?? (async () => ({ id: 'new1' })),
-    rerunSession: overrides.rerunSession ?? (async () => {}),
+    rerunSession: overrides.rerunSession ?? (async () => ({ id: 'fresh1' })),
     submitSession:
       overrides.submitSession ?? (async () => ({ url: 'https://gh', droppedToBody: [] })),
     health:

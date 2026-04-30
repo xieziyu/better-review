@@ -38,7 +38,10 @@ export interface AppDeps {
     prInput: string
     agent?: import('../../shared/types').AgentKind
   }) => Promise<{ id: string }>
-  rerunSession: (id: string) => Promise<void>
+  rerunSession: (
+    id: string,
+    agent?: import('../../shared/types').AgentKind,
+  ) => Promise<{ id: string }>
   submitSession: (
     id: string,
     event: ReviewEvent,

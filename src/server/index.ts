@@ -115,9 +115,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     onActivity: bumpActivity,
     getPort: () => port,
     startSession,
-    rerunSession: async (id) => {
-      const { freshId } = await rerun(id)
-      log.info('rerun started', { id, freshId })
+    rerunSession: async (id, agent) => {
+      const { freshId } = await rerun(id, agent)
+      log.info('rerun started', { id, freshId, agent })
+      return { id: freshId }
     },
     submitSession: (id, event: ReviewEvent, body) => {
       const submitArgs: Parameters<typeof submitSession>[0] = {

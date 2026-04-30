@@ -8,6 +8,7 @@ import type {
   SelectFindingRequest,
   PromptStateResponse,
   PromptScope,
+  AgentKind,
 } from '@shared/types'
 
 export type WritablePromptScope = PromptScope
@@ -65,7 +66,11 @@ export const api = {
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> => req(`/api/sessions/${id}`, { method: 'DELETE' }),
-  rerunSession: (id: string): Promise<void> => req(`/api/sessions/${id}/rerun`, { method: 'POST' }),
+  rerunSession: (id: string, body?: { agent?: AgentKind }): Promise<{ id: string }> => {
+    const init: RequestInit = { method: 'POST' }
+    if (body) init.body = JSON.stringify(body)
+    return req(`/api/sessions/${id}/rerun`, init)
+  },
   updateFinding: (id: string, b: UpdateFindingRequest): Promise<Finding> =>
     req(`/api/findings/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
   selectFinding: (id: string, b: SelectFindingRequest): Promise<Finding> =>

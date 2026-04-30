@@ -1,8 +1,9 @@
-import type { PRSession, SessionStatus } from '@shared/types'
+import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
+import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RotateCw, ExternalLink, Loader2, Check, AlertTriangle, CheckCheck } from 'lucide-react'
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { FindingList } from '@/components/FindingList'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
@@ -68,12 +69,18 @@ function PRHeader({
   onRerun,
   onSubmit,
   rerunPending,
+  rerunAgent,
+  onRerunAgentChange,
+  health,
 }: {
   session: PRSession
   selectedCount: number
   onRerun: () => void
   onSubmit: () => void
   rerunPending: boolean
+  rerunAgent: AgentKind
+  onRerunAgentChange: (kind: AgentKind) => void
+  health: HealthStatus | undefined
 }) {
   return (
     <header className="space-y-2">
@@ -106,6 +113,34 @@ function PRHeader({
           <span className="text-xs text-gray-500">Submitted to GitHub.</span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <fieldset
+            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400"
+            aria-label="Rerun agent"
+          >
+            {AGENT_KINDS.map((k) => {
+              const found = health?.agents[k].found ?? true
+              const selected = rerunAgent === k
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => onRerunAgentChange(k)}
+                  disabled={!found || rerunPending}
+                  aria-pressed={selected}
+                  title={found ? undefined : `${k} CLI not found in PATH`}
+                  className={cn(
+                    'px-2 py-1 rounded-md font-mono border transition-colors',
+                    selected
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-blue-400',
+                    !found && 'opacity-40 cursor-not-allowed',
+                  )}
+                >
+                  {k}
+                </button>
+              )
+            })}
+          </fieldset>
           <button
             type="button"
             onClick={() => {
@@ -142,14 +177,18 @@ function PRHeader({
 
 export function PRDetail() {
   const { id = '' } = useParams()
+  const nav = useNavigate()
   const qc = useQueryClient()
   const [submitOpen, setSubmitOpen] = useState(false)
+  const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
     queryFn: () => api.getSession(id),
     enabled: !!id,
   })
+
+  const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
 
   const { data: diffFromEndpoint } = useQuery({
     queryKey: ['session', id, 'diff'],
@@ -162,10 +201,15 @@ export function PRDetail() {
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
 
+  useEffect(() => {
+    if (rerunAgent === null && data?.session.agent) setRerunAgent(data.session.agent)
+  }, [rerunAgent, data?.session.agent])
+
   const rerun = useMutation({
-    mutationFn: () => api.rerunSession(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
+    mutationFn: (kind: AgentKind) => api.rerunSession(id, { agent: kind }),
+    onSuccess: ({ id: freshId }) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+      nav(`/pr/${freshId}`)
     },
   })
 
@@ -183,15 +227,19 @@ export function PRDetail() {
   const inlineDiff = data.diff ?? diffFromEndpoint ?? null
   const activeFindings = findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
+  const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <PRHeader
         session={session}
         selectedCount={selectedCount}
-        onRerun={() => rerun.mutate()}
+        onRerun={() => rerun.mutate(effectiveRerunAgent)}
         onSubmit={() => setSubmitOpen(true)}
         rerunPending={rerun.isPending}
+        rerunAgent={effectiveRerunAgent}
+        onRerunAgentChange={setRerunAgent}
+        health={health}
       />
 
       {session.error && (
@@ -222,10 +270,10 @@ export function PRDetail() {
           <div className="mt-3 flex justify-center gap-2">
             <button
               type="button"
-              onClick={() => rerun.mutate()}
+              onClick={() => rerun.mutate(effectiveRerunAgent)}
               className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Rerun
+              Rerun with {effectiveRerunAgent}
             </button>
           </div>
         </div>

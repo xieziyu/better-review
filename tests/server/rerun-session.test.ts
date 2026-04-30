@@ -50,6 +50,18 @@ describe('makeRerunSession', () => {
     expect(sessions.getById('s1')?.status).toBe('archived')
   })
 
+  it('forwards an explicit agent override to startSession', async () => {
+    const { sessions, findings } = makeRepos()
+    insertSubmitted(sessions, 's1')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh-id' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+
+    await rerun('s1', 'codex')
+
+    expect(startSession).toHaveBeenCalledWith({ prInput: 'o/r#1', agent: 'codex' })
+  })
+
   it('archives all findings for the original session', async () => {
     const { sessions, findings } = makeRepos()
     insertSubmitted(sessions, 's1')
