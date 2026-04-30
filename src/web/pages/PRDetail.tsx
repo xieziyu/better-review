@@ -101,12 +101,12 @@ function PRHeader({
         {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
       </h1>
 
-      <div className="flex items-center gap-3 pt-2 flex-wrap">
+      <div className="flex items-center gap-4 pt-1 flex-wrap">
         <fieldset
-          className="flex items-center gap-1 text-meta text-ink-secondary"
+          className="flex items-center gap-1.5 text-meta text-ink-secondary"
           aria-label="Review agent"
         >
-          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Agent</legend>
+          <legend className="text-caps tracking-caps text-ink-muted uppercase mr-1">Agent</legend>
           {AGENT_KINDS.map((k) => {
             const found = health?.agents[k].found ?? true
             const selected = rerunAgent === k
@@ -119,10 +119,10 @@ function PRHeader({
                 aria-pressed={selected}
                 title={found ? undefined : `${k} CLI not found in PATH`}
                 className={cn(
-                  'px-2.5 py-1 rounded-sm font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
+                  'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
                   selected
-                    ? 'bg-ink-primary text-canvas'
-                    : 'text-ink-secondary hover:text-ink-primary hover:bg-raised',
+                    ? 'border-ink-primary bg-ink-primary text-canvas'
+                    : 'border-rule bg-raised/25 text-ink-secondary hover:text-ink-primary hover:bg-raised hover:border-ink-muted',
                   !found && 'opacity-40 cursor-not-allowed',
                 )}
               >
@@ -132,11 +132,11 @@ function PRHeader({
           })}
         </fieldset>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           {session.status === 'running' ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="danger"
               size="sm"
               onClick={() => {
                 if (confirm('停止当前 review？已收集的 findings 会保留。')) onCancel()
@@ -150,7 +150,7 @@ function PRHeader({
           ) : null}
           <Button
             type="button"
-            variant="ghost"
+            variant="danger"
             size="sm"
             onClick={() => {
               const msg =
@@ -165,6 +165,7 @@ function PRHeader({
             <Trash2 size={12} aria-hidden="true" />
             Delete
           </Button>
+          <span className="h-5 w-px bg-rule" aria-hidden="true" />
           <Button
             type="button"
             variant="ghost"

@@ -4,15 +4,17 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const button = cva(
-  'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors duration-180 ease-out-quart disabled:opacity-40 disabled:cursor-not-allowed select-none',
+  'inline-flex items-center justify-center gap-1.5 rounded-md border font-medium transition-colors duration-180 ease-out-quart disabled:opacity-40 disabled:cursor-not-allowed select-none',
   {
     variants: {
       variant: {
         primary:
-          'bg-brand text-brand-ink hover:[background-color:color-mix(in_oklch,var(--brand)_85%,black)]',
-        ink: 'bg-ink-primary text-canvas hover:[background-color:color-mix(in_oklch,var(--ink-primary)_88%,var(--brand))]',
-        ghost: 'bg-transparent text-ink-primary hover:bg-raised',
-        danger: 'bg-transparent text-severity-must hover:bg-sunken',
+          'border-brand bg-brand text-brand-ink hover:[background-color:color-mix(in_oklch,var(--brand)_85%,black)]',
+        ink: 'border-ink-primary bg-ink-primary text-canvas hover:[background-color:color-mix(in_oklch,var(--ink-primary)_88%,var(--brand))]',
+        ghost:
+          'border-rule bg-raised/35 text-ink-primary hover:bg-raised hover:border-ink-muted active:bg-sunken',
+        danger:
+          'border-rule bg-transparent text-severity-must hover:bg-sunken hover:border-severity-must/50 active:bg-sunken',
       },
       size: {
         sm: 'h-7 px-2.5 text-meta',

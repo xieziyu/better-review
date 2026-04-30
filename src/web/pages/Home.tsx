@@ -122,10 +122,10 @@ export function Home() {
           </div>
 
           <fieldset
-            className="flex items-center gap-3 text-meta text-ink-secondary"
+            className="flex items-center gap-1.5 text-meta text-ink-secondary"
             aria-label="Review agent"
           >
-            <legend className="text-caps tracking-caps text-ink-muted uppercase mr-2">Agent</legend>
+            <legend className="text-caps tracking-caps text-ink-muted uppercase mr-1">Agent</legend>
             {AGENT_KINDS.map((k) => {
               const found = health?.agents[k].found ?? true
               const selected = effectiveAgent === k
@@ -138,16 +138,23 @@ export function Home() {
                   aria-pressed={selected}
                   title={found ? undefined : `${k} CLI not found in PATH`}
                   className={cn(
-                    'px-3 py-1.5 rounded-sm font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
+                    'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
                     selected
-                      ? 'bg-ink-primary text-canvas'
-                      : 'text-ink-secondary hover:text-ink-primary hover:bg-raised',
+                      ? 'border-ink-primary bg-ink-primary text-canvas'
+                      : 'border-rule bg-raised/25 text-ink-secondary hover:text-ink-primary hover:bg-raised hover:border-ink-muted',
                     !found && 'opacity-40 cursor-not-allowed',
                   )}
                 >
                   {k}
                   {health && k === health.defaultAgent ? (
-                    <span className="ml-1.5 text-[10px] text-ink-muted">default</span>
+                    <span
+                      className={cn(
+                        'ml-1.5 text-[10px]',
+                        selected ? 'text-canvas/70' : 'text-ink-muted',
+                      )}
+                    >
+                      default
+                    </span>
                   ) : null}
                 </button>
               )
