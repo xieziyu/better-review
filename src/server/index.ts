@@ -19,6 +19,7 @@ import { EventBus } from './engine/events'
 import { ConcurrencyQueue } from './engine/queue'
 import { RunnerRegistry } from './engine/runner-registry'
 import { submitSession } from './engine/submit'
+import { makeGCSessions } from './gc'
 import { GhClient } from './github/gh-client'
 import { createLogger } from './logger'
 import { resolvePaths } from './paths'
@@ -103,6 +104,18 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     runners,
     sessionsDir: paths.sessionsDir,
   })
+
+  const gcSessions = makeGCSessions({
+    sessions,
+    deleteSession,
+    perPRGCDays: config.perPRGCDays,
+    log,
+  })
+  void gcSessions()
+    .then(({ deleted, skipped }) => {
+      log.info('gc complete', { deleted: deleted.length, skipped })
+    })
+    .catch((e) => log.warn('gc errored', { error: (e as Error).message }))
 
   let port = 0
   const startedAt = Date.now()
