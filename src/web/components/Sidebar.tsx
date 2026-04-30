@@ -167,7 +167,13 @@ function SessionRow({ session }: SessionRowProps) {
           >
             {session.title ?? '(no title)'}
           </h3>
-          <div className="mt-1.5 flex items-baseline gap-1.5 text-meta min-w-0">
+          <div
+            className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
+            title={`${session.owner}/${session.repo}#${session.number}`}
+          >
+            {session.owner}/{session.repo}#{session.number}
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
             <span
               className={cn(
                 'text-caps tracking-caps uppercase shrink-0',
@@ -176,12 +182,6 @@ function SessionRow({ session }: SessionRowProps) {
               data-status={session.status}
             >
               {STATUS_LABEL[session.status]}
-            </span>
-            <span aria-hidden="true" className="text-ink-muted shrink-0">
-              ·
-            </span>
-            <span className="font-mono text-ink-secondary tabular-nums truncate min-w-0">
-              {session.owner}/{session.repo}#{session.number}
             </span>
             {session.author ? (
               <>
