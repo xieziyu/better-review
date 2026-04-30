@@ -120,6 +120,8 @@ describe('SubmitDrawer', () => {
     const inline = screen.getByTestId('inline-list')
     expect(inline).toHaveTextContent(/R1/)
     expect(inline).toHaveTextContent(/should/)
+    expect(inline).toHaveTextContent(/Inline/)
+    expect(inline).toHaveTextContent(/src\/x\.ts:10/)
     expect(inline).toHaveTextContent(/inline title/)
     expect(screen.getByLabelText(/Review body/i)).toBeInTheDocument()
   })
@@ -148,10 +150,37 @@ describe('SubmitDrawer', () => {
     )
     const moved = screen.getByTestId('moved-to-body-list')
     expect(moved).toHaveTextContent(/R2/)
+    expect(moved).toHaveTextContent(/Body/)
     expect(moved).not.toHaveTextContent(/\bR1\b/)
 
     const inline = screen.getByTestId('inline-list')
     expect(inline).toHaveTextContent(/R1/)
+    expect(inline).toHaveTextContent(/Inline/)
+  })
+
+  it('renders PR-wide findings as body preview cards', () => {
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [
+          mk({
+            id: 'R1',
+            dbId: 'd1',
+            file: null,
+            line: null,
+            title: 'Architecture note',
+            category: 'Design',
+          }),
+        ],
+      }),
+    )
+
+    const prWide = screen.getByTestId('pr-wide-list')
+    expect(prWide).toHaveTextContent(/R1/)
+    expect(prWide).toHaveTextContent(/Body/)
+    expect(prWide).toHaveTextContent(/whole PR/)
+    expect(prWide).toHaveTextContent(/Architecture note/)
+    expect(prWide).toHaveTextContent(/Design/)
   })
 
   it('defaults to COMMENT event', async () => {

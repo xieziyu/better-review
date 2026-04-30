@@ -33,6 +33,33 @@ const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: str
   { value: 'APPROVE', label: 'APPROVE', description: 'Mark as ready to merge.' },
 ]
 
+const SEVERITY_TOKENS: Record<
+  Finding['severity'],
+  { icon: string; dot: string; border: string; bg: string; text: string }
+> = {
+  must: {
+    icon: '●',
+    dot: 'bg-red-500',
+    border: 'border-l-red-500',
+    bg: 'bg-red-50 dark:bg-red-950/30',
+    text: 'text-red-700 dark:text-red-300',
+  },
+  should: {
+    icon: '◐',
+    dot: 'bg-amber-500',
+    border: 'border-l-amber-500',
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+  nit: {
+    icon: '○',
+    dot: 'bg-emerald-500',
+    border: 'border-l-emerald-500',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    text: 'text-emerald-700 dark:text-emerald-300',
+  },
+}
+
 function severityTag(severity: Finding['severity']): string {
   if (severity === 'must') return '🔴 **[must]**'
   if (severity === 'should') return '🟡 **[should]**'
@@ -60,6 +87,74 @@ function severityCounts(findings: Finding[]): Record<'must' | 'should' | 'nit', 
   const counts = { must: 0, should: 0, nit: 0 }
   for (const f of findings) counts[f.severity] += 1
   return counts
+}
+
+function findingLocation(finding: Finding): string {
+  if (!finding.file) return 'whole PR'
+  return `${finding.file}${finding.line ? `:${finding.line}` : ''}`
+}
+
+function PreviewFindingCard({
+  finding,
+  destination,
+}: {
+  finding: Finding
+  destination: 'Inline' | 'Body'
+}) {
+  const tokens = SEVERITY_TOKENS[finding.severity]
+
+  return (
+    <div
+      role="listitem"
+      className={cn(
+        'relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-800 border-l-4 bg-white dark:bg-gray-950 p-3',
+        tokens.border,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', tokens.dot)}
+        />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] leading-5">
+            <span className="font-mono text-gray-500 dark:text-gray-400">{finding.id}</span>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium',
+                tokens.bg,
+                tokens.text,
+              )}
+            >
+              <span aria-hidden>{tokens.icon}</span>
+              {finding.severity}
+            </span>
+            <span
+              className={cn(
+                'inline-flex rounded px-1.5 py-0.5 font-medium',
+                destination === 'Inline'
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+              )}
+            >
+              {destination}
+            </span>
+            {finding.category && (
+              <span className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {finding.category}
+              </span>
+            )}
+            <span className="min-w-0 truncate font-mono text-gray-500 dark:text-gray-400">
+              {findingLocation(finding)}
+            </span>
+          </div>
+          <div className="text-sm font-medium leading-5 text-gray-900 dark:text-gray-100">
+            {finding.title}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function SubmitDrawer({ sessionId, onClose }: Props) {
@@ -244,59 +339,53 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 </div>
               )}
               {inline.length > 0 && (
-                <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 text-xs">
-                  <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/40 p-3">
+                  <div className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                     {inline.length} inline comment{inline.length === 1 ? '' : 's'}
                   </div>
-                  <ul
+                  <div
                     data-testid="inline-list"
-                    className="list-disc list-inside space-y-1 font-mono"
+                    role="list"
+                    className="space-y-2"
                   >
                     {inline.map((f) => (
-                      <li key={f.dbId}>
-                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{' '}
-                        <span className="font-sans">{f.title}</span>
-                      </li>
+                      <PreviewFindingCard key={f.dbId} finding={f} destination="Inline" />
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
               {movedToBody.length > 0 && (
-                <div className="rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3 text-xs">
-                  <div className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                <div className="rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3">
+                  <div className="text-xs font-medium text-amber-800 dark:text-amber-300">
                     {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} will be moved
                     to the review body
                   </div>
-                  <div className="text-amber-700 dark:text-amber-400 mb-2">
+                  <div className="mb-2 mt-1 text-xs text-amber-700 dark:text-amber-400">
                     Their <code className="font-mono">file:line</code> is outside the PR diff, so
                     GitHub would reject them as inline comments.
                   </div>
-                  <ul
+                  <div
                     data-testid="moved-to-body-list"
-                    className="list-disc list-inside space-y-1 font-mono"
+                    role="list"
+                    className="space-y-2"
                   >
                     {movedToBody.map((f) => (
-                      <li key={f.dbId}>
-                        <span>{f.id}</span> · {f.severity} · {f.file}:{f.line} —{' '}
-                        <span className="font-sans">{f.title}</span>
-                      </li>
+                      <PreviewFindingCard key={f.dbId} finding={f} destination="Body" />
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
               {prWide.length > 0 && (
-                <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3 text-xs">
-                  <div className="font-medium text-blue-700 dark:text-blue-300 mb-1">
+                <div className="rounded-md bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-3">
+                  <div className="mb-2 text-xs font-medium text-blue-700 dark:text-blue-300">
                     {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'} will be added to
                     the review body
                   </div>
-                  <ul data-testid="pr-wide-list" className="list-disc list-inside space-y-1">
+                  <div data-testid="pr-wide-list" role="list" className="space-y-2">
                     {prWide.map((f) => (
-                      <li key={f.dbId}>
-                        <span className="font-mono">{f.id}</span> — {f.title}
-                      </li>
+                      <PreviewFindingCard key={f.dbId} finding={f} destination="Body" />
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
               {selected.length === 0 && (
