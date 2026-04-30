@@ -12,13 +12,11 @@ interface Props {
   onClose: () => void
 }
 
-type Step = 1 | 2 | 3 | 4
+type Step = 1 | 2
 
 const STEP_LABELS: Record<Step, string> = {
-  1: 'Selection',
-  2: 'Event',
-  3: 'Preview',
-  4: 'Confirm',
+  1: 'Prepare',
+  2: 'Confirm',
 }
 
 const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: string }> = [
@@ -124,21 +122,6 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
     },
   })
 
-  const previewPayload = useMemo(() => {
-    const trimmed = body.trim()
-    return {
-      event,
-      ...(trimmed ? { body } : {}),
-      comments: inline.map((f) => ({
-        path: f.file,
-        line: f.line,
-        body: `${severityTag(f.severity)} ${f.title}\n\n${f.body}${
-          f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
-        }`,
-      })),
-    }
-  }, [event, body, inline])
-
   const requestClose = () => {
     if (submit.isPending) return
     onClose()
@@ -170,7 +153,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
         <nav className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
           <ol className="flex items-center gap-2 text-xs text-gray-500">
-            {([1, 2, 3, 4] as Step[]).map((s, i) => (
+            {([1, 2] as Step[]).map((s, i) => (
               <li key={s} className="flex items-center gap-2">
                 <span
                   className={cn(
@@ -187,7 +170,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 <span className={cn(s === step && 'text-gray-900 dark:text-gray-100 font-medium')}>
                   {STEP_LABELS[s]}
                 </span>
-                {i < 3 && <span aria-hidden>·</span>}
+                {i < 1 && <span aria-hidden>·</span>}
               </li>
             ))}
           </ol>
@@ -196,6 +179,54 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
         <div className="p-4 space-y-4">
           {step === 1 && (
             <section className="space-y-4">
+              <fieldset className="space-y-2" role="radiogroup" aria-label="Review event type">
+                <legend className="text-sm font-medium">Event type</legend>
+                {EVENT_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={cn(
+                      'flex items-start gap-3 p-3 rounded-md border cursor-pointer',
+                      event === opt.value
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                        : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="event"
+                      value={opt.value}
+                      checked={event === opt.value}
+                      onChange={() => setEvent(opt.value)}
+                      aria-label={opt.label}
+                      className="mt-0.5 h-4 w-4 text-blue-600"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{opt.label}</div>
+                      <div className="text-xs text-gray-500">{opt.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </fieldset>
+
+              <label className="block">
+                <span className="text-sm font-medium">Review body (markdown)</span>
+                <textarea
+                  aria-label="Review body"
+                  value={body}
+                  onChange={(e) => {
+                    setBody(e.target.value)
+                    setBodyTouched(true)
+                  }}
+                  className="mt-1 w-full h-40 p-2 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {prWide.length > 0 && !bodyTouched && (
+                  <span className="block text-xs text-gray-500 mt-1">
+                    Auto-filled from {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'}
+                    .
+                  </span>
+                )}
+              </label>
+
               <div>
                 <div className="text-sm" data-testid="selection-summary">
                   <strong>{selected.length}</strong> finding{selected.length === 1 ? '' : 's'}{' '}
@@ -278,81 +309,6 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
           {step === 2 && (
             <section className="space-y-4">
-              <fieldset className="space-y-2" role="radiogroup" aria-label="Review event type">
-                <legend className="text-sm font-medium">Event type</legend>
-                {EVENT_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={cn(
-                      'flex items-start gap-3 p-3 rounded-md border cursor-pointer',
-                      event === opt.value
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                        : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="event"
-                      value={opt.value}
-                      checked={event === opt.value}
-                      onChange={() => setEvent(opt.value)}
-                      aria-label={opt.label}
-                      className="mt-0.5 h-4 w-4 text-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{opt.label}</div>
-                      <div className="text-xs text-gray-500">{opt.description}</div>
-                    </div>
-                  </label>
-                ))}
-              </fieldset>
-              <label className="block">
-                <span className="text-sm font-medium">Review body (markdown)</span>
-                <textarea
-                  aria-label="Review body"
-                  value={body}
-                  onChange={(e) => {
-                    setBody(e.target.value)
-                    setBodyTouched(true)
-                  }}
-                  className="mt-1 w-full h-40 p-2 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {prWide.length > 0 && !bodyTouched && (
-                  <span className="block text-xs text-gray-500 mt-1">
-                    Auto-filled from {prWide.length} PR-wide finding{prWide.length === 1 ? '' : 's'}
-                    .
-                  </span>
-                )}
-              </label>
-            </section>
-          )}
-
-          {step === 3 && (
-            <section className="space-y-3">
-              <div className="text-sm">
-                <span className="font-medium">POST</span>{' '}
-                <code className="font-mono text-xs">
-                  /repos/{data?.session.owner}/{data?.session.repo}/pulls/{data?.session.number}
-                  /reviews
-                </code>
-              </div>
-              <pre className="text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-3 overflow-auto max-h-96">
-                {JSON.stringify(previewPayload, null, 2)}
-              </pre>
-              <button
-                type="button"
-                onClick={() =>
-                  navigator.clipboard?.writeText(JSON.stringify(previewPayload, null, 2))
-                }
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Copy JSON
-              </button>
-            </section>
-          )}
-
-          {step === 4 && (
-            <section className="space-y-4">
               {submit.data ? (
                 <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 p-4 text-sm space-y-2">
                   <div className="font-medium text-emerald-800 dark:text-emerald-300">
@@ -383,6 +339,12 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   <div>
                     {inline.length} inline comment{inline.length === 1 ? '' : 's'}
                   </div>
+                  {movedToBody.length > 0 && (
+                    <div>
+                      {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} may move to
+                      the review body
+                    </div>
+                  )}
                   {(body.trim() || prWide.length > 0) && <div>1 review body comment</div>}
                   <div className="text-xs text-gray-500 mt-2">
                     This will post immediately. There is no &quot;draft&quot; mode.
@@ -416,7 +378,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 Back
               </button>
             )}
-            {step < 4 && (
+            {step < 2 && (
               <button
                 type="button"
                 onClick={() => setStep((s) => (s + 1) as Step)}
@@ -426,7 +388,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 Next
               </button>
             )}
-            {step === 4 && !submit.data && (
+            {step === 2 && !submit.data && (
               <button
                 type="button"
                 onClick={() => submit.mutate()}

@@ -58,7 +58,7 @@ const mk = (overrides: Partial<Finding>): Finding => ({
 })
 
 describe('SubmitDrawer', () => {
-  it('renders the selection step with selected count', () => {
+  it('renders prepare step with event, body, and selected count', () => {
     const findings = [
       mk({ id: 'R1', dbId: 'd1', selected: true }),
       mk({ id: 'R2', dbId: 'd2', selected: false }),
@@ -70,6 +70,8 @@ describe('SubmitDrawer', () => {
     expect(screen.getByTestId('selection-summary')).toHaveTextContent(
       /2 findings selected of 3 total/i,
     )
+    expect(screen.getByRole('radio', { name: /COMMENT/i })).toBeChecked()
+    expect(screen.getByLabelText(/Review body/i)).toBeInTheDocument()
   })
 
   it('calls onClose when the backdrop is clicked', async () => {
@@ -85,8 +87,7 @@ describe('SubmitDrawer', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('prefills body with PR-wide findings as a list', async () => {
-    const user = userEvent.setup()
+  it('prefills body with PR-wide findings as a list', () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
         session,
@@ -103,25 +104,24 @@ describe('SubmitDrawer', () => {
         ],
       }),
     )
-    await user.click(screen.getByRole('button', { name: /Next/i }))
     const body = screen.getByLabelText(/Review body/i) as HTMLTextAreaElement
     expect(body.value).toMatch(/Wider architectural concern/)
     expect(body.value).toContain('🔴 **[must]**')
   })
 
-  it('shows severity emoji in preview payload', async () => {
-    const user = userEvent.setup()
+  it('keeps selected inline comments visible while editing submit options', () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
         session,
-        findings: [mk({ id: 'R1', dbId: 'd1', severity: 'should', title: 'preview title' })],
+        findings: [mk({ id: 'R1', dbId: 'd1', severity: 'should', title: 'inline title' })],
       }),
     )
 
-    await user.click(screen.getByRole('button', { name: /Next/i }))
-    await user.click(screen.getByRole('button', { name: /Next/i }))
-
-    expect(screen.getByText(/🟡 \*\*\[should\]\*\* preview title/)).toBeInTheDocument()
+    const inline = screen.getByTestId('inline-list')
+    expect(inline).toHaveTextContent(/R1/)
+    expect(inline).toHaveTextContent(/should/)
+    expect(inline).toHaveTextContent(/inline title/)
+    expect(screen.getByLabelText(/Review body/i)).toBeInTheDocument()
   })
 
   it("groups findings whose line is outside the diff under 'moved to body'", () => {
@@ -155,6 +155,17 @@ describe('SubmitDrawer', () => {
   })
 
   it('defaults to COMMENT event', async () => {
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [mk({})],
+      }),
+    )
+    const radio = screen.getByRole('radio', { name: /COMMENT/i })
+    expect(radio).toBeChecked()
+  })
+
+  it('goes from prepare directly to confirm without JSON preview', async () => {
     const user = userEvent.setup()
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
@@ -162,8 +173,14 @@ describe('SubmitDrawer', () => {
         findings: [mk({})],
       }),
     )
+
     await user.click(screen.getByRole('button', { name: /Next/i }))
-    const radio = screen.getByRole('radio', { name: /COMMENT/i })
-    expect(radio).toBeChecked()
+
+    expect(screen.getByText(/This will post immediately/i).parentElement).toHaveTextContent(
+      /COMMENT on acme\/web#42/i,
+    )
+    expect(screen.getByRole('button', { name: /Submit/i })).toBeInTheDocument()
+    expect(screen.queryByText(/Copy JSON/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\/reviews/i)).not.toBeInTheDocument()
   })
 })
