@@ -12,7 +12,6 @@ import type { SubmissionsRepo } from '../db/submissions'
 import type { EventBus } from '../engine/events'
 import type { GhClient } from '../github/gh-client'
 import type { PromptStore } from '../prompts/store'
-import { activityMiddleware } from './middleware/activity'
 import { originGuard } from './middleware/origin'
 import { eventsRoutes } from './routes/events'
 import { findingsRoutes } from './routes/findings'
@@ -32,7 +31,6 @@ export interface AppDeps {
   promptHome: string
   config: Config
   webDir?: string
-  onActivity?: () => void
   getPort: () => number
   startSession: (input: {
     prInput: string
@@ -55,7 +53,6 @@ export interface AppDeps {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono()
   app.use('*', originGuard(deps.getPort))
-  if (deps.onActivity) app.use('*', activityMiddleware(deps.onActivity))
   app.route('/api', healthRoutes(deps))
   app.route('/api', sessionsRoutes(deps))
   app.route('/api', findingsRoutes(deps))

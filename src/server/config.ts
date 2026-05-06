@@ -7,7 +7,6 @@ import { AGENT_KINDS } from '../shared/types'
 
 const rawConfigSchema = z.object({
   port: z.number().int().nonnegative().default(0),
-  idleShutdownMinutes: z.number().int().positive().default(240),
   maxConcurrentReviews: z.number().int().positive().default(4),
   stallMinutes: z.number().int().positive().default(3),
   defaultAgent: z.enum(AGENT_KINDS).default('claude'),

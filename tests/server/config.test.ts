@@ -22,7 +22,6 @@ describe('loadConfig', () => {
     const c = loadConfig(home)
     expect(c.port).toBe(8765)
     expect(c.maxConcurrentReviews).toBe(2)
-    expect(c.idleShutdownMinutes).toBe(defaultConfig.idleShutdownMinutes)
   })
   it('rejects unknown keys silently (strips)', () => {
     writeFileSync(join(home, 'config.json'), JSON.stringify({ foo: 1, port: 1234 }))

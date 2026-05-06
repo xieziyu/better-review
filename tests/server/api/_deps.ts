@@ -56,7 +56,6 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     promptHome: home,
     config: {
       port: 5555,
-      idleShutdownMinutes: 1,
       maxConcurrentReviews: 1,
       stallMinutes: 1,
       defaultAgent: 'claude',

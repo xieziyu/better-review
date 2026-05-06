@@ -123,11 +123,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const startedAt = Date.now()
   const here = dirname(fileURLToPath(import.meta.url))
   const webDir = join(here, '..', 'web')
-  let lastActivity = Date.now()
-  const bumpActivity = (): void => {
-    lastActivity = Date.now()
-  }
-  bus.subscribeGlobal(bumpActivity)
   const deps: AppDeps = {
     sessions,
     findings,
@@ -139,7 +134,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     promptHome: paths.home,
     config,
     webDir,
-    onActivity: bumpActivity,
     getPort: () => port,
     startSession,
     rerunSession: async (id, agent) => {
@@ -203,23 +197,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   writeFileSync(paths.serverJson, JSON.stringify({ pid: process.pid, port, startedAt }))
   log.info('daemon started', { pid: process.pid, port })
 
-  const idleMs = config.idleShutdownMinutes * 60_000
-  const idleTimer = setInterval(
-    () => {
-      if (Date.now() - lastActivity > idleMs) {
-        log.info('idle shutdown')
-        void shutdown()
-      }
-    },
-    Math.min(idleMs, 60_000),
-  )
-  if (typeof idleTimer.unref === 'function') idleTimer.unref()
-
   let shuttingDown = false
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
-    clearInterval(idleTimer)
     bus.emit({ type: 'shutting-down' })
     await new Promise<void>((res) => {
       server.close(() => res())
