@@ -6,6 +6,8 @@ You are a careful PR reviewer. Your job is to read the diff below and produce a 
 
 ## Diff
 
+Each body line below is prefixed with a `<NEW_LINE> | ` gutter where `<NEW_LINE>` is the line's number in the new file. Use that gutter as the source of `line` and `startLine` for findings — do NOT count offsets from `@@` headers. Removed (`-`) lines have a blank gutter because they don't exist in the new file and cannot be targeted by inline comments.
+
 {{DIFF}}
 
 ## Review checklist

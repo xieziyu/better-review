@@ -9,6 +9,7 @@ import type { SessionsRepo } from './db/sessions'
 import type { ReviewAgent } from './engine/agent'
 import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
+import { annotateDiffWithLineNumbers } from './engine/diff-annotator'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
 import type { GhClient } from './github/gh-client'
@@ -68,7 +69,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     const prompt = renderPrompt(resolved.framework, {
       rules: resolved.rules.content,
       prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,
-      diff: diff.unifiedDiff,
+      diff: annotateDiffWithLineNumbers(diff.unifiedDiff),
       findingsPath: join(workdir, 'findings.json'),
       schemaJson:
         'Array of finding objects with fields: id, severity, category, file, line, title, body, suggestion?',
