@@ -5,6 +5,7 @@ import {
   Hunk,
   findChangeByNewLineNumber,
   getChangeKey,
+  type ChangeData,
   type HunkData,
   type FileData,
 } from 'react-diff-view'
@@ -19,7 +20,9 @@ interface Props {
   findingId: string
 }
 
-type ExpandLevel = 'hunk' | 'full'
+type ExpandLevel = 'window' | 'full'
+
+const WINDOW = 6
 
 function fileMatches(f: FileData, target: string): boolean {
   return (f.newPath ?? '') === target || (f.oldPath ?? '') === target
@@ -29,8 +32,73 @@ function findContainingHunk(hunks: HunkData[], anchor: number): HunkData | undef
   return hunks.find((h) => anchor >= h.newStart && anchor < h.newStart + h.newLines)
 }
 
+function changeNewLine(c: ChangeData): number | null {
+  if (c.type === 'normal') return c.newLineNumber
+  if (c.type === 'insert') return c.lineNumber
+  return null
+}
+
+function changeOldLine(c: ChangeData): number | null {
+  if (c.type === 'normal') return c.oldLineNumber
+  if (c.type === 'delete') return c.lineNumber
+  return null
+}
+
+// Slice a hunk to a window of changes around the anchor's index in the
+// changes array. Index-based (not line-based) so that +/- rows near a
+// context-line anchor stay visible — see commit 2210d65 for the prior bug.
+function trimHunkAround(hunk: HunkData, anchor: number, window: number): HunkData {
+  const all = hunk.changes
+  if (all.length <= 2 * window + 1) return hunk
+
+  let bestIdx = -1
+  let bestDist = Infinity
+  for (let i = 0; i < all.length; i++) {
+    const c = all[i]
+    if (!c) continue
+    const ln = changeNewLine(c)
+    if (ln == null) continue
+    const d = Math.abs(ln - anchor)
+    if (d < bestDist) {
+      bestIdx = i
+      bestDist = d
+    }
+  }
+  if (bestIdx < 0) return hunk
+
+  const start = Math.max(0, bestIdx - window)
+  const end = Math.min(all.length, bestIdx + window + 1)
+  const sliced = all.slice(start, end)
+
+  let oldStart = Infinity
+  let oldLines = 0
+  let newStart = Infinity
+  let newLines = 0
+  for (const c of sliced) {
+    const oln = changeOldLine(c)
+    const nln = changeNewLine(c)
+    if (oln != null) {
+      if (oln < oldStart) oldStart = oln
+      oldLines++
+    }
+    if (nln != null) {
+      if (nln < newStart) newStart = nln
+      newLines++
+    }
+  }
+
+  return {
+    ...hunk,
+    changes: sliced,
+    oldStart: oldStart === Infinity ? hunk.oldStart : oldStart,
+    oldLines,
+    newStart: newStart === Infinity ? hunk.newStart : newStart,
+    newLines,
+  }
+}
+
 export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
-  const [level, setLevel] = useState<ExpandLevel>('hunk')
+  const [level, setLevel] = useState<ExpandLevel>('window')
 
   const fileDiff = useMemo<FileData | undefined>(() => {
     if (!unifiedDiff) return undefined
@@ -47,7 +115,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
     if (!fileDiff) return []
     if (level === 'full') return fileDiff.hunks
     const h = findContainingHunk(fileDiff.hunks, anchor)
-    return h ? [h] : []
+    return h ? [trimHunkAround(h, anchor, WINDOW)] : []
   }, [fileDiff, level, anchor])
 
   const selectedChanges = useMemo<string[]>(() => {
@@ -92,7 +160,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
           {line ? `:${line}` : ''}
         </span>
         <div className="flex items-center gap-2 text-caps tracking-caps uppercase">
-          {level === 'hunk' ? (
+          {level === 'window' ? (
             <button
               type="button"
               onClick={() => setLevel('full')}
@@ -103,7 +171,7 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
           ) : (
             <button
               type="button"
-              onClick={() => setLevel('hunk')}
+              onClick={() => setLevel('window')}
               className="text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
             >
               Collapse
