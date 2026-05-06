@@ -1,16 +1,16 @@
 import type { PRSession, SessionStatus } from '@shared/types'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 
 import { EmptyState } from '@/components/ui'
-import { api, queryKeys, ApiError } from '@/lib/api'
+import { api, queryKeys } from '@/lib/api'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
@@ -87,46 +87,24 @@ function relativeTime(updatedAt: number): string {
   return `${days}d ago`
 }
 
-function NewPRInput() {
-  const [value, setValue] = useState('')
-  const nav = useNavigate()
-  const qc = useQueryClient()
-  const create = useMutation({
-    mutationFn: api.createSession,
-    onSuccess: ({ id }) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
-      setValue('')
-      nav(`/pr/${id}`)
-    },
-  })
+function NewReviewLink() {
   return (
-    <form
-      className="px-5 pt-5 pb-4 border-b border-rule"
-      onSubmit={(e) => {
-        e.preventDefault()
-        const trimmed = value.trim()
-        if (trimmed) create.mutate({ prInput: trimmed })
-      }}
+    <NavLink
+      to="/"
+      end
+      aria-label="New review (back to home)"
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-2 px-5 py-3 border-b border-rule text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
+          isActive
+            ? 'text-ink-primary bg-canvas'
+            : 'text-ink-secondary hover:text-ink-primary hover:bg-canvas/50',
+        )
+      }
     >
-      <label className="block text-caps tracking-caps text-ink-muted mb-2">New review</label>
-      <div className="flex items-center gap-1.5 rounded-md bg-canvas border border-rule px-2.5 py-1 transition-[border-color,box-shadow] duration-180 ease-out-quart focus-within:border-brand focus-within:shadow-[0_0_0_2px_color-mix(in_oklch,var(--brand)_14%,transparent)]">
-        <ChevronRight size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Paste GitHub PR URL · press ⏎"
-          aria-label="GitHub PR URL"
-          className="w-full py-1 bg-transparent text-body text-ink-primary placeholder:text-ink-muted focus:outline-none"
-          disabled={create.isPending}
-        />
-      </div>
-      {create.isError ? (
-        <div className="mt-2 text-caps tracking-caps text-severity-must uppercase">
-          {create.error instanceof ApiError ? create.error.message : 'failed to create session'}
-        </div>
-      ) : null}
-    </form>
+      <Plus size={14} aria-hidden="true" />
+      <span>New review</span>
+    </NavLink>
   )
 }
 
@@ -274,7 +252,7 @@ export function Sidebar() {
       style={{ width }}
       className="relative shrink-0 border-r border-rule bg-raised flex flex-col min-h-0"
     >
-      <NewPRInput />
+      <NewReviewLink />
       <nav className="flex-1 overflow-y-auto" aria-label="Sessions">
         {sessions.length === 0 ? (
           <div className="px-5 py-8">

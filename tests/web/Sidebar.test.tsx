@@ -37,9 +37,10 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
 })
 
 describe('Sidebar', () => {
-  it('renders the new-PR input', () => {
+  it('renders a quick link back to the home / new-review page', () => {
     render(withClient(<Sidebar />, { sessions: [] }))
-    expect(screen.getByPlaceholderText(/Paste GitHub PR URL/i)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /new review/i })
+    expect(link).toHaveAttribute('href', '/')
   })
 
   it('renders a session entry with repo#num and title', () => {

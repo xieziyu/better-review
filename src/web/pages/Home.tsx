@@ -115,6 +115,7 @@ export function Home() {
               placeholder="https://github.com/owner/repo/pull/123"
               className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
               aria-label="PR target"
+              autoFocus
             />
             <Button type="submit" variant="ink" size="md" disabled={!trimmed || create.isPending}>
               {create.isPending ? 'Starting…' : 'Start review'}
