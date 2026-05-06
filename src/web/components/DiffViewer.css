@@ -1,18 +1,18 @@
 .diff-code-selected {
-  background-color: color-mix(in oklch, var(--brand) 14%, transparent) !important;
-  box-shadow: inset 2px 0 0 var(--brand);
+  background-color: color-mix(in oklch, var(--anchor) 14%, transparent) !important;
+  box-shadow: inset 2px 0 0 var(--anchor);
 }
 
 .diff-gutter-selected {
-  background-color: color-mix(in oklch, var(--brand) 24%, transparent) !important;
-  color: var(--brand) !important;
+  background-color: color-mix(in oklch, var(--anchor) 24%, transparent) !important;
+  color: var(--anchor) !important;
   font-weight: 600;
 }
 
 [data-theme='dark'] .diff-code-selected {
-  background-color: color-mix(in oklch, var(--brand) 22%, transparent) !important;
+  background-color: color-mix(in oklch, var(--anchor) 22%, transparent) !important;
 }
 
 [data-theme='dark'] .diff-gutter-selected {
-  background-color: color-mix(in oklch, var(--brand) 30%, transparent) !important;
+  background-color: color-mix(in oklch, var(--anchor) 30%, transparent) !important;
 }
