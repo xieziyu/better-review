@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { serve } from '@hono/node-server'
+import { execa } from 'execa'
 
 import type { AgentKind, HealthStatus, ReviewEvent } from '../shared/types'
 import { AGENT_KINDS } from '../shared/types'
@@ -22,6 +23,7 @@ import { RunnerRegistry } from './engine/runner-registry'
 import { submitSession } from './engine/submit'
 import { detectFolderPicker } from './fs/folder-picker'
 import { makeGCSessions } from './gc'
+import { worktreeDirFor } from './git/worktree'
 import { GhClient } from './github/gh-client'
 import { createLogger } from './logger'
 import { resolvePaths } from './paths'
@@ -97,6 +99,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     config,
     paths: { home: paths.home, sessionsDir: paths.sessionsDir },
     cwd,
+    log,
     resolveAgent,
   })
   const rerun = makeRerunSession({ sessions, findings, startSession })
@@ -107,6 +110,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     queue,
     runners,
     sessionsDir: paths.sessionsDir,
+    log,
   })
   const cancelSession = makeCancelSession({ sessions, queue, runners, bus })
 
@@ -121,6 +125,32 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       log.info('gc complete', { deleted: deleted.length, skipped })
     })
     .catch((e) => log.warn('gc errored', { error: (e as Error).message }))
+
+  // Worktree orphan sweep: previous daemon runs may have rm'd a session
+  // workdir without removing the parent clone's `.git/worktrees/<name>/`
+  // registry entry (e.g. crash, manual rm -rf). `git worktree prune` is
+  // idempotent and only drops entries whose workdir is missing — safe to
+  // run unconditionally per unique pinned clone we ever wrote a worktree to.
+  void (async () => {
+    const seen = new Set<string>()
+    for (const s of sessions.list()) {
+      if (s.sourceKind !== 'worktree' || !s.localRepoPath) continue
+      if (seen.has(s.localRepoPath)) continue
+      seen.add(s.localRepoPath)
+      // Confirm the dir is missing before pruning — if the session is still
+      // mid-review (worktree dir exists), prune is still a no-op for it,
+      // but bailing here keeps the log noise down.
+      if (existsSync(worktreeDirFor(s.workdir))) continue
+      try {
+        await execa('git', ['-C', s.localRepoPath, 'worktree', 'prune'], { reject: false })
+      } catch (e) {
+        log.warn('orphan worktree prune errored', {
+          localRepoPath: s.localRepoPath,
+          error: (e as Error).message,
+        })
+      }
+    }
+  })()
 
   let port = 0
   const startedAt = Date.now()

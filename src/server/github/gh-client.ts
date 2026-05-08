@@ -5,7 +5,13 @@ import { join } from 'node:path'
 
 import { execa } from 'execa'
 
-import { GhCliMissingError, GhPRNotFoundError, GhSubmitError } from './errors'
+import {
+  GhCliMissingError,
+  GhFileNotFoundError,
+  GhFileTooLargeError,
+  GhPRNotFoundError,
+  GhSubmitError,
+} from './errors'
 import type { PRTarget } from './pr-target-parser'
 
 export interface PRMeta {
@@ -16,6 +22,8 @@ export interface PRMeta {
   url: string
   baseRef: string
   headRef: string
+  headSha: string
+  baseSha: string
 }
 
 export interface DiffResult {
@@ -61,7 +69,7 @@ export class GhClient {
       '--repo',
       `${t.owner}/${t.repo}`,
       '--json',
-      'number,title,author,body,url,baseRefName,headRefName',
+      'number,title,author,body,url,baseRefName,headRefName,baseRefOid,headRefOid',
     ]
     const r = await execa(this.gh, args, { reject: false })
     if (r.exitCode !== 0) {
@@ -80,7 +88,50 @@ export class GhClient {
       url: j.url,
       baseRef: j.baseRefName,
       headRef: j.headRefName,
+      headSha: j.headRefOid ?? '',
+      baseSha: j.baseRefOid ?? '',
     }
+  }
+
+  // Fetch a single file's content at a specific git ref via the Contents API.
+  // Returns the raw file body. Used by the snapshot path when no local clone
+  // is pinned. The Contents API caps at ~1MB per file; larger blobs need the
+  // git-blob endpoint, which we surface as a typed error so callers can skip.
+  async getFileAtRef(args: {
+    owner: string
+    repo: string
+    path: string
+    ref: string
+  }): Promise<string> {
+    const url = `repos/${args.owner}/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`
+    const r = await execa(this.gh, ['api', url, '-H', 'Accept: application/vnd.github+json'], {
+      reject: false,
+    })
+    if (r.exitCode !== 0) {
+      const txt = String(r.stderr || '') + String(r.stdout || '')
+      if (/HTTP 404|Not Found/i.test(txt)) {
+        throw new GhFileNotFoundError(args.path, args.ref)
+      }
+      if (/too_large|too large|HTTP 403/i.test(txt)) {
+        throw new GhFileTooLargeError(args.path)
+      }
+      throw new Error(`gh api contents failed: ${txt.slice(0, 500)}`)
+    }
+    let parsed: { type?: string; encoding?: string; content?: string }
+    try {
+      parsed = JSON.parse(String(r.stdout))
+    } catch (e) {
+      throw new Error(`gh api contents returned non-JSON: ${(e as Error).message}`, { cause: e })
+    }
+    if (parsed.type && parsed.type !== 'file') {
+      throw new GhFileNotFoundError(args.path, args.ref)
+    }
+    if (parsed.encoding !== 'base64' || typeof parsed.content !== 'string') {
+      // Empty content with encoding=none means GitHub stripped the body for
+      // size; treat that as too-large so the caller skips and continues.
+      throw new GhFileTooLargeError(args.path)
+    }
+    return Buffer.from(parsed.content, 'base64').toString('utf8')
   }
 
   async prDiff(t: PRTarget): Promise<DiffResult> {

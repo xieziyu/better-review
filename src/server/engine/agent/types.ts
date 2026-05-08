@@ -9,11 +9,13 @@ export interface AgentSpawnArgs {
   prompt: string
   workdir: string
   logPath: string
-  // Optional local clone of the PR's repository. When set, agents that can
-  // safely read code (claude with cwd=localRepoPath; codex via -C and a
-  // read-only sandbox) gain filesystem access to the source. When omitted,
-  // agents fall back to today's behaviour: no source access beyond the diff.
-  localRepoPath?: string
+  // Source tree the agent reads while reviewing. May be a full git worktree
+  // checked out at the PR head SHA, or a partial snapshot of diff-touched
+  // files at the same SHA. When set, claude runs with cwd=sourcePath; codex
+  // runs with `-C <sourcePath>` and a read-only sandbox plus `--add-dir` for
+  // the writable workdir. When omitted, agents fall back to no source
+  // access beyond the diff.
+  sourcePath?: string
   // Called whenever the agent emits a heartbeat (stream-json event for claude,
   // stdout line for codex). Each call resets the runner's stall watchdog.
   onProgress: (phase: string, detail?: string) => void

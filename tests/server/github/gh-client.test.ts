@@ -1,9 +1,15 @@
-import { resolve, dirname } from 'node:path'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { GhPRNotFoundError, GhSubmitError } from '../../../src/server/github/errors'
+import {
+  GhFileNotFoundError,
+  GhPRNotFoundError,
+  GhSubmitError,
+} from '../../../src/server/github/errors'
 import { GhClient } from '../../../src/server/github/gh-client'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -14,6 +20,9 @@ describe('GhClient', () => {
     delete process.env.FAKE_GH_AUTHED
     delete process.env.FAKE_GH_NOTFOUND
     delete process.env.FAKE_GH_SUBMIT_FAIL
+    delete process.env.FAKE_GH_HEAD_OID
+    delete process.env.FAKE_GH_BASE_OID
+    delete process.env.FAKE_GH_CONTENTS_DIR
   })
 
   it('authStatus true when fake gh succeeds', async () => {
@@ -27,12 +36,15 @@ describe('GhClient', () => {
     expect(await c.authStatus()).toBe(false)
   })
 
-  it('prView returns parsed PRMeta', async () => {
+  it('prView returns parsed PRMeta including head/base SHAs', async () => {
     const c = new GhClient({ ghPath: FAKE })
     const meta = await c.prView({ owner: 'o', repo: 'r', number: 1 })
     expect(meta.title).toBe('Title')
     expect(meta.author).toBe('alice')
     expect(meta.baseRef).toBe('main')
+    // The fake shim emits a default deterministic SHA shape unless overridden.
+    expect(meta.headSha).toMatch(/^[0-9a-f]{40}$/)
+    expect(meta.baseSha).toMatch(/^[0-9a-f]{40}$/)
   })
 
   it('prView throws GhPRNotFoundError when fake says missing', async () => {
@@ -56,6 +68,25 @@ describe('GhClient', () => {
       { event: 'COMMENT', body: 'hi', comments: [] },
     )
     expect(r.html_url).toContain('pullrequestreview')
+  })
+
+  it('getFileAtRef returns the decoded file body for an existing path', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'br-gh-contents-'))
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(join(root, 'src/x.ts'), 'export const x = 1\n')
+    process.env.FAKE_GH_CONTENTS_DIR = root
+    const c = new GhClient({ ghPath: FAKE })
+    const body = await c.getFileAtRef({ owner: 'o', repo: 'r', path: 'src/x.ts', ref: 'abc' })
+    expect(body).toBe('export const x = 1\n')
+  })
+
+  it('getFileAtRef throws GhFileNotFoundError when the path is missing', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'br-gh-contents-'))
+    process.env.FAKE_GH_CONTENTS_DIR = root
+    const c = new GhClient({ ghPath: FAKE })
+    await expect(
+      c.getFileAtRef({ owner: 'o', repo: 'r', path: 'nope.ts', ref: 'abc' }),
+    ).rejects.toBeInstanceOf(GhFileNotFoundError)
   })
 
   it('submitReview throws GhSubmitError on failure', async () => {

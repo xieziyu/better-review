@@ -45,6 +45,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     queue,
     runners,
     sessionsDir,
+    log: { info: () => {}, warn: () => {}, error: () => {} },
   })
   const defaultCancel = makeCancelSession({ sessions, queue, runners, bus })
   return {

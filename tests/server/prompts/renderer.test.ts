@@ -30,19 +30,33 @@ describe('renderPrompt', () => {
     expect(out).toBe('F-DIFF: DIFF | F-RULES:\nlegacy says DIFF')
   })
 
-  it('strips a {{#LOCAL_REPO}} block (and its trailing newline) when localRepoPath is unset', () => {
-    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
+  it('strips both source blocks when sourceKind is none/unset', () => {
+    const tpl =
+      'A\n{{#SOURCE:worktree}}\nworktree at {{SOURCE_PATH}}\n{{/SOURCE}}\n{{#SOURCE:snapshot}}\nsnapshot at {{SOURCE_PATH}}\n{{/SOURCE}}\nB'
     expect(renderPrompt(tpl, baseVars)).toBe('A\nB')
+    expect(renderPrompt(tpl, { ...baseVars, sourceKind: 'none' })).toBe('A\nB')
   })
 
-  it('keeps the {{#LOCAL_REPO}} block (substituting {{LOCAL_REPO}}) when path is set', () => {
-    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
-    const out = renderPrompt(tpl, { ...baseVars, localRepoPath: '/Users/me/code/x' })
-    expect(out).toBe('A\nrepo at /Users/me/code/x\nB')
+  it('keeps the worktree block (substituting {{SOURCE_PATH}} and {{HEAD_SHA}}) and drops snapshot when kind=worktree', () => {
+    const tpl =
+      'A\n{{#SOURCE:worktree}}\nworktree at {{SOURCE_PATH}} ({{HEAD_SHA}})\n{{/SOURCE}}\n{{#SOURCE:snapshot}}\nsnapshot at {{SOURCE_PATH}}\n{{/SOURCE}}\nB'
+    const out = renderPrompt(tpl, {
+      ...baseVars,
+      sourceKind: 'worktree',
+      sourcePath: '/Users/me/code/x/repo',
+      headSha: 'abc123',
+    })
+    expect(out).toBe('A\nworktree at /Users/me/code/x/repo (abc123)\nB')
   })
 
-  it('treats an empty-string localRepoPath as unset', () => {
-    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
-    expect(renderPrompt(tpl, { ...baseVars, localRepoPath: '' })).toBe('A\nB')
+  it('keeps the snapshot block and drops worktree when kind=snapshot', () => {
+    const tpl =
+      'A\n{{#SOURCE:worktree}}\nworktree at {{SOURCE_PATH}}\n{{/SOURCE}}\n{{#SOURCE:snapshot}}\nsnapshot at {{SOURCE_PATH}}\n{{/SOURCE}}\nB'
+    const out = renderPrompt(tpl, {
+      ...baseVars,
+      sourceKind: 'snapshot',
+      sourcePath: '/sess/source',
+    })
+    expect(out).toBe('A\nsnapshot at /sess/source\nB')
   })
 })

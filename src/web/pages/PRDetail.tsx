@@ -34,6 +34,25 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   cancelled: 'Cancelled',
 }
 
+function SourceKindBadge({ session }: { session: PRSession }) {
+  const kind = session.sourceKind
+  if (!kind || kind === 'none') return null
+  const label = kind === 'worktree' ? '源码：PR head 工作树' : '源码：差异文件快照（部分）'
+  const title =
+    kind === 'worktree'
+      ? '此次评审基于 PR head 的 git worktree，agent 看到的源码与 diff 一致'
+      : '仅 diff 涉及的文件被快照到 PR head；callers 与相邻模块未包含'
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-meta text-ink-secondary"
+      title={title}
+      aria-label={title}
+    >
+      {label}
+    </span>
+  )
+}
+
 interface PRHeaderProps {
   session: PRSession
   selectedCount: number
@@ -105,6 +124,8 @@ function PRHeader({
             <span className="truncate">{session.localRepoPath}</span>
           </span>
         ) : null}
+        <SourceKindBadge session={session} />
+
         {justSwitched ? (
           <Tag tone="brand" className="animate-running-pulse">
             new run started

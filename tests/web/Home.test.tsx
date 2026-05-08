@@ -40,6 +40,8 @@ const session: PRSession = {
   agent: 'claude',
   workdir: '',
   localRepoPath: null,
+  sourceKind: null,
+  sourceRefName: null,
   promptUsed: '',
   error: null,
 }

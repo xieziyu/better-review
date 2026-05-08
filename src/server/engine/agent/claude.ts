@@ -71,10 +71,10 @@ export class ClaudeAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, localRepoPath, logPath, onProgress, onOutput, onResult } =
+    const { executable, prompt, workdir, sourcePath, logPath, onProgress, onOutput, onResult } =
       args
     const child = spawn(executable, ['--output-format', 'stream-json', '--verbose', '-p', prompt], {
-      cwd: localRepoPath ?? workdir,
+      cwd: sourcePath ?? workdir,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 

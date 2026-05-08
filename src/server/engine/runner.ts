@@ -11,7 +11,9 @@ import type { RunnerRegistry } from './runner-registry'
 export interface RunReviewArgs {
   sessionId: string
   workdir: string
-  localRepoPath?: string
+  // Source tree at PR head — full worktree or partial snapshot. Forwarded to
+  // the agent so it can read post-merge files; omitted in diff-only mode.
+  sourcePath?: string
   prompt: string
   agent: ReviewAgent
   executable: string
@@ -26,7 +28,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   const {
     sessionId,
     workdir,
-    localRepoPath,
+    sourcePath,
     prompt,
     agent,
     executable,
@@ -96,7 +98,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       reapAfterResult()
     },
   }
-  if (localRepoPath !== undefined) spawnArgs.localRepoPath = localRepoPath
+  if (sourcePath !== undefined) spawnArgs.sourcePath = sourcePath
   const { child, drained } = agent.spawn(spawnArgs)
 
   runners.register(sessionId, async () => {

@@ -177,16 +177,26 @@ better-review https://github.com/acme/web/pull/123
 **期间 daemon 在做什么**
 
 ```
-gh pr view  → PRMeta（标题/作者/分支）
+gh pr view  → PRMeta（标题/作者/分支/headRefOid）
 gh pr diff  → 写到 <workdir>/diff.cache
+源码准备   → 看你给没给本地 clone：
+              · 给了：在你 clone 里 git worktree add 一份 PR head 的工作树，
+                      落到 <workdir>/repo/，agent 看到的源码就是 PR 合入后的状态；
+                      你主 working tree（gitbutler workspace 等）完全不动
+              · 没给：调 gh api 把 diff 涉及的文件按 PR head SHA 抓到 <workdir>/source/，
+                      只是部分上下文（callers/相邻模块没有），但比纯 diff 强
+              · 都失败：退化成「只看 diff」
 prompt 渲染 → 通过 ReviewAgent 抽象 spawn 选定的 agent 进程
-              · claude: claude --output-format stream-json -p <prompt>
-              · codex : codex exec --sandbox workspace-write --skip-git-repo-check（prompt 走 stdin）
+              · claude: claude --output-format stream-json -p <prompt>，cwd 指向源码目录
+              · codex : codex exec -C <源码目录> --sandbox read-only --add-dir <workdir>（prompt 走 stdin）
               ↓ 监听 stdout 进度事件 / 行（heartbeat）
               ↓ chokidar 监听 <workdir>/findings.json
               ↓ 增量解析 + 入库 + SSE 推送
 agent exit  → session.status = ready
+session 删除 → cleanup worktree（git worktree remove + 删 refs/better-review/pr-…）
 ```
+
+> **为什么搞 worktree？** 直接拿你本地 clone 当上下文，问题是 working tree 通常停在 main 或别的分支，跟 PR diff 对不上——agent 翻一个被 diff 改过的函数，看到的是 base 版本，review 容易偏。worktree 把源码冻结在 PR head SHA，跟 diff 的 `+/-` 一致；又是个独立 working dir，不会撞到 gitbutler 的 virtual branches 或你主 tree 的 in-flight 改动。
 
 UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
 
@@ -215,12 +225,12 @@ UI 侧栏会实时显示 session 从 `running` → `ready` 的状态变化。
 
 四个 tab：
 
-| Tab       | 文件路径                         | 用途                                                      |
-| --------- | -------------------------------- | --------------------------------------------------------- |
+| Tab        | 文件路径                         | 用途                                                                  |
+| ---------- | -------------------------------- | --------------------------------------------------------------------- |
 | Guidelines | （只读）                         | 当前生效的 review guidelines（project → global → builtin 第一个命中） |
-| Framework  | （只读，包内自带）               | 不可变的工作流框架；只能查看，了解 rules 嵌入位置                    |
-| Project    | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）                                  |
-| Global     | `~/.better-review/review.md`     | 你跨项目复用的规则                                                   |
+| Framework  | （只读，包内自带）               | 不可变的工作流框架；只能查看，了解 rules 嵌入位置                     |
+| Project    | `<cwd>/.better-review/review.md` | 当前 git 项目专属规则（最高优先级）                                   |
+| Global     | `~/.better-review/review.md`     | 你跨项目复用的规则                                                    |
 
 行为：
 

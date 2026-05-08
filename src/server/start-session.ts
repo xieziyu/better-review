@@ -13,8 +13,10 @@ import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
+import { prepareSourceContext } from './git/source-prep'
 import type { GhClient } from './github/gh-client'
 import { parsePRTarget } from './github/pr-target-parser'
+import type { Logger } from './logger'
 import { renderPrompt } from './prompts/renderer'
 import { resolveEffectivePrompt } from './prompts/resolver'
 
@@ -33,6 +35,7 @@ export interface StartSessionDeps {
   config: Config
   paths: { home: string; sessionsDir: string }
   cwd: string
+  log: Logger
   // Resolves a kind to a concrete agent + located executable. Throws when the
   // CLI is not installed so the daemon can surface the error to the caller.
   resolveAgent: (kind: AgentKind) => ResolvedAgent
@@ -73,12 +76,26 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     const diff = await deps.gh.prDiff(target)
 
     const id = randomUUID()
+    const sessionShort = id.slice(0, 8)
     const workdir = join(
       deps.paths.sessionsDir,
-      `pr-${target.owner}-${target.repo}-${target.number}-${id.slice(0, 8)}`,
+      `pr-${target.owner}-${target.repo}-${target.number}-${sessionShort}`,
     )
     mkdirSync(workdir, { recursive: true })
     writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
+
+    // Prepare the post-merge source the agent will read alongside the diff.
+    // Worktree (pinned clone) > snapshot (gh contents) > none (diff-only).
+    const source = await prepareSourceContext({
+      localRepoPath,
+      gh: deps.gh,
+      target,
+      headSha: meta.headSha,
+      unifiedDiff: diff.unifiedDiff,
+      sessionWorkdir: workdir,
+      sessionShort,
+      log: deps.log,
+    })
 
     const resolved = resolveEffectivePrompt({ cwd: deps.cwd, home: deps.paths.home })
     const promptVars: Parameters<typeof renderPrompt>[1] = {
@@ -88,8 +105,10 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       findingsPath: join(workdir, 'findings.json'),
       schemaJson:
         'Array of finding objects with fields: id, severity, category, file, line, title, body, suggestion?',
+      sourceKind: source.kind,
+      sourcePath: source.sourcePath,
+      headSha: source.headSha,
     }
-    if (localRepoPath !== null) promptVars.localRepoPath = localRepoPath
     const prompt = renderPrompt(resolved.framework, promptVars)
 
     deps.sessions.insert({
@@ -106,6 +125,8 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       agent: kind,
       workdir,
       localRepoPath,
+      sourceKind: source.kind,
+      sourceRefName: source.refName,
       promptUsed: prompt,
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'running' })
@@ -123,7 +144,9 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
         stallMs: deps.config.stallMinutes * 60_000,
         runners: deps.runners,
       }
-      if (localRepoPath !== null) runArgs.localRepoPath = localRepoPath
+      if (source.kind !== 'none' && source.sourcePath) {
+        runArgs.sourcePath = source.sourcePath
+      }
       return runReview(runArgs)
     })
     return { id }

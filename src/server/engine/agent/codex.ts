@@ -29,25 +29,31 @@ export class CodexAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, localRepoPath, logPath, onProgress, onOutput } = args
+    const { executable, prompt, workdir, sourcePath, logPath, onProgress, onOutput } = args
     // Prompt is fed via stdin to avoid argv length limits with large diffs.
     // Two modes:
-    // - No localRepoPath (legacy): cwd=workdir + workspace-write so the agent
-    //   can write findings.json there; skip-git-repo-check because workdir is
-    //   not a git repo.
-    // - With localRepoPath: keep cwd=workdir, but tell codex its working root
-    //   is the local clone via -C, lock the sandbox to read-only so it can
-    //   read source freely without mutating it, and whitelist workdir via
-    //   --add-dir so findings.json writes still succeed.
-    const codexArgs = localRepoPath
+    // - No sourcePath (diff-only): cwd=workdir + workspace-write so the
+    //   agent can write findings.json there.
+    // - With sourcePath (worktree at PR head, or per-session source snapshot):
+    //   keep cwd=workdir, but tell codex its working root is the source dir
+    //   via -C, lock the sandbox to read-only so it can read source freely
+    //   without mutating it, and whitelist workdir via --add-dir so
+    //   findings.json writes still succeed.
+    // `--skip-git-repo-check` is required in BOTH modes: the diff-only
+    // workdir is not a git repo at all, and the source dir (whether snapshot
+    // or worktree) lives under our managed `~/.better-review/sessions/...`
+    // path which codex won't auto-trust. The flag only disables the trust
+    // prompt; it does not relax sandboxing.
+    const codexArgs = sourcePath
       ? [
           'exec',
           '-C',
-          localRepoPath,
+          sourcePath,
           '--sandbox',
           'read-only',
           '--add-dir',
           workdir,
+          '--skip-git-repo-check',
           '--color',
           'never',
           '-',

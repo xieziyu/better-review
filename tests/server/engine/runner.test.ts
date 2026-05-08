@@ -260,7 +260,7 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
       await runReview({
         sessionId: 'lrp-1',
         workdir,
-        localRepoPath: localRepo,
+        sourcePath: localRepo,
         prompt: promptText,
         agent: getAgent(fx.kind),
         executable: fx.executable,
@@ -278,7 +278,10 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
         expect(cwd).toBe(realLocalRepo)
       } else {
         // codex stays rooted in the staging dir for findings IO, but the CLI
-        // flags reposition its workspace and sandbox.
+        // flags reposition its workspace and sandbox. We always pass
+        // --skip-git-repo-check because the source dir lives under our
+        // managed `~/.better-review/sessions/...` tree, which codex won't
+        // auto-trust even when it is a git worktree.
         expect(cwd).toBe(realWorkdir)
         expect(argv).toContain('-C')
         expect(argv[argv.indexOf('-C') + 1]).toBe(localRepo)
@@ -286,7 +289,7 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
         expect(argv[argv.indexOf('--sandbox') + 1]).toBe('read-only')
         expect(argv).toContain('--add-dir')
         expect(argv[argv.indexOf('--add-dir') + 1]).toBe(workdir)
-        expect(argv).not.toContain('--skip-git-repo-check')
+        expect(argv).toContain('--skip-git-repo-check')
       }
     } finally {
       delete process.env.BETTER_REVIEW_SPAWN_PROBE

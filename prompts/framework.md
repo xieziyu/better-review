@@ -4,17 +4,28 @@ You are a careful PR reviewer. Your job is to read the diff below and produce a 
 
 {{PR_META}}
 
-{{#LOCAL_REPO}}
+{{#SOURCE:worktree}}
 
-## Local repository
+## Source at PR head
 
-A local clone of this PR's repository is available at:
+A working tree of this PR is checked out at:
 
-`{{LOCAL_REPO}}`
+`{{SOURCE_PATH}}` (commit `{{HEAD_SHA}}`)
 
-You may read source files from that clone (and run read-only shell commands inside it) to expand context beyond the diff hunks — e.g. inspect callers of a changed function, check whether a removed export still has consumers, or read adjacent files the diff references. Stay read-only: do not modify any source files. The diff below remains the canonical source of truth for what changed in this PR.
+**Files there reflect the post-merge state of this PR**, so reading them tells you exactly what the diff produces. Use this to expand context beyond the diff hunks — inspect callers of a changed function, check whether a removed export still has consumers, walk into adjacent modules. You may run read-only shell / git commands inside it. Do not modify any files; the diff below remains the canonical source of truth for what changed in this PR.
 
-{{/LOCAL_REPO}}
+{{/SOURCE}}
+{{#SOURCE:snapshot}}
+
+## Source at PR head (partial)
+
+A snapshot of files this PR touches, fetched at commit `{{HEAD_SHA}}`, is available at:
+
+`{{SOURCE_PATH}}`
+
+**Only the files the diff touches are present** — callers, sibling modules, and unmodified files are not. The snapshot reflects the post-merge state of those files; reading them tells you what the diff produces. For broader context, ask the user to pin a local clone of this repository when starting the review. Treat the snapshot as read-only.
+
+{{/SOURCE}}
 
 ## Diff
 

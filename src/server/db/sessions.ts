@@ -1,6 +1,12 @@
 import type Database from 'better-sqlite3'
 
-import type { AgentKind, PRSession, RecentRepo, SessionStatus } from '../../shared/types'
+import type {
+  AgentKind,
+  PRSession,
+  RecentRepo,
+  SessionStatus,
+  SourceKind,
+} from '../../shared/types'
 
 export interface NewSessionInput {
   id: string
@@ -16,6 +22,11 @@ export interface NewSessionInput {
   agent: AgentKind
   workdir: string
   localRepoPath: string | null
+  // Source-kind columns are optional on input — callers that don't yet
+  // resolve a source tree (older paths, unit tests) get NULL stored, which
+  // is read back as `kind: null` and treated as diff-only at the UI layer.
+  sourceKind?: SourceKind | null
+  sourceRefName?: string | null
   promptUsed: string
 }
 
@@ -35,6 +46,8 @@ interface Row {
   updated_at: number
   workdir: string
   local_repo_path: string | null
+  source_kind: string | null
+  source_ref_name: string | null
   prompt_used: string
   error: string | null
 }
@@ -56,6 +69,8 @@ function rowToSession(r: Row): PRSession {
     updatedAt: r.updated_at,
     workdir: r.workdir,
     localRepoPath: r.local_repo_path,
+    sourceKind: (r.source_kind as SourceKind | null) ?? null,
+    sourceRefName: r.source_ref_name,
     promptUsed: r.prompt_used,
     error: r.error,
   }
@@ -71,12 +86,19 @@ export class SessionsRepo {
         `
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
-         status, agent, created_at, updated_at, workdir, local_repo_path, prompt_used, error)
+         status, agent, created_at, updated_at, workdir, local_repo_path,
+         source_kind, source_ref_name, prompt_used, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
-              @status, @agent, @now, @now, @workdir, @localRepoPath, @promptUsed, NULL)
+              @status, @agent, @now, @now, @workdir, @localRepoPath,
+              @sourceKind, @sourceRefName, @promptUsed, NULL)
     `,
       )
-      .run({ ...s, now })
+      .run({
+        ...s,
+        sourceKind: s.sourceKind ?? null,
+        sourceRefName: s.sourceRefName ?? null,
+        now,
+      })
   }
 
   getById(id: string): PRSession | null {

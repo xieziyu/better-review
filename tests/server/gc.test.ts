@@ -179,6 +179,7 @@ describe('gcSessions', () => {
       queue,
       runners,
       sessionsDir,
+      log: { info: () => {}, warn: () => {}, error: () => {} },
     })
 
     const workdir = join(sessionsDir, 'pr-foo-bar-1-deadbeef')

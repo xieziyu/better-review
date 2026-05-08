@@ -29,6 +29,8 @@ const session: PRSession = {
   updatedAt: 0,
   workdir: '/tmp/x',
   localRepoPath: null,
+  sourceKind: null,
+  sourceRefName: null,
   promptUsed: '',
   error: null,
 }

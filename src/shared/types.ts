@@ -12,6 +12,15 @@ export type SessionStatus =
 export const AGENT_KINDS = ['claude', 'codex'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]
 
+// What kind of PR-head source tree the agent reads while reviewing:
+// - 'worktree': a git worktree of the user's pinned local clone, checked out at
+//   the PR head SHA. Full repo, full files-at-head fidelity.
+// - 'snapshot': files touched by the diff fetched at the PR head SHA via
+//   `gh api .../contents`. Partial — no callers, no siblings.
+// - 'none':     no source context, agent only sees the diff. (legacy mode /
+//   when both prep paths failed.)
+export type SourceKind = 'worktree' | 'snapshot' | 'none'
+
 export interface PRSession {
   id: string
   owner: string
@@ -28,6 +37,8 @@ export interface PRSession {
   updatedAt: number
   workdir: string
   localRepoPath: string | null
+  sourceKind: SourceKind | null
+  sourceRefName: string | null
   promptUsed: string
   error: string | null
 }
