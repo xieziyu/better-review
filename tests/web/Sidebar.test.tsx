@@ -31,6 +31,7 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
   createdAt: 0,
   updatedAt: 0,
   workdir: '/tmp/x',
+  localRepoPath: null,
   promptUsed: '',
   error: null,
   ...overrides,

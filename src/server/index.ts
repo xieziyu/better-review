@@ -20,6 +20,7 @@ import { EventBus } from './engine/events'
 import { ConcurrencyQueue } from './engine/queue'
 import { RunnerRegistry } from './engine/runner-registry'
 import { submitSession } from './engine/submit'
+import { detectFolderPicker } from './fs/folder-picker'
 import { makeGCSessions } from './gc'
 import { GhClient } from './github/gh-client'
 import { createLogger } from './logger'
@@ -65,6 +66,8 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const gh = new GhClient()
   const cwd = opts.cwd ?? process.cwd()
   const promptStore = new PromptStore({ cwd, home: paths.home })
+  const folderPicker = detectFolderPicker()
+  log.info('folder picker', { kind: folderPicker.kind })
 
   // Cache findExecutable() once at startup; restart the daemon to pick up
   // newly installed agents.
@@ -132,6 +135,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     promptStore,
     promptCwd: cwd,
     promptHome: paths.home,
+    folderPicker,
     config,
     webDir,
     getPort: () => port,
@@ -174,6 +178,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
           found: !!ghWhich,
           authed: await gh.authStatus().catch(() => false),
         },
+        fs: { folderPicker: { supported: folderPicker.supported } },
         daemon: { pid: process.pid, port, startedAt },
       }
       for (const k of AGENT_KINDS) {

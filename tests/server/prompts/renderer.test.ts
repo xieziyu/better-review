@@ -29,4 +29,20 @@ describe('renderPrompt', () => {
     const out = renderPrompt(tpl, { ...baseVars, rules: 'legacy says {{DIFF}}' })
     expect(out).toBe('F-DIFF: DIFF | F-RULES:\nlegacy says DIFF')
   })
+
+  it('strips a {{#LOCAL_REPO}} block (and its trailing newline) when localRepoPath is unset', () => {
+    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
+    expect(renderPrompt(tpl, baseVars)).toBe('A\nB')
+  })
+
+  it('keeps the {{#LOCAL_REPO}} block (substituting {{LOCAL_REPO}}) when path is set', () => {
+    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
+    const out = renderPrompt(tpl, { ...baseVars, localRepoPath: '/Users/me/code/x' })
+    expect(out).toBe('A\nrepo at /Users/me/code/x\nB')
+  })
+
+  it('treats an empty-string localRepoPath as unset', () => {
+    const tpl = 'A\n{{#LOCAL_REPO}}\nrepo at {{LOCAL_REPO}}\n{{/LOCAL_REPO}}\nB'
+    expect(renderPrompt(tpl, { ...baseVars, localRepoPath: '' })).toBe('A\nB')
+  })
 })

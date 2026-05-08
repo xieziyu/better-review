@@ -11,6 +11,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Diagnostic probe used by tests that need to assert the spawn cwd. Tests opt
+# in by setting BETTER_REVIEW_SPAWN_PROBE to a path; the shim writes the cwd
+# (one line) there before doing anything else.
+if [[ -n "$BETTER_REVIEW_SPAWN_PROBE" ]]; then
+  pwd > "$BETTER_REVIEW_SPAWN_PROBE"
+fi
+
 FINDINGS_PATH=$(echo "$PROMPT" | grep -oE 'FINDINGS_PATH=[^[:space:]]+' | head -n1 | cut -d= -f2)
 if [[ -z "$FINDINGS_PATH" ]]; then
   FINDINGS_PATH=$(echo "$PROMPT" | sed -n 's/.*write[^/]*\(\/[^[:space:]]*findings\.json\).*/\1/p' | head -n1)

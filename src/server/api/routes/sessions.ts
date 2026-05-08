@@ -14,14 +14,26 @@ export function sessionsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
   r.get('/sessions', (c) => c.json(deps.sessions.list()))
   r.post('/sessions', async (c) => {
-    const body = await c.req.json<{ prInput: string; agent?: unknown }>()
+    const body = await c.req.json<{
+      prInput: string
+      agent?: unknown
+      localRepoPath?: unknown
+    }>()
     if (!body?.prInput) return c.json({ error: 'prInput required' }, 400)
     if (body.agent !== undefined && !isAgentKind(body.agent)) {
       return c.json({ error: `unknown agent: ${String(body.agent)}` }, 400)
     }
+    if (body.localRepoPath !== undefined && typeof body.localRepoPath !== 'string') {
+      return c.json({ error: 'localRepoPath must be a string' }, 400)
+    }
     try {
-      const input: { prInput: string; agent?: AgentKind } = { prInput: body.prInput }
+      const input: { prInput: string; agent?: AgentKind; localRepoPath?: string } = {
+        prInput: body.prInput,
+      }
       if (body.agent !== undefined) input.agent = body.agent
+      if (typeof body.localRepoPath === 'string' && body.localRepoPath.trim().length > 0) {
+        input.localRepoPath = body.localRepoPath
+      }
       const { id } = await deps.startSession(input)
       return c.json({ id }, 201)
     } catch (e) {

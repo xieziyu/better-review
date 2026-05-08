@@ -40,6 +40,7 @@ function setup() {
     status: 'ready',
     agent: 'claude',
     workdir: wd,
+    localRepoPath: null,
     promptUsed: 'p',
   })
   return { sessions, findings, submissions }

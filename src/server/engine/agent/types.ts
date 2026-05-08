@@ -9,6 +9,11 @@ export interface AgentSpawnArgs {
   prompt: string
   workdir: string
   logPath: string
+  // Optional local clone of the PR's repository. When set, agents that can
+  // safely read code (claude with cwd=localRepoPath; codex via -C and a
+  // read-only sandbox) gain filesystem access to the source. When omitted,
+  // agents fall back to today's behaviour: no source access beyond the diff.
+  localRepoPath?: string
   // Called whenever the agent emits a heartbeat (stream-json event for claude,
   // stdout line for codex). Each call resets the runner's stall watchdog.
   onProgress: (phase: string, detail?: string) => void

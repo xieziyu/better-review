@@ -27,8 +27,16 @@ export interface PRSession {
   createdAt: number
   updatedAt: number
   workdir: string
+  localRepoPath: string | null
   promptUsed: string
   error: string | null
+}
+
+export interface RecentRepo {
+  path: string
+  lastUsedAt: number
+  useCount: number
+  matchedCurrentRepo: boolean
 }
 
 export interface Finding extends FindingFromAgent {
@@ -64,6 +72,7 @@ export interface HealthStatus {
   agents: Record<AgentKind, AgentHealth>
   defaultAgent: AgentKind
   gh: { found: boolean; path?: string; authed: boolean }
+  fs: { folderPicker: { supported: boolean } }
   daemon: { pid: number; port: number; startedAt: number }
 }
 
@@ -80,6 +89,7 @@ export type SSEEvent =
 export interface CreateSessionRequest {
   prInput: string
   agent?: AgentKind
+  localRepoPath?: string
 }
 export interface SubmitRequest {
   event: ReviewEvent

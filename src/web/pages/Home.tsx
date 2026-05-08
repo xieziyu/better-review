@@ -1,13 +1,20 @@
 import type { AgentKind, PRSession } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ChevronRight, FolderGit2, FolderOpen } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
+
+const PR_URL_RE = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/
+function parsePrTarget(input: string): { owner: string; repo: string } | null {
+  const m = PR_URL_RE.exec(input.trim())
+  if (!m) return null
+  return { owner: m[1]!, repo: m[2]! }
+}
 
 const STATUS_TONE: Record<
   PRSession['status'],
@@ -62,6 +69,9 @@ function RecentRow({ session }: { session: PRSession }) {
 
 export function Home() {
   const [input, setInput] = useState('')
+  const [localRepo, setLocalRepo] = useState('')
+  const [localRepoTouched, setLocalRepoTouched] = useState(false)
+  const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
   const [agent, setAgent] = useState<AgentKind | null>(null)
   const nav = useNavigate()
   const qc = useQueryClient()
@@ -83,8 +93,54 @@ export function Home() {
   }, [agent, health])
 
   const trimmed = input.trim()
+  const target = useMemo(() => parsePrTarget(trimmed), [trimmed])
+  const { data: recentRepos } = useQuery({
+    queryKey: queryKeys.recentRepos(target?.owner ?? '', target?.repo ?? ''),
+    queryFn: () =>
+      api.recentRepos(
+        target ? { owner: target.owner, repo: target.repo, limit: 10 } : { limit: 10 },
+      ),
+  })
+
+  // Auto-fill the local-repo field when the user pastes a PR URL whose
+  // owner/repo matches exactly one previously-used local path. Don't clobber
+  // a value the user has typed (`localRepoTouched`) or one we already filled
+  // for this same target (`autoFilledFor`).
+  useEffect(() => {
+    if (localRepoTouched) return
+    if (!target) return
+    const key = `${target.owner}/${target.repo}`
+    if (autoFilledFor === key) return
+    const matches = recentRepos?.items.filter((r) => r.matchedCurrentRepo) ?? []
+    if (matches.length === 1) {
+      setLocalRepo(matches[0]!.path)
+      setAutoFilledFor(key)
+    }
+  }, [recentRepos, target, localRepoTouched, autoFilledFor])
+
   const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3)
   const effectiveAgent = agent ?? health?.defaultAgent ?? 'claude'
+  const showAutoFillHint =
+    !localRepoTouched && target && autoFilledFor === `${target.owner}/${target.repo}`
+  const folderPickerSupported = health?.fs?.folderPicker?.supported ?? false
+  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [pickerBusy, setPickerBusy] = useState(false)
+
+  async function browseLocalRepo(): Promise<void> {
+    setPickerError(null)
+    setPickerBusy(true)
+    try {
+      const r = await api.pickDirectory('Select repository for review')
+      if (r.path) {
+        setLocalRepo(r.path)
+        setLocalRepoTouched(true)
+      }
+    } catch (e) {
+      setPickerError(e instanceof ApiError ? e.message : 'Failed to open folder picker')
+    } finally {
+      setPickerBusy(false)
+    }
+  }
 
   return (
     <div className="px-8 py-12 mx-auto" style={{ width: 'clamp(680px, 80vw, 880px)' }}>
@@ -101,10 +157,16 @@ export function Home() {
           onSubmit={(e) => {
             e.preventDefault()
             if (trimmed && !create.isPending) {
-              create.mutate({ prInput: trimmed, agent: effectiveAgent })
+              const payload: Parameters<typeof create.mutate>[0] = {
+                prInput: trimmed,
+                agent: effectiveAgent,
+              }
+              const repo = localRepo.trim()
+              if (repo) payload.localRepoPath = repo
+              create.mutate(payload)
             }
           }}
-          className="space-y-4"
+          className="space-y-3"
         >
           <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-1.5 py-1.5 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
             <ChevronRight size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
@@ -121,6 +183,69 @@ export function Home() {
               {create.isPending ? 'Starting…' : 'Start review'}
             </Button>
           </div>
+
+          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+            <FolderGit2 size={16} className="text-ink-muted shrink-0" aria-hidden="true" />
+            <input
+              type="text"
+              list="recent-repos"
+              value={localRepo}
+              onChange={(e) => {
+                setLocalRepo(e.target.value)
+                setLocalRepoTouched(true)
+              }}
+              placeholder="Local repo (optional) — ~/code/owner/repo to give the agent source access"
+              className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+              aria-label="Local repository path"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {folderPickerSupported ? (
+              <button
+                type="button"
+                onClick={browseLocalRepo}
+                disabled={pickerBusy}
+                className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                aria-label="Browse for local repository"
+                title="Open native folder picker"
+              >
+                <FolderOpen size={14} aria-hidden="true" />
+                {pickerBusy ? 'Opening…' : 'Browse'}
+              </button>
+            ) : null}
+            {localRepo ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setLocalRepo('')
+                  setLocalRepoTouched(true)
+                }}
+                className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                aria-label="Clear local repo"
+              >
+                clear
+              </button>
+            ) : null}
+          </div>
+          {pickerError ? (
+            <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
+          ) : null}
+          <datalist id="recent-repos">
+            {recentRepos?.items.map((r) => (
+              <option key={r.path} value={r.path}>
+                {r.matchedCurrentRepo ? '★ matches PR · ' : ''}last used{' '}
+                {relativeTime(r.lastUsedAt)} · ×{r.useCount}
+              </option>
+            ))}
+          </datalist>
+          {showAutoFillHint ? (
+            <div className="text-meta text-ink-muted -mt-1 pl-1">
+              ⓘ Auto-filled from history · matches{' '}
+              <span className="font-mono">
+                {target!.owner}/{target!.repo}
+              </span>
+            </div>
+          ) : null}
 
           <fieldset
             className="flex items-center gap-1.5 text-meta text-ink-secondary"

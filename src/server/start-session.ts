@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import type { AgentKind } from '../shared/types'
 import type { Config } from './config'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
 import type { ReviewAgent } from './engine/agent'
+import { annotateDiffWithLineNumbers } from './engine/diff-annotator'
 import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
-import { annotateDiffWithLineNumbers } from './engine/diff-annotator'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
 import type { GhClient } from './github/gh-client'
@@ -40,13 +41,27 @@ export interface StartSessionDeps {
 export interface StartSessionInput {
   prInput: string
   agent?: AgentKind
+  localRepoPath?: string
+}
+
+export function resolveLocalRepoPath(raw: string): string {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) throw new Error('localRepoPath must not be empty')
+  const expanded =
+    trimmed === '~' || trimmed.startsWith('~/') ? join(homedir(), trimmed.slice(1)) : trimmed
+  const abs = resolve(expanded)
+  if (!existsSync(abs)) throw new Error(`localRepoPath does not exist: ${abs}`)
+  if (!statSync(abs).isDirectory()) throw new Error(`localRepoPath is not a directory: ${abs}`)
+  return abs
 }
 
 export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string }>
 
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
-  return async function startSession({ prInput, agent: agentKind }) {
+  return async function startSession({ prInput, agent: agentKind, localRepoPath: rawRepo }) {
     const target = parsePRTarget(prInput)
+    const localRepoPath =
+      rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
     const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
     if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
       return { id: existing.id }
@@ -66,14 +81,16 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
 
     const resolved = resolveEffectivePrompt({ cwd: deps.cwd, home: deps.paths.home })
-    const prompt = renderPrompt(resolved.framework, {
+    const promptVars: Parameters<typeof renderPrompt>[1] = {
       rules: resolved.rules.content,
       prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,
       diff: annotateDiffWithLineNumbers(diff.unifiedDiff),
       findingsPath: join(workdir, 'findings.json'),
       schemaJson:
         'Array of finding objects with fields: id, severity, category, file, line, title, body, suggestion?',
-    })
+    }
+    if (localRepoPath !== null) promptVars.localRepoPath = localRepoPath
+    const prompt = renderPrompt(resolved.framework, promptVars)
 
     deps.sessions.insert({
       id,
@@ -88,12 +105,13 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       status: 'running',
       agent: kind,
       workdir,
+      localRepoPath,
       promptUsed: prompt,
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'running' })
 
-    void deps.queue.run(id, () =>
-      runReview({
+    void deps.queue.run(id, () => {
+      const runArgs: Parameters<typeof runReview>[0] = {
         sessionId: id,
         workdir,
         prompt,
@@ -104,8 +122,10 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
         bus: deps.bus,
         stallMs: deps.config.stallMinutes * 60_000,
         runners: deps.runners,
-      }),
-    )
+      }
+      if (localRepoPath !== null) runArgs.localRepoPath = localRepoPath
+      return runReview(runArgs)
+    })
     return { id }
   }
 }

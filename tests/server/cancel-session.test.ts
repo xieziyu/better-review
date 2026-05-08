@@ -41,6 +41,7 @@ function insertRunning(sessions: SessionsRepo, id: string): void {
     status: 'running',
     agent: 'claude',
     workdir: '/w',
+    localRepoPath: null,
     promptUsed: 'p',
   })
 }
@@ -66,6 +67,7 @@ describe('cancelSession', () => {
       status: 'ready',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     await expect(cancelSession('s1')).rejects.toBeInstanceOf(SessionNotRunningError)

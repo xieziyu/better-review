@@ -26,6 +26,7 @@ describe('SubmissionsRepo', () => {
       status: 'ready',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     repo = new SubmissionsRepo(db)

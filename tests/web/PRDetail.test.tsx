@@ -47,6 +47,7 @@ const session: PRSession = {
   createdAt: 0,
   updatedAt: Date.now(),
   workdir: '',
+  localRepoPath: null,
   promptUsed: '',
   error: null,
 }
@@ -91,6 +92,22 @@ describe('PRDetail', () => {
   it('shows submit button enabled when selections exist', () => {
     render(withRoute(<PRDetail />, { session, findings: [finding] }))
     expect(screen.getByRole('button', { name: /Submit/i })).not.toBeDisabled()
+  })
+
+  it('renders the local repo path chip when the session has one', () => {
+    render(
+      withRoute(<PRDetail />, {
+        session: { ...session, localRepoPath: '/Users/me/code/web' },
+        findings: [finding],
+      }),
+    )
+    expect(screen.getByLabelText(/Local repo: \/Users\/me\/code\/web/)).toBeInTheDocument()
+    expect(screen.getByText('/Users/me/code/web')).toBeInTheDocument()
+  })
+
+  it('omits the local repo chip when the session has none', () => {
+    render(withRoute(<PRDetail />, { session, findings: [finding] }))
+    expect(screen.queryByLabelText(/Local repo:/)).not.toBeInTheDocument()
   })
 
   it('renders session error banner when present', () => {
@@ -158,7 +175,6 @@ describe('PRDetail', () => {
     }
 
     afterEach(() => {
-      // @ts-expect-error -- restore
       globalThis.EventSource = original
       live = null
     })

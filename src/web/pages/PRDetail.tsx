@@ -1,7 +1,7 @@
 import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, RotateCw, Square, Trash2 } from 'lucide-react'
+import { ExternalLink, FolderGit2, RotateCw, Square, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -94,6 +94,16 @@ function PRHeader({
             <ExternalLink size={12} aria-hidden="true" />
             GitHub
           </a>
+        ) : null}
+        {session.localRepoPath ? (
+          <span
+            className="inline-flex max-w-[44ch] items-center gap-1 font-mono text-meta text-ink-secondary"
+            title={`Local repo: ${session.localRepoPath}`}
+            aria-label={`Local repo: ${session.localRepoPath}`}
+          >
+            <FolderGit2 size={12} className="text-ink-muted shrink-0" aria-hidden="true" />
+            <span className="truncate">{session.localRepoPath}</span>
+          </span>
         ) : null}
         {justSwitched ? (
           <Tag tone="brand" className="animate-running-pulse">

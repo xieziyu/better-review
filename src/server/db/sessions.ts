@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 
-import type { AgentKind, PRSession, SessionStatus } from '../../shared/types'
+import type { AgentKind, PRSession, RecentRepo, SessionStatus } from '../../shared/types'
 
 export interface NewSessionInput {
   id: string
@@ -15,6 +15,7 @@ export interface NewSessionInput {
   status: SessionStatus
   agent: AgentKind
   workdir: string
+  localRepoPath: string | null
   promptUsed: string
 }
 
@@ -33,6 +34,7 @@ interface Row {
   created_at: number
   updated_at: number
   workdir: string
+  local_repo_path: string | null
   prompt_used: string
   error: string | null
 }
@@ -53,6 +55,7 @@ function rowToSession(r: Row): PRSession {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     workdir: r.workdir,
+    localRepoPath: r.local_repo_path,
     promptUsed: r.prompt_used,
     error: r.error,
   }
@@ -68,9 +71,9 @@ export class SessionsRepo {
         `
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
-         status, agent, created_at, updated_at, workdir, prompt_used, error)
+         status, agent, created_at, updated_at, workdir, local_repo_path, prompt_used, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
-              @status, @agent, @now, @now, @workdir, @promptUsed, NULL)
+              @status, @agent, @now, @now, @workdir, @localRepoPath, @promptUsed, NULL)
     `,
       )
       .run({ ...s, now })
@@ -95,6 +98,36 @@ export class SessionsRepo {
       )
       .get(owner, repo, number) as Row | undefined
     return row ? rowToSession(row) : null
+  }
+
+  recentRepos(filter: { owner: string; repo: string }, limit: number): RecentRepo[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT local_repo_path AS path,
+               MAX(updated_at)  AS lastUsedAt,
+               COUNT(*)         AS useCount,
+               CASE WHEN SUM(CASE WHEN owner=@owner AND repo=@repo THEN 1 ELSE 0 END) > 0
+                    THEN 1 ELSE 0 END AS matchedCurrentRepo
+        FROM pr_sessions
+        WHERE local_repo_path IS NOT NULL
+        GROUP BY local_repo_path
+        ORDER BY matchedCurrentRepo DESC, lastUsedAt DESC
+        LIMIT @limit
+      `,
+      )
+      .all({ owner: filter.owner, repo: filter.repo, limit }) as Array<{
+      path: string
+      lastUsedAt: number
+      useCount: number
+      matchedCurrentRepo: number
+    }>
+    return rows.map((r) => ({
+      path: r.path,
+      lastUsedAt: r.lastUsedAt,
+      useCount: r.useCount,
+      matchedCurrentRepo: r.matchedCurrentRepo === 1,
+    }))
   }
 
   setStatus(id: string, status: SessionStatus): void {

@@ -3,6 +3,7 @@ import type {
   Finding,
   HealthStatus,
   CreateSessionRequest,
+  RecentRepo,
   SubmitRequest,
   UpdateFindingRequest,
   SelectFindingRequest,
@@ -80,6 +81,30 @@ export const api = {
   deleteFinding: (id: string): Promise<void> => req(`/api/findings/${id}`, { method: 'DELETE' }),
   submit: (id: string, b: SubmitRequest): Promise<{ url: string; droppedToBody: string[] }> =>
     req(`/api/sessions/${id}/submit`, { method: 'POST', body: JSON.stringify(b) }),
+  pickDirectory: async (prompt?: string): Promise<{ path: string | null; supported: boolean }> => {
+    try {
+      const r = await req<{ path: string | null }>('/api/fs/pick-directory', {
+        method: 'POST',
+        body: JSON.stringify(prompt ? { prompt } : {}),
+      })
+      return { path: r.path, supported: true }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 501) return { path: null, supported: false }
+      throw e
+    }
+  },
+  recentRepos: (q?: {
+    owner?: string
+    repo?: string
+    limit?: number
+  }): Promise<{ items: RecentRepo[] }> => {
+    const sp = new URLSearchParams()
+    if (q?.owner) sp.set('owner', q.owner)
+    if (q?.repo) sp.set('repo', q.repo)
+    if (q?.limit) sp.set('limit', String(q.limit))
+    const qs = sp.toString()
+    return req(qs ? `/api/recent-repos?${qs}` : '/api/recent-repos')
+  },
   getPrompts: (): Promise<PromptStateResponse> => req('/api/prompts'),
   putPrompt: (scope: WritablePromptScope, content: string): Promise<{ ok: true }> =>
     req(`/api/prompts/${scope}`, { method: 'PUT', body: JSON.stringify({ content }) }),
@@ -92,4 +117,5 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
   prompts: ['prompts'] as const,
+  recentRepos: (owner: string, repo: string) => ['recent-repos', owner, repo] as const,
 }

@@ -5,6 +5,19 @@
 # to it. Emits a few plain-text stdout lines so the runner's stall watchdog
 # sees heartbeat events.
 
+# Diagnostic probe used by tests that need to assert spawn cwd + argv. Tests
+# opt in by setting BETTER_REVIEW_SPAWN_PROBE to a path; the shim writes the
+# cwd on the first line and then the full argv (one arg per line) there
+# before doing anything else.
+if [[ -n "$BETTER_REVIEW_SPAWN_PROBE" ]]; then
+  {
+    pwd
+    for arg in "$@"; do
+      printf '%s\n' "$arg"
+    done
+  } > "$BETTER_REVIEW_SPAWN_PROBE"
+fi
+
 # Skip the leading `exec` subcommand and any flags so we behave like the real
 # CLI when invoked as `codex exec --sandbox … -`.
 case "$1" in
@@ -12,7 +25,7 @@ case "$1" in
 esac
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sandbox|--approval-policy|--color|--config|-c|--model)
+    --sandbox|--approval-policy|--color|--config|-c|--model|-C|--add-dir)
       shift 2 ;;
     --skip-git-repo-check|-)
       shift ;;

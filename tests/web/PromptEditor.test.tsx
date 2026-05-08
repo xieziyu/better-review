@@ -139,6 +139,7 @@ describe('PromptEditor', () => {
         createdAt: 0,
         updatedAt: 0,
         workdir: '',
+        localRepoPath: null,
         promptUsed: '',
         error: null,
       },

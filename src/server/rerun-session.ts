@@ -17,10 +17,12 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     if (!s) throw new Error('not found')
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
-    const fresh = await deps.startSession({
+    const startInput: { prInput: string; agent: AgentKind; localRepoPath?: string } = {
       prInput: `https://github.com/${s.owner}/${s.repo}/pull/${s.number}`,
       agent: agent ?? s.agent,
-    })
+    }
+    if (s.localRepoPath !== null) startInput.localRepoPath = s.localRepoPath
+    const fresh = await deps.startSession(startInput)
     return { freshId: fresh.id }
   }
 }

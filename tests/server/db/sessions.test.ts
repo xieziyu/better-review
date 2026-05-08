@@ -27,6 +27,7 @@ describe('SessionsRepo', () => {
     status: 'running' as const,
     agent: 'claude' as const,
     workdir: '/w',
+    localRepoPath: null,
     promptUsed: 'p',
   }
 

@@ -39,6 +39,7 @@ const session: PRSession = {
   updatedAt: Date.now(),
   agent: 'claude',
   workdir: '',
+  localRepoPath: null,
   promptUsed: '',
   error: null,
 }

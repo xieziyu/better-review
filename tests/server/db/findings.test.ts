@@ -26,6 +26,7 @@ describe('FindingsRepo', () => {
       status: 'running',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     findings = new FindingsRepo(db)

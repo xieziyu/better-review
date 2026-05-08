@@ -18,6 +18,7 @@ function seed() {
     status: 'ready',
     agent: 'claude',
     workdir: '/w',
+    localRepoPath: null,
     promptUsed: 'p',
   })
   return d

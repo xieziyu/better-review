@@ -10,13 +10,16 @@ import type { FindingsRepo } from '../db/findings'
 import type { SessionsRepo } from '../db/sessions'
 import type { SubmissionsRepo } from '../db/submissions'
 import type { EventBus } from '../engine/events'
+import type { FolderPicker } from '../fs/folder-picker'
 import type { GhClient } from '../github/gh-client'
 import type { PromptStore } from '../prompts/store'
 import { originGuard } from './middleware/origin'
 import { eventsRoutes } from './routes/events'
 import { findingsRoutes } from './routes/findings'
+import { fsRoutes } from './routes/fs'
 import { healthRoutes } from './routes/health'
 import { promptsRoutes } from './routes/prompts'
+import { recentReposRoutes } from './routes/recent-repos'
 import { sessionsRoutes } from './routes/sessions'
 import { submitRoutes } from './routes/submit'
 
@@ -29,12 +32,14 @@ export interface AppDeps {
   promptStore: PromptStore
   promptCwd: string
   promptHome: string
+  folderPicker: FolderPicker
   config: Config
   webDir?: string
   getPort: () => number
   startSession: (input: {
     prInput: string
     agent?: import('../../shared/types').AgentKind
+    localRepoPath?: string
   }) => Promise<{ id: string }>
   rerunSession: (
     id: string,
@@ -55,6 +60,8 @@ export function createApp(deps: AppDeps): Hono {
   app.use('*', originGuard(deps.getPort))
   app.route('/api', healthRoutes(deps))
   app.route('/api', sessionsRoutes(deps))
+  app.route('/api', recentReposRoutes(deps))
+  app.route('/api', fsRoutes(deps))
   app.route('/api', findingsRoutes(deps))
   app.route('/api', promptsRoutes(deps))
   app.route('/api', eventsRoutes(deps))

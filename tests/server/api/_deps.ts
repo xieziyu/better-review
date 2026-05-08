@@ -12,6 +12,7 @@ import { makeDeleteSession } from '../../../src/server/delete-session'
 import { EventBus } from '../../../src/server/engine/events'
 import { ConcurrencyQueue } from '../../../src/server/engine/queue'
 import { RunnerRegistry } from '../../../src/server/engine/runner-registry'
+import type { FolderPicker } from '../../../src/server/fs/folder-picker'
 import type { GhClient } from '../../../src/server/github/gh-client'
 import { PromptStore } from '../../../src/server/prompts/store'
 
@@ -22,6 +23,7 @@ export interface DepsOverrides {
   cancelSession?: AppDeps['cancelSession']
   submitSession?: AppDeps['submitSession']
   health?: AppDeps['health']
+  folderPicker?: FolderPicker
   sessionsDir?: string
 }
 
@@ -54,6 +56,13 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     promptStore: new PromptStore({ cwd, home }),
     promptCwd: cwd,
     promptHome: home,
+    folderPicker: overrides.folderPicker ?? {
+      kind: 'unsupported',
+      supported: false,
+      pick: async () => {
+        throw new Error('not supported in tests')
+      },
+    },
     config: {
       port: 5555,
       maxConcurrentReviews: 1,
@@ -78,6 +87,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
         },
         defaultAgent: 'claude',
         gh: { found: true, path: '/usr/bin/gh', authed: true },
+        fs: { folderPicker: { supported: false } },
         daemon: { pid: 1, port: 5555, startedAt: 1 },
       })),
   }

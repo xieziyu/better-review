@@ -29,18 +29,34 @@ export class CodexAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, logPath, onProgress, onOutput } = args
+    const { executable, prompt, workdir, localRepoPath, logPath, onProgress, onOutput } = args
     // Prompt is fed via stdin to avoid argv length limits with large diffs.
-    // workspace-write lets the agent write {{FINDINGS_PATH}} inside `workdir`;
-    // skip-git-repo-check is needed because session workdirs are not git repos.
-    const child = spawn(
-      executable,
-      ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--color', 'never', '-'],
-      {
-        cwd: workdir,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      },
-    )
+    // Two modes:
+    // - No localRepoPath (legacy): cwd=workdir + workspace-write so the agent
+    //   can write findings.json there; skip-git-repo-check because workdir is
+    //   not a git repo.
+    // - With localRepoPath: keep cwd=workdir, but tell codex its working root
+    //   is the local clone via -C, lock the sandbox to read-only so it can
+    //   read source freely without mutating it, and whitelist workdir via
+    //   --add-dir so findings.json writes still succeed.
+    const codexArgs = localRepoPath
+      ? [
+          'exec',
+          '-C',
+          localRepoPath,
+          '--sandbox',
+          'read-only',
+          '--add-dir',
+          workdir,
+          '--color',
+          'never',
+          '-',
+        ]
+      : ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--color', 'never', '-']
+    const child = spawn(executable, codexArgs, {
+      cwd: workdir,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
 
     if (child.stdin) {
       child.stdin.end(prompt)

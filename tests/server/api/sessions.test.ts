@@ -50,6 +50,85 @@ describe('sessions API', () => {
     expect(res.status).toBe(400)
   })
 
+  it('POST /api/sessions forwards localRepoPath to startSession', async () => {
+    let received: { prInput: string; agent?: string; localRepoPath?: string } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'new1' }
+      },
+    })
+    const repoDir = mkdtempSync(join(tmpdir(), 'br-api-lrp-'))
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        localRepoPath: repoDir,
+      }),
+    })
+    expect(res.status).toBe(201)
+    expect(received).toEqual({
+      prInput: 'https://github.com/owner/repo/pull/1',
+      localRepoPath: repoDir,
+    })
+  })
+
+  it('POST /api/sessions drops empty/whitespace localRepoPath silently', async () => {
+    let received: { prInput: string; agent?: string; localRepoPath?: string } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'new1' }
+      },
+    })
+    const app = createApp(deps)
+    await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        localRepoPath: '   ',
+      }),
+    })
+    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1' })
+  })
+
+  it('POST /api/sessions rejects non-string localRepoPath', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        localRepoPath: 42,
+      }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /api/sessions surfaces startSession validation errors as 400', async () => {
+    const deps = makeTestDeps({
+      startSession: async () => {
+        throw new Error('localRepoPath does not exist: /no/such/dir')
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        localRepoPath: '/no/such/dir',
+      }),
+    })
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toMatch(/does not exist/)
+  })
+
   it('GET /api/sessions lists', async () => {
     const deps = makeTestDeps()
     deps.sessions.insert({
@@ -65,6 +144,7 @@ describe('sessions API', () => {
       status: 'running',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)
@@ -89,6 +169,7 @@ describe('sessions API', () => {
       status: 'ready',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     deps.findings.insertMany('s1', [
@@ -121,6 +202,7 @@ describe('sessions API', () => {
       status: 'ready',
       agent: 'claude',
       workdir,
+      localRepoPath: null,
       promptUsed: 'p',
     })
     deps.findings.insertMany('s1', [
@@ -168,6 +250,7 @@ describe('sessions API', () => {
       status: 'ready',
       agent: 'claude',
       workdir: stranger,
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)
@@ -194,6 +277,7 @@ describe('sessions API', () => {
       status: 'ready',
       agent: 'claude',
       workdir: wd,
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)
@@ -219,6 +303,7 @@ describe('sessions API', () => {
       status: 'running',
       agent: 'claude',
       workdir: wd,
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)
@@ -298,6 +383,7 @@ describe('sessions API', () => {
       status: 'running',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)
@@ -321,6 +407,7 @@ describe('sessions API', () => {
       status: 'ready',
       agent: 'claude',
       workdir: '/w',
+      localRepoPath: null,
       promptUsed: 'p',
     })
     const app = createApp(deps)

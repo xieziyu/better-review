@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -68,6 +68,7 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
       status: 'running',
       agent: fx.kind,
       workdir,
+      localRepoPath: null,
       promptUsed: 'p',
     })
   })
@@ -164,6 +165,7 @@ describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
       status: 'running',
       agent: fx.kind,
       workdir,
+      localRepoPath: null,
       promptUsed: 'p',
     })
   })
@@ -213,6 +215,122 @@ describe.each(FIXTURES)('runReview ($kind failure paths)', (fx) => {
   }, 15_000)
 })
 
+describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
+  let workdir: string
+  let sessions: SessionsRepo
+  let findings: FindingsRepo
+  let bus: EventBus
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-run-'))
+    const db = openDatabase(join(dir, 's.db'))
+    sessions = new SessionsRepo(db)
+    findings = new FindingsRepo(db)
+    bus = new EventBus()
+    workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    sessions.insert({
+      id: 'lrp-1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: fx.kind,
+      workdir,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+  })
+
+  it('passes localRepoPath through to the agent (claude→cwd; codex→-C/--add-dir flags)', async () => {
+    const localRepo = mkdtempSync(join(tmpdir(), 'br-run-lrp-'))
+    // macOS /var → /private/var, so `pwd` inside the shim canonicalises tmp
+    // paths. Compare both sides via realpath.
+    const realLocalRepo = realpathSync(localRepo)
+    const realWorkdir = realpathSync(workdir)
+    const probe = join(workdir, '.spawn-probe')
+    process.env.BETTER_REVIEW_SPAWN_PROBE = probe
+    process.env[fx.bodyEnv] = '[]'
+    try {
+      const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 'lrp-1',
+        workdir,
+        localRepoPath: localRepo,
+        prompt: promptText,
+        agent: getAgent(fx.kind),
+        executable: fx.executable,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+        runners: new RunnerRegistry(),
+      })
+      expect(sessions.getById('lrp-1')!.status).toBe('ready')
+      const probeText = readFileSync(probe, 'utf8').trim().split('\n')
+      const cwd = probeText[0]!
+      const argv = probeText.slice(1)
+      if (fx.kind === 'claude') {
+        expect(cwd).toBe(realLocalRepo)
+      } else {
+        // codex stays rooted in the staging dir for findings IO, but the CLI
+        // flags reposition its workspace and sandbox.
+        expect(cwd).toBe(realWorkdir)
+        expect(argv).toContain('-C')
+        expect(argv[argv.indexOf('-C') + 1]).toBe(localRepo)
+        expect(argv).toContain('--sandbox')
+        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('read-only')
+        expect(argv).toContain('--add-dir')
+        expect(argv[argv.indexOf('--add-dir') + 1]).toBe(workdir)
+        expect(argv).not.toContain('--skip-git-repo-check')
+      }
+    } finally {
+      delete process.env.BETTER_REVIEW_SPAWN_PROBE
+      delete process.env[fx.bodyEnv]
+    }
+  })
+
+  it('reproduces legacy cwd/argv when localRepoPath is unset', async () => {
+    const realWorkdir = realpathSync(workdir)
+    const probe = join(workdir, '.spawn-probe')
+    process.env.BETTER_REVIEW_SPAWN_PROBE = probe
+    process.env[fx.bodyEnv] = '[]'
+    try {
+      const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 'lrp-1',
+        workdir,
+        prompt: promptText,
+        agent: getAgent(fx.kind),
+        executable: fx.executable,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+        runners: new RunnerRegistry(),
+      })
+      const probeText = readFileSync(probe, 'utf8').trim().split('\n')
+      const cwd = probeText[0]!
+      const argv = probeText.slice(1)
+      expect(cwd).toBe(realWorkdir)
+      if (fx.kind === 'codex') {
+        expect(argv).toContain('--sandbox')
+        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('workspace-write')
+        expect(argv).toContain('--skip-git-repo-check')
+        expect(argv).not.toContain('-C')
+      }
+    } finally {
+      delete process.env.BETTER_REVIEW_SPAWN_PROBE
+      delete process.env[fx.bodyEnv]
+    }
+  })
+})
+
 describe('runReview (cancellation)', () => {
   let workdir: string
   let sessions: SessionsRepo
@@ -238,6 +356,7 @@ describe('runReview (cancellation)', () => {
       status: 'running',
       agent: 'claude',
       workdir,
+      localRepoPath: null,
       promptUsed: 'p',
     })
   })
@@ -304,6 +423,7 @@ describe('runReview (claude result-after-linger)', () => {
       status: 'running',
       agent: 'claude',
       workdir,
+      localRepoPath: null,
       promptUsed: 'p',
     })
   })

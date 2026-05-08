@@ -11,6 +11,7 @@ import type { RunnerRegistry } from './runner-registry'
 export interface RunReviewArgs {
   sessionId: string
   workdir: string
+  localRepoPath?: string
   prompt: string
   agent: ReviewAgent
   executable: string
@@ -25,6 +26,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   const {
     sessionId,
     workdir,
+    localRepoPath,
     prompt,
     agent,
     executable,
@@ -67,7 +69,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       }
     }, 2_000)
   }
-  const { child, drained } = agent.spawn({
+  const spawnArgs: Parameters<typeof agent.spawn>[0] = {
     executable,
     prompt,
     workdir,
@@ -93,7 +95,9 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       resultOk = info.ok
       reapAfterResult()
     },
-  })
+  }
+  if (localRepoPath !== undefined) spawnArgs.localRepoPath = localRepoPath
+  const { child, drained } = agent.spawn(spawnArgs)
 
   runners.register(sessionId, async () => {
     cancelled = true

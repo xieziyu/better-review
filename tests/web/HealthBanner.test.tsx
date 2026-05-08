@@ -24,6 +24,7 @@ const healthy: HealthStatus = {
   },
   defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
+  fs: { folderPicker: { supported: true } },
   daemon: { pid: 1, port: 7345, startedAt: 0 },
 }
 
