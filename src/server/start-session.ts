@@ -32,7 +32,10 @@ export interface StartSessionDeps {
   bus: EventBus
   queue: ConcurrencyQueue
   runners: RunnerRegistry
-  config: Config
+  // Read on each call so config edits hot-apply to the next session. Note that
+  // `maxConcurrentReviews` is consumed at queue construction time, so changing
+  // it still requires a daemon restart.
+  getConfig: () => Config
   paths: { home: string; sessionsDir: string }
   cwd: string
   log: Logger
@@ -77,7 +80,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
       return { id: existing.id }
 
-    const kind = agentKind ?? deps.config.defaultAgent
+    const kind = agentKind ?? deps.getConfig().defaultAgent
     const { agent, executable } = deps.resolveAgent(kind)
 
     const meta = await deps.gh.prView(target)
@@ -151,7 +154,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
         sessions: deps.sessions,
         findings: deps.findings,
         bus: deps.bus,
-        stallMs: deps.config.stallMinutes * 60_000,
+        stallMs: deps.getConfig().stallMinutes * 60_000,
         runners: deps.runners,
       }
       if (source.kind !== 'none' && source.sourcePath) {

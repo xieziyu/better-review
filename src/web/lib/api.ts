@@ -1,4 +1,5 @@
 import type {
+  AppConfig,
   PRSession,
   Finding,
   HealthStatus,
@@ -113,6 +114,9 @@ export const api = {
     req(`/api/prompts/${scope}`, { method: 'PUT', body: JSON.stringify({ content }) }),
   deletePrompt: (scope: WritablePromptScope): Promise<void> =>
     req(`/api/prompts/${scope}`, { method: 'DELETE' }),
+  getConfig: (): Promise<{ config: AppConfig; file: string }> => req('/api/config'),
+  putConfig: (b: AppConfig): Promise<{ config: AppConfig }> =>
+    req('/api/config', { method: 'PUT', body: JSON.stringify(b) }),
 }
 
 export const queryKeys = {
@@ -120,5 +124,6 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
   prompts: ['prompts'] as const,
+  config: ['config'] as const,
   recentRepos: (owner: string, repo: string) => ['recent-repos', owner, repo] as const,
 }

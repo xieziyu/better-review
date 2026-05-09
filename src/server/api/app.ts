@@ -14,6 +14,7 @@ import type { FolderPicker } from '../fs/folder-picker'
 import type { GhClient } from '../github/gh-client'
 import type { PromptStore } from '../prompts/store'
 import { originGuard } from './middleware/origin'
+import { configRoutes } from './routes/config'
 import { eventsRoutes } from './routes/events'
 import { findingsRoutes } from './routes/findings'
 import { fsRoutes } from './routes/fs'
@@ -33,7 +34,9 @@ export interface AppDeps {
   promptCwd: string
   promptHome: string
   folderPicker: FolderPicker
-  config: Config
+  getConfig: () => Config
+  setConfig: (next: Config) => void
+  configFile: string
   webDir?: string
   getPort: () => number
   startSession: (input: {
@@ -63,6 +66,7 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono()
   app.use('*', originGuard(deps.getPort))
   app.route('/api', healthRoutes(deps))
+  app.route('/api', configRoutes(deps))
   app.route('/api', sessionsRoutes(deps))
   app.route('/api', recentReposRoutes(deps))
   app.route('/api', fsRoutes(deps))

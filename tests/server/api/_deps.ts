@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import type { AppDeps } from '../../../src/server/api/app'
 import { makeCancelSession } from '../../../src/server/cancel-session'
+import type { Config } from '../../../src/server/config'
 import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
@@ -25,6 +26,8 @@ export interface DepsOverrides {
   health?: AppDeps['health']
   folderPicker?: FolderPicker
   sessionsDir?: string
+  config?: Config
+  configFile?: string
 }
 
 export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
@@ -38,6 +41,13 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
   const runners = new RunnerRegistry()
   const sessionsDir = overrides.sessionsDir ?? mkdtempSync(join(tmpdir(), 'br-sessions-'))
   const bus = new EventBus()
+  let configState: Config = overrides.config ?? {
+    port: 5555,
+    maxConcurrentReviews: 1,
+    stallMinutes: 1,
+    defaultAgent: 'claude',
+    perPRGCDays: 1,
+  }
   const defaultDelete = makeDeleteSession({
     db,
     sessions,
@@ -64,13 +74,11 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
         throw new Error('not supported in tests')
       },
     },
-    config: {
-      port: 5555,
-      maxConcurrentReviews: 1,
-      stallMinutes: 1,
-      defaultAgent: 'claude',
-      perPRGCDays: 1,
+    getConfig: () => configState,
+    setConfig: (next) => {
+      configState = next
     },
+    configFile: overrides.configFile ?? join(home, 'config.json'),
     getPort: () => 5555,
     startSession: overrides.startSession ?? (async () => ({ id: 'new1' })),
     rerunSession: overrides.rerunSession ?? (async () => ({ id: 'fresh1' })),
@@ -89,7 +97,13 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
         defaultAgent: 'claude',
         gh: { found: true, path: '/usr/bin/gh', authed: true },
         fs: { folderPicker: { supported: false } },
-        daemon: { pid: 1, port: 5555, startedAt: 1 },
+        daemon: {
+          pid: 1,
+          port: 5555,
+          startedAt: 1,
+          home,
+          logPath: join(home, 'daemon.log'),
+        },
       })),
   }
 }

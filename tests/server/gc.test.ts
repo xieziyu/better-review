@@ -58,7 +58,7 @@ describe('gcSessions', () => {
       deleteSession: async (id) => {
         calls.push(id)
       },
-      perPRGCDays: 7,
+      getPerPRGCDays: () => 7,
       log: silentLogger(),
       now: () => now,
     })
@@ -79,7 +79,7 @@ describe('gcSessions', () => {
       deleteSession: async () => {
         called++
       },
-      perPRGCDays: 0,
+      getPerPRGCDays: () => 0,
       log: silentLogger(),
       now: () => Date.now(),
     })
@@ -103,7 +103,7 @@ describe('gcSessions', () => {
       deleteSession: async (id) => {
         if (id === 'b') throw new Error('boom')
       },
-      perPRGCDays: 7,
+      getPerPRGCDays: () => 7,
       log: silentLogger(),
       now: () => now,
     })
@@ -132,7 +132,7 @@ describe('gcSessions', () => {
       deleteSession: async (id) => {
         calls.push(id)
       },
-      perPRGCDays: 7,
+      getPerPRGCDays: () => 7,
       log: silentLogger(),
       now: () => now,
     })
@@ -153,7 +153,7 @@ describe('gcSessions', () => {
     const gc = makeGCSessions({
       sessions,
       deleteSession: async () => {},
-      perPRGCDays: 7,
+      getPerPRGCDays: () => 7,
       log: silentLogger(),
       now: () => now,
     })
@@ -193,7 +193,7 @@ describe('gcSessions', () => {
     const gc = makeGCSessions({
       sessions,
       deleteSession,
-      perPRGCDays: 7,
+      getPerPRGCDays: () => 7,
       log: silentLogger(),
       now: () => now,
     })

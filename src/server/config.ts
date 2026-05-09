@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { z } from 'zod'
@@ -52,4 +52,20 @@ export function loadConfigWithWarnings(home: string): LoadConfigResult {
   const raw = JSON.parse(readFileSync(file, 'utf8'))
   const parsed = rawConfigSchema.parse(raw)
   return applyLegacyAliases(parsed)
+}
+
+const writableKeys = [
+  'port',
+  'maxConcurrentReviews',
+  'stallMinutes',
+  'defaultAgent',
+  'perPRGCDays',
+] as const
+
+export function saveConfig(file: string, config: Config): void {
+  const out: Record<string, unknown> = {}
+  for (const k of writableKeys) out[k] = config[k]
+  // Deprecated `claudeStallMinutes` is intentionally dropped — `loadConfig`
+  // already coalesces it into `stallMinutes` on read.
+  writeFileSync(file, JSON.stringify(out, null, 2) + '\n')
 }

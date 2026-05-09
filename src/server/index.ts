@@ -9,6 +9,7 @@ import type { AgentKind, HealthStatus, ReviewEvent } from '../shared/types'
 import { AGENT_KINDS } from '../shared/types'
 import { createApp, type AppDeps } from './api/app'
 import { makeCancelSession } from './cancel-session'
+import type { Config } from './config'
 import { loadConfigWithWarnings } from './config'
 import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
@@ -49,13 +50,21 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
 
   const log = createLogger(paths.daemonLog)
   log.info('startup begin', { pid: process.pid, home: paths.home })
-  const { config, warnings } = loadConfigWithWarnings(paths.home)
+  const { config: initialConfig, warnings } = loadConfigWithWarnings(paths.home)
   for (const w of warnings) log.warn(w)
+  // Mutable so PUT /api/config can hot-reload most keys (defaultAgent,
+  // stallMinutes, perPRGCDays). `port` and `maxConcurrentReviews` are bound
+  // at boot time and require a daemon restart.
+  let configState: Config = initialConfig
+  const getConfig = (): Config => configState
+  const setConfig = (next: Config): void => {
+    configState = next
+  }
   log.info('config loaded', {
-    port: config.port,
-    maxConcurrentReviews: config.maxConcurrentReviews,
-    defaultAgent: config.defaultAgent,
-    stallMinutes: config.stallMinutes,
+    port: configState.port,
+    maxConcurrentReviews: configState.maxConcurrentReviews,
+    defaultAgent: configState.defaultAgent,
+    stallMinutes: configState.stallMinutes,
   })
   const db = openDatabase(paths.dbFile)
   log.info('db opened', { file: paths.dbFile })
@@ -63,7 +72,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const findings = new FindingsRepo(db)
   const submissions = new SubmissionsRepo(db)
   const bus = new EventBus()
-  const queue = new ConcurrencyQueue(config.maxConcurrentReviews)
+  const queue = new ConcurrencyQueue(configState.maxConcurrentReviews)
   const runners = new RunnerRegistry()
   const gh = new GhClient()
   const cwd = opts.cwd ?? process.cwd()
@@ -96,7 +105,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     bus,
     queue,
     runners,
-    config,
+    getConfig,
     paths: { home: paths.home, sessionsDir: paths.sessionsDir },
     cwd,
     log,
@@ -117,7 +126,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const gcSessions = makeGCSessions({
     sessions,
     deleteSession,
-    perPRGCDays: config.perPRGCDays,
+    getPerPRGCDays: () => configState.perPRGCDays,
     log,
   })
   void gcSessions()
@@ -166,7 +175,9 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     promptCwd: cwd,
     promptHome: paths.home,
     folderPicker,
-    config,
+    getConfig,
+    setConfig,
+    configFile: paths.configFile,
     webDir,
     getPort: () => port,
     startSession,
@@ -203,13 +214,19 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
           claude: { found: !!agentPaths.claude },
           codex: { found: !!agentPaths.codex },
         },
-        defaultAgent: config.defaultAgent,
+        defaultAgent: configState.defaultAgent,
         gh: {
           found: !!ghWhich,
           authed: await gh.authStatus().catch(() => false),
         },
         fs: { folderPicker: { supported: folderPicker.supported } },
-        daemon: { pid: process.pid, port, startedAt },
+        daemon: {
+          pid: process.pid,
+          port,
+          startedAt,
+          home: paths.home,
+          logPath: paths.daemonLog,
+        },
       }
       for (const k of AGENT_KINDS) {
         const p = agentPaths[k]
@@ -221,9 +238,9 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   }
 
   const app = createApp(deps)
-  log.info('binding port', { requested: config.port })
+  log.info('binding port', { requested: configState.port })
   const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
-    const s = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: config.port }, (info) => {
+    const s = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: configState.port }, (info) => {
       port = info.port
       resolve(s)
     })

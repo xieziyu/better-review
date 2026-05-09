@@ -1,17 +1,20 @@
-import type { HealthStatus } from '@shared/types'
+import type { AppConfig, HealthStatus } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Settings } from '@/pages/Settings'
 
-function withClient(ui: React.ReactNode, health?: HealthStatus) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  if (health) qc.setQueryData(['health'], health)
-  return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
+const baseConfig: AppConfig = {
+  port: 0,
+  maxConcurrentReviews: 4,
+  stallMinutes: 3,
+  defaultAgent: 'claude',
+  perPRGCDays: 7,
 }
 
-const healthy: HealthStatus = {
+const baseHealth: HealthStatus = {
   ok: true,
   agents: {
     claude: { found: true, path: '/usr/local/bin/claude' },
@@ -20,32 +23,137 @@ const healthy: HealthStatus = {
   defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
   fs: { folderPicker: { supported: true } },
-  daemon: { pid: 4242, port: 7345, startedAt: 1700000000000 },
+  daemon: {
+    pid: 4242,
+    port: 7345,
+    startedAt: 1700000000000,
+    home: '/Users/x/.better-review',
+    logPath: '/Users/x/.better-review/daemon.log',
+  },
+}
+
+function renderSettings(opts?: { config?: AppConfig; health?: HealthStatus }) {
+  const qc = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, staleTime: Infinity },
+      mutations: { retry: false },
+    },
+  })
+  qc.setQueryData(['config'], {
+    config: opts?.config ?? baseConfig,
+    file: '/Users/x/.better-review/config.json',
+  })
+  qc.setQueryData(['health'], opts?.health ?? baseHealth)
+  return render(
+    <QueryClientProvider client={qc}>
+      <Settings />
+    </QueryClientProvider>,
+  )
 }
 
 describe('Settings', () => {
-  it('renders the config snippet with documented keys', () => {
-    render(withClient(<Settings />, healthy))
-    const snippet = screen.getByTestId('config-snippet').textContent ?? ''
-    expect(snippet).toMatch(/idleShutdownMinutes/)
-    expect(snippet).toMatch(/maxConcurrentReviews/)
-    expect(snippet).toMatch(/stallMinutes/)
-    expect(snippet).toMatch(/defaultAgent/)
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
-  it('shows daemon and tooling info from health', () => {
-    render(withClient(<Settings />, healthy))
-    expect(screen.getByTestId('daemon-pid')).toHaveTextContent('4242')
-    expect(screen.getByTestId('daemon-port')).toHaveTextContent('7345')
-    expect(screen.getByTestId('default-agent')).toHaveTextContent('claude')
-    expect(screen.getByTestId('claude-path')).toHaveTextContent('/usr/local/bin/claude')
-    expect(screen.getByTestId('codex-path')).toHaveTextContent('/usr/local/bin/codex')
-    expect(screen.getByTestId('gh-path')).toHaveTextContent('/usr/local/bin/gh')
+  it('renders all five fields with current values and the config file path', () => {
+    renderSettings()
+    expect(screen.getByText(/\.better-review\/config\.json/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/default agent/i)).toHaveValue('claude')
+    expect(screen.getByLabelText(/stall minutes/i)).toHaveValue(3)
+    expect(screen.getByLabelText(/per-pr gc days/i)).toHaveValue(7)
+    expect(screen.getByLabelText(/max concurrent reviews/i)).toHaveValue(4)
+    expect(screen.getByLabelText(/^port$/i)).toHaveValue(0)
   })
 
-  it('renders without health data', () => {
-    render(withClient(<Settings />))
-    expect(screen.getByText(/Settings/i)).toBeInTheDocument()
-    expect(screen.queryByTestId('daemon-pid')).not.toBeInTheDocument()
+  it('marks restart-required fields with a tag', () => {
+    renderSettings()
+    const tags = screen.getAllByText(/restart required/i)
+    expect(tags.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('shows missing-agent tag when health reports an agent missing', () => {
+    renderSettings({
+      health: {
+        ...baseHealth,
+        agents: { claude: { found: true, path: '/x' }, codex: { found: false } },
+      },
+    })
+    expect(screen.getByText(/codex missing/i)).toBeInTheDocument()
+    expect(screen.getByText(/claude found/i)).toBeInTheDocument()
+  })
+
+  it('Save is disabled until the form is dirty, and Discard restores the original', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderSettings()
+    const save = screen.getByRole('button', { name: /^save$/i })
+    const discard = screen.getByRole('button', { name: /discard/i })
+    expect(save).toBeDisabled()
+    expect(discard).toBeDisabled()
+
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+    expect(stall).toHaveValue(5)
+    expect(save).toBeEnabled()
+    expect(discard).toBeEnabled()
+
+    await user.click(discard)
+    expect(stall).toHaveValue(3)
+    expect(save).toBeDisabled()
+  })
+
+  it('shows a validation error and disables Save when stallMinutes is out of range', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderSettings()
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '999')
+    expect(screen.getByText(/between 1 and 60/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+  })
+
+  it('PUTs the form on Save and shows the success flash', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    renderSettings()
+
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('/api/config')
+    expect((init as RequestInit).method).toBe('PUT')
+    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({ stallMinutes: 5 })
+
+    await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument())
+  })
+
+  it('renders an inline error when the save mutation fails', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'port: must be ≤ 65535' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    renderSettings()
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(screen.getByText(/port: must be ≤ 65535/i)).toBeInTheDocument())
   })
 })

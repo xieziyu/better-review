@@ -85,7 +85,18 @@ export interface HealthStatus {
   defaultAgent: AgentKind
   gh: { found: boolean; path?: string; authed: boolean }
   fs: { folderPicker: { supported: boolean } }
-  daemon: { pid: number; port: number; startedAt: number }
+  daemon: { pid: number; port: number; startedAt: number; home: string; logPath: string }
+}
+
+// User-editable runtime configuration. Mirrors the writable subset of the
+// server-side `Config` zod schema; kept here so the web bundle does not need
+// to import zod-derived types from the server.
+export interface AppConfig {
+  port: number
+  maxConcurrentReviews: number
+  stallMinutes: number
+  defaultAgent: AgentKind
+  perPRGCDays: number
 }
 
 export type SSEEvent =

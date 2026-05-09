@@ -6,7 +6,9 @@ const DAY_MS = 86_400_000
 export interface GCSessionsDeps {
   sessions: SessionsRepo
   deleteSession: (id: string) => Promise<void>
-  perPRGCDays: number
+  // Read on each call so a hot-reload of `perPRGCDays` flows into the next
+  // gcSessions() invocation (e.g. a future "run GC now" button).
+  getPerPRGCDays: () => number
   log: Logger
   now?: () => number
 }
@@ -20,10 +22,11 @@ export type GCSessionsFn = () => Promise<GCResult>
 
 export function makeGCSessions(deps: GCSessionsDeps): GCSessionsFn {
   return async function gcSessions() {
-    if (deps.perPRGCDays <= 0) return { deleted: [], skipped: 0 }
+    const perPRGCDays = deps.getPerPRGCDays()
+    if (perPRGCDays <= 0) return { deleted: [], skipped: 0 }
 
     const now = (deps.now ?? Date.now)()
-    const cutoff = now - deps.perPRGCDays * DAY_MS
+    const cutoff = now - perPRGCDays * DAY_MS
 
     const deleted: string[] = []
     let skipped = 0

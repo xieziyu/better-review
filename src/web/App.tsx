@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Link, NavLink, Routes, Route } from 'react-router-dom'
 
-import { HealthBanner } from '@/components/HealthBanner'
+import { DaemonStatus } from '@/components/DaemonStatus'
 import { Sidebar } from '@/components/Sidebar'
 import { cn } from '@/lib/utils'
 
@@ -50,9 +50,10 @@ function TopBar() {
         <img src="/logo.svg" alt="" className="size-6" aria-hidden="true" />
         <span className="text-h1 tracking-tight">better-review</span>
       </Link>
-      <nav className="ml-auto flex items-stretch gap-5 text-meta" aria-label="Primary">
+      <nav className="ml-auto flex items-center gap-5 text-meta" aria-label="Primary">
         <NavItem to="/prompt">Prompt</NavItem>
         <NavItem to="/settings">Settings</NavItem>
+        <DaemonStatus />
       </nav>
     </header>
   )
@@ -77,7 +78,6 @@ export function App() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-ink-primary">
       <TopBar />
-      <HealthBanner />
       <div className="flex flex-1 min-h-0">
         <Sidebar />
         <main className="flex-1 overflow-auto">
