@@ -91,16 +91,16 @@ better-review stop                                  # 优雅关闭
 
 Prompt 分两层：
 
-- **Framework**（只读，包内自带）：persona、占位符位置、输出 schema、suggestion 语义。这是 parser 和提交链路的硬契约。
-- **Rules**（可覆盖）：实际 checklist 和 category 标签集合。解析顺序如下，第一个命中即生效：
+- **Framework**（只读，包内自带）：reviewer persona、占位符位置、**severity rubric**（`must` / `should` / `nit` 的语义）、输出 schema 以及 `suggestion` 的锚定规则。这是 findings parser 和提交链路的硬契约，写 `review.md` 也覆盖不了。
+- **Rules**（可覆盖）：review checklist、`category` 标签集合，以及你想让 agent 遵循的任何领域规范。解析顺序如下，第一个命中即生效：
 
   ```
-  <cwd>/.better-review/review.md   # 项目级（daemon 必须从该项目目录启动）
+  <cwd>/.better-review/review.md   # 项目级（路径相对于 daemon 启动时的工作目录）
   ~/.better-review/review.md       # 全局
   prompts/builtin-rules.md         # 内置默认
   ```
 
-在顶栏的 **Prompt** 入口里编辑（`Project` / `Global` 两个 tab，`⌘S` 保存）。保存只影响后续 review；要让已有 PR 用上新规则，在 prompt 编辑器里点 **Apply to current session**，或在 PR 详情页点 **Rerun**。顶栏还有一个 **Settings** 入口，可以从 UI 直接改默认 agent。
+在顶栏的 **Prompt** 入口里编辑（`Project` / `Global` 两个 tab，`⌘S` 保存）。保存只影响后续 review。要让已有 session 用上新规则，可以在 prompt 编辑器里点 **Apply to current session**——它会弹一个多选框让你挑哪些 session 重跑——或者去单个 PR 详情页点 **Rerun**。默认 agent 本身在顶栏的 **Settings** 入口里改。
 
 ## 配置
 

@@ -91,16 +91,16 @@ There are no automatic retries; failures surface in the banner and the submissio
 
 The prompt is split into two layers:
 
-- **Framework** (read-only, shipped with the package): persona, placeholder positions, output schema, suggestion semantics. These are hard contracts for the parser and submit pipeline.
-- **Rules** (overridable): the actual checklist and category labels. Resolved in this order — first hit wins:
+- **Framework** (read-only, shipped with the package): reviewer persona, placeholder positions, the **severity rubric** (`must` / `should` / `nit` semantics), output schema, and `suggestion` anchoring rules. These are hard contracts for the findings parser and the submit pipeline — your `review.md` cannot override them.
+- **Rules** (overridable): the review checklist, `category` label set, and any domain-specific guidance you want the agent to follow. Resolved in this order — first hit wins:
 
   ```
-  <cwd>/.better-review/review.md   # project (when daemon was launched here)
+  <cwd>/.better-review/review.md   # project (relative to where the daemon was launched)
   ~/.better-review/review.md       # global
   prompts/builtin-rules.md         # built-in default
   ```
 
-Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews; use **Apply to current session** in the prompt editor — or **Rerun** on a PR detail page — to re-run with the updated rules. You can also change the default agent from the **Settings** link in the top bar.
+Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. The default agent itself is configured from the **Settings** link in the top bar.
 
 ## Configuration
 
