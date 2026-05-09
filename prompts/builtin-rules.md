@@ -1,6 +1,3 @@
-总是使用简体中文表达具体的审查意见。
-Keep code identifiers, file paths, severity, and code snippets verbatim (don't translate them)
-
 ### 1. Scope & Plan Alignment
 
 - Flag changes outside what the PR description says (unrelated refactors bundled into a bug fix, etc.).
