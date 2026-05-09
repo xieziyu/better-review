@@ -39,10 +39,9 @@ function hunkWithChangeAt({
   contextAfter: number
 }): string {
   const before = Array.from({ length: contextBefore }, (_, i) => ` ctx${i + 1}`).join('\n')
-  const after = Array.from(
-    { length: contextAfter },
-    (_, i) => ` ctx${contextBefore + 1 + i}`,
-  ).join('\n')
+  const after = Array.from({ length: contextAfter }, (_, i) => ` ctx${contextBefore + 1 + i}`).join(
+    '\n',
+  )
   const oldLines = contextBefore + 1 + contextAfter
   const newLines = contextBefore + 1 + contextAfter
   return `diff --git a/src/y.ts b/src/y.ts
