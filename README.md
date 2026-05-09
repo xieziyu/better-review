@@ -100,7 +100,7 @@ The prompt is split into two layers:
   prompts/builtin-rules.md         # built-in default
   ```
 
-Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. The default agent itself is configured from the **Settings** link in the top bar.
+Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. Daemon configuration (default agent, watchdog timeout, GC retention, etc.) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
 
 ## Configuration
 
@@ -115,14 +115,15 @@ review.md                 # global rule overrides (optional)
 sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent.log, prompt.txt
 ```
 
-`config.json` keys (all optional):
+`config.json` keys (all optional). The **Settings** page edits the same file; most keys hot-reload, the two flagged below need a daemon restart.
 
-| Key                    | Default      | Meaning                                                     |
-| ---------------------- | ------------ | ----------------------------------------------------------- |
-| `port`                 | `0` (random) | Set to a fixed port if you want a stable URL.               |
-| `maxConcurrentReviews` | `4`          | Cap on parallel agent processes; the rest queue.            |
-| `stallMinutes`         | `3`          | Watchdog kills an agent that emits no stdout for this long. |
-| `defaultAgent`         | `"claude"`   | `"claude"` or `"codex"`; UI selector overrides per session. |
+| Key                    | Default      | Meaning                                                                            |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `port`                 | `0` (random) | Set to a fixed port if you want a stable URL. *(restart required)*                 |
+| `maxConcurrentReviews` | `4`          | Cap on parallel agent processes; the rest queue. *(restart required)*              |
+| `stallMinutes`         | `3`          | Watchdog kills an agent that emits no stdout for this long.                        |
+| `defaultAgent`         | `"claude"`   | `"claude"` or `"codex"`; UI selector overrides per session.                        |
+| `perPRGCDays`          | `7`          | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.        |
 
 ## Development
 
@@ -153,7 +154,7 @@ For deeper architecture and design rationale, see [`CLAUDE.md`](./CLAUDE.md), [`
 
 **Port already in use?** Leave `port: 0` in `config.json` so the OS picks a free one, or set a stable port and stop whatever else is bound to it.
 
-**Banner says `gh: not authenticated`.** The daemon inherits the env from the shell that started it. Run `gh auth login` and then `better-review restart`.
+**Status dot turns red, popover shows `gh: not authed`.** The daemon inherits the env from the shell that started it. Run `gh auth login` and then `better-review restart`.
 
 **Agent runs forever and nothing happens.** Default watchdog is 3 minutes of silent stdout; raise `stallMinutes` if your reviews legitimately go quiet for longer. After a kill, the session goes `failed` — click **Rerun**.
 

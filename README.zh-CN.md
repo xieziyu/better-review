@@ -100,7 +100,7 @@ Prompt 分两层：
   prompts/builtin-rules.md         # 内置默认
   ```
 
-在顶栏的 **Prompt** 入口里编辑（`Project` / `Global` 两个 tab，`⌘S` 保存）。保存只影响后续 review。要让已有 session 用上新规则，可以在 prompt 编辑器里点 **Apply to current session**——它会弹一个多选框让你挑哪些 session 重跑——或者去单个 PR 详情页点 **Rerun**。默认 agent 本身在顶栏的 **Settings** 入口里改。
+在顶栏的 **Prompt** 入口里编辑（`Project` / `Global` 两个 tab，`⌘S` 保存）。保存只影响后续 review。要让已有 session 用上新规则，可以在 prompt 编辑器里点 **Apply to current session**——它会弹一个多选框让你挑哪些 session 重跑——或者去单个 PR 详情页点 **Rerun**。Daemon 配置（默认 agent、watchdog、GC 保留天数等）在顶栏的 **Settings** 入口里改；旁边的**状态点**实时反映 daemon 与 CLI 的健康状况——点开是 pid / port / uptime / agent 与 `gh` 路径的浮层。
 
 ## 配置
 
@@ -115,14 +115,15 @@ review.md                 # 全局 rule 覆盖（可选）
 sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、findings.json、agent.log、prompt.txt
 ```
 
-`config.json` 可改字段（全部可选）：
+`config.json` 可改字段（全部可选）。**Settings** 页改的就是这个文件，绝大多数字段保存即生效；下表标注 *(需重启)* 的两项要重启 daemon 才生效。
 
-| 字段                   | 默认        | 说明                                                |
-| ---------------------- | ----------- | --------------------------------------------------- |
-| `port`                 | `0`（随机） | 想要稳定 URL 就固定一个端口                         |
-| `maxConcurrentReviews` | `4`         | 并行 agent 进程上限，超过的排队                     |
-| `stallMinutes`         | `3`         | agent 多久没 stdout 就触发 watchdog                 |
-| `defaultAgent`         | `"claude"`  | 可选 `"claude"` / `"codex"`；UI selector 可单次覆盖 |
+| 字段                   | 默认        | 说明                                                                |
+| ---------------------- | ----------- | ------------------------------------------------------------------- |
+| `port`                 | `0`（随机） | 想要稳定 URL 就固定一个端口 *(需重启)*                              |
+| `maxConcurrentReviews` | `4`         | 并行 agent 进程上限，超过的排队 *(需重启)*                          |
+| `stallMinutes`         | `3`         | agent 多久没 stdout 就触发 watchdog                                 |
+| `defaultAgent`         | `"claude"`  | 可选 `"claude"` / `"codex"`；UI selector 可单次覆盖                 |
+| `perPRGCDays`          | `7`         | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC            |
 
 ## 开发
 
@@ -153,7 +154,7 @@ pnpm run format        # 写盘；CI 用 format:check
 
 **端口被占？** `config.json` 里把 `port` 留 `0` 让 OS 挑一个空闲端口，或者固定端口并先关掉占用它的进程。
 
-**Banner 显示 `gh: not authenticated`。** daemon 继承的是启动 shell 的环境变量。`gh auth login` 后 `better-review restart`。
+**状态点变红、浮层显示 `gh: not authed`。** daemon 继承的是启动 shell 的环境变量。`gh auth login` 后 `better-review restart`。
 
 **agent 跑很久不结束。** 默认 3 分钟无 stdout 就 watchdog 杀；如果你的 review 本来就慢，调大 `stallMinutes`。被杀后 session 状态变 `failed`，点 **Rerun**。
 
