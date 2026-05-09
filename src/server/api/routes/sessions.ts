@@ -18,6 +18,7 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       prInput: string
       agent?: unknown
       localRepoPath?: unknown
+      extraPrompt?: unknown
     }>()
     if (!body?.prInput) return c.json({ error: 'prInput required' }, 400)
     if (body.agent !== undefined && !isAgentKind(body.agent)) {
@@ -26,13 +27,24 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     if (body.localRepoPath !== undefined && typeof body.localRepoPath !== 'string') {
       return c.json({ error: 'localRepoPath must be a string' }, 400)
     }
+    if (body.extraPrompt !== undefined && typeof body.extraPrompt !== 'string') {
+      return c.json({ error: 'extraPrompt must be a string' }, 400)
+    }
     try {
-      const input: { prInput: string; agent?: AgentKind; localRepoPath?: string } = {
+      const input: {
+        prInput: string
+        agent?: AgentKind
+        localRepoPath?: string
+        extraPrompt?: string
+      } = {
         prInput: body.prInput,
       }
       if (body.agent !== undefined) input.agent = body.agent
       if (typeof body.localRepoPath === 'string' && body.localRepoPath.trim().length > 0) {
         input.localRepoPath = body.localRepoPath
+      }
+      if (typeof body.extraPrompt === 'string' && body.extraPrompt.trim().length > 0) {
+        input.extraPrompt = body.extraPrompt
       }
       const { id } = await deps.startSession(input)
       return c.json({ id }, 201)
@@ -76,10 +88,10 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     }
   })
   r.post('/sessions/:id/rerun', async (c) => {
-    let body: { agent?: unknown } = {}
+    let body: { agent?: unknown; extraPrompt?: unknown } = {}
     if (c.req.header('content-type')?.includes('application/json')) {
       try {
-        body = await c.req.json<{ agent?: unknown }>()
+        body = await c.req.json<{ agent?: unknown; extraPrompt?: unknown }>()
       } catch {
         body = {}
       }
@@ -87,8 +99,14 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     if (body.agent !== undefined && !isAgentKind(body.agent)) {
       return c.json({ error: `unknown agent: ${String(body.agent)}` }, 400)
     }
+    if (body.extraPrompt !== undefined && typeof body.extraPrompt !== 'string') {
+      return c.json({ error: 'extraPrompt must be a string' }, 400)
+    }
     try {
-      const result = await deps.rerunSession(c.req.param('id'), body.agent as AgentKind | undefined)
+      const opts: { agent?: AgentKind; extraPrompt?: string } = {}
+      if (body.agent !== undefined) opts.agent = body.agent as AgentKind
+      if (typeof body.extraPrompt === 'string') opts.extraPrompt = body.extraPrompt
+      const result = await deps.rerunSession(c.req.param('id'), opts)
       return c.json(result, 202)
     } catch (e) {
       return c.json({ error: (e as Error).message }, 400)

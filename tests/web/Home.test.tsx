@@ -1,6 +1,6 @@
 import type { PRSession } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -43,6 +43,7 @@ const session: PRSession = {
   sourceKind: null,
   sourceRefName: null,
   promptUsed: '',
+  extraPrompt: null,
   error: null,
 }
 
@@ -81,5 +82,69 @@ describe('Home', () => {
   it('marks the default agent with parenthesized copy', () => {
     render(withClient(<Home />))
     expect(screen.getByRole('button', { name: /claude \(default\)/i })).toBeInTheDocument()
+  })
+
+  it('hides the extra-context textarea by default and reveals it on click', () => {
+    render(withClient(<Home />))
+    expect(screen.queryByRole('textbox', { name: /^Extra context$/i })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Add extra context/i }))
+    expect(screen.getByRole('textbox', { name: /^Extra context$/i })).toBeInTheDocument()
+  })
+
+  it('sends extraPrompt in the createSession payload when filled', async () => {
+    const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (u.includes('/api/recent-repos')) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 })
+      }
+      if (u === '/api/health') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            defaultAgent: 'claude',
+            agents: {
+              claude: { found: true, path: '/usr/bin/claude' },
+              codex: { found: true, path: '/usr/bin/codex' },
+            },
+            gh: { found: true, authed: true },
+            fs: { folderPicker: { supported: false } },
+            daemon: { pid: 1, port: 1, startedAt: 0 },
+          }),
+          { status: 200 },
+        )
+      }
+      if (u === '/api/sessions' && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'new1' }), { status: 201 })
+      }
+      if (u === '/api/sessions') {
+        return new Response('[]', { status: 200 })
+      }
+      return new Response('{}', { status: 200 })
+    })
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+    render(withClient(<Home />))
+    fireEvent.change(screen.getByLabelText(/PR target/i), {
+      target: { value: 'https://github.com/o/r/pull/1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Add extra context/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /^Extra context$/i }), {
+      target: { value: 'see PRD section 4' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Start review/i }))
+    await waitFor(() => {
+      const postCall = fetchMock.mock.calls.find(
+        ([u, init]) =>
+          String(u) === '/api/sessions' && (init as RequestInit | undefined)?.method === 'POST',
+      )
+      expect(postCall).toBeDefined()
+    })
+    const postCall = fetchMock.mock.calls.find(
+      ([u, init]) =>
+        String(u) === '/api/sessions' && (init as RequestInit | undefined)?.method === 'POST',
+    )
+    const body = JSON.parse(((postCall![1] as RequestInit).body as string) ?? '{}') as {
+      extraPrompt?: string
+    }
+    expect(body.extraPrompt).toBe('see PRD section 4')
   })
 })

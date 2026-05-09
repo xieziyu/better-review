@@ -170,9 +170,9 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     webDir,
     getPort: () => port,
     startSession,
-    rerunSession: async (id, agent) => {
-      const { freshId } = await rerun(id, agent)
-      log.info('rerun started', { id, freshId, agent })
+    rerunSession: async (id, rerunOpts) => {
+      const { freshId } = await rerun(id, rerunOpts)
+      log.info('rerun started', { id, freshId, agent: rerunOpts?.agent })
       return { id: freshId }
     },
     deleteSession: async (id) => {

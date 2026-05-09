@@ -59,4 +59,20 @@ describe('renderPrompt', () => {
     })
     expect(out).toBe('A\nsnapshot at /sess/source\nB')
   })
+
+  it('strips the EXTRA_NOTES block when extraNotes is undefined', () => {
+    const tpl = 'A\n{{#EXTRA_NOTES}}\n## Notes\n{{EXTRA_NOTES_BODY}}\n{{/EXTRA_NOTES}}\nB'
+    expect(renderPrompt(tpl, baseVars)).toBe('A\nB')
+  })
+
+  it('strips the EXTRA_NOTES block when extraNotes is whitespace only', () => {
+    const tpl = 'A\n{{#EXTRA_NOTES}}\n## Notes\n{{EXTRA_NOTES_BODY}}\n{{/EXTRA_NOTES}}\nB'
+    expect(renderPrompt(tpl, { ...baseVars, extraNotes: '  \n\t\n' })).toBe('A\nB')
+  })
+
+  it('keeps the EXTRA_NOTES block and substitutes the body when extraNotes is set', () => {
+    const tpl = 'A\n{{#EXTRA_NOTES}}\n## Notes\n{{EXTRA_NOTES_BODY}}\n{{/EXTRA_NOTES}}\nB'
+    const out = renderPrompt(tpl, { ...baseVars, extraNotes: '  see PRD section 4  ' })
+    expect(out).toBe('A\n## Notes\nsee PRD section 4\nB')
+  })
 })

@@ -4,6 +4,15 @@ You are a careful PR reviewer. Your job is to read the diff below and produce a 
 
 {{PR_META}}
 
+{{#EXTRA_NOTES}}
+
+## Submitter notes for this review
+
+The submitter has attached the following context for this review — it may include excerpts of a spec or PRD, the intended behaviour change, or judgment guidance for borderline cases. Read it before the diff and let it shape what you flag (or don't flag), but it does not relax the review checklist below.
+
+{{EXTRA_NOTES_BODY}}
+
+{{/EXTRA_NOTES}}
 {{#SOURCE:worktree}}
 
 ## Source at PR head

@@ -45,6 +45,7 @@ export interface StartSessionInput {
   prInput: string
   agent?: AgentKind
   localRepoPath?: string
+  extraPrompt?: string
 }
 
 export function resolveLocalRepoPath(raw: string): string {
@@ -61,10 +62,17 @@ export function resolveLocalRepoPath(raw: string): string {
 export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string }>
 
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
-  return async function startSession({ prInput, agent: agentKind, localRepoPath: rawRepo }) {
+  return async function startSession({
+    prInput,
+    agent: agentKind,
+    localRepoPath: rawRepo,
+    extraPrompt: rawExtra,
+  }) {
     const target = parsePRTarget(prInput)
     const localRepoPath =
       rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
+    const extraPrompt =
+      rawExtra !== undefined && rawExtra.trim().length > 0 ? rawExtra.trim() : null
     const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
     if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
       return { id: existing.id }
@@ -109,6 +117,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       sourcePath: source.sourcePath,
       headSha: source.headSha,
     }
+    if (extraPrompt !== null) promptVars.extraNotes = extraPrompt
     const prompt = renderPrompt(resolved.framework, promptVars)
 
     deps.sessions.insert({
@@ -128,6 +137,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
       sourceKind: source.kind,
       sourceRefName: source.refName,
       promptUsed: prompt,
+      extraPrompt,
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'running' })
 

@@ -35,6 +35,7 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
   sourceKind: null,
   sourceRefName: null,
   promptUsed: '',
+  extraPrompt: null,
   error: null,
   ...overrides,
 })

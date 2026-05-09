@@ -9,19 +9,37 @@ export interface RerunSessionDeps {
   startSession: StartSessionFn
 }
 
-export type RerunSessionFn = (id: string, agent?: AgentKind) => Promise<{ freshId: string }>
+export interface RerunSessionOptions {
+  agent?: AgentKind
+  // When omitted, the rerun reuses the previous session's `extraPrompt`.
+  // When provided (including the empty string), it overrides — the empty
+  // string clears the carry-over.
+  extraPrompt?: string
+}
+
+export type RerunSessionFn = (
+  id: string,
+  opts?: RerunSessionOptions,
+) => Promise<{ freshId: string }>
 
 export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
-  return async function rerunSession(id, agent) {
+  return async function rerunSession(id, opts) {
     const s = deps.sessions.getById(id)
     if (!s) throw new Error('not found')
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
-    const startInput: { prInput: string; agent: AgentKind; localRepoPath?: string } = {
+    const startInput: {
+      prInput: string
+      agent: AgentKind
+      localRepoPath?: string
+      extraPrompt?: string
+    } = {
       prInput: `https://github.com/${s.owner}/${s.repo}/pull/${s.number}`,
-      agent: agent ?? s.agent,
+      agent: opts?.agent ?? s.agent,
     }
     if (s.localRepoPath !== null) startInput.localRepoPath = s.localRepoPath
+    const carryOver = opts?.extraPrompt !== undefined ? opts.extraPrompt : (s.extraPrompt ?? '')
+    if (carryOver.trim().length > 0) startInput.extraPrompt = carryOver
     const fresh = await deps.startSession(startInput)
     return { freshId: fresh.id }
   }

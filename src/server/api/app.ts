@@ -40,10 +40,14 @@ export interface AppDeps {
     prInput: string
     agent?: import('../../shared/types').AgentKind
     localRepoPath?: string
+    extraPrompt?: string
   }) => Promise<{ id: string }>
   rerunSession: (
     id: string,
-    agent?: import('../../shared/types').AgentKind,
+    opts?: {
+      agent?: import('../../shared/types').AgentKind
+      extraPrompt?: string
+    },
   ) => Promise<{ id: string }>
   deleteSession: (id: string) => Promise<void>
   cancelSession: (id: string) => Promise<void>

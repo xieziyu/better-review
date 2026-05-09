@@ -1,7 +1,7 @@
 import type { AgentKind, PRSession } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FolderGit2, FolderOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, FolderGit2, FolderOpen, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -73,6 +73,8 @@ export function Home() {
   const [localRepoTouched, setLocalRepoTouched] = useState(false)
   const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
   const [agent, setAgent] = useState<AgentKind | null>(null)
+  const [extraPrompt, setExtraPrompt] = useState('')
+  const [extraOpen, setExtraOpen] = useState(false)
   const nav = useNavigate()
   const qc = useQueryClient()
   const { data: sessions = [] } = useQuery({
@@ -163,6 +165,8 @@ export function Home() {
               }
               const repo = localRepo.trim()
               if (repo) payload.localRepoPath = repo
+              const extra = extraPrompt.trim()
+              if (extra) payload.extraPrompt = extra
               create.mutate(payload)
             }
           }}
@@ -246,6 +250,47 @@ export function Home() {
               </span>
             </div>
           ) : null}
+
+          {extraOpen ? (
+            <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-caps tracking-caps text-ink-muted uppercase">
+                  Extra context for this review
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtraOpen(false)
+                    setExtraPrompt('')
+                  }}
+                  className="inline-flex items-center gap-1 text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                  aria-label="Remove extra context"
+                >
+                  <X size={12} aria-hidden="true" />
+                  remove
+                </button>
+              </div>
+              <textarea
+                aria-label="Extra context"
+                value={extraPrompt}
+                onChange={(e) => setExtraPrompt(e.target.value)}
+                placeholder="贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次 review，不会改 review.md。"
+                className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+                spellCheck={false}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setExtraOpen(true)}
+              className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+              aria-label="Add extra context"
+            >
+              <FileText size={14} aria-hidden="true" />
+              <span>Add extra context (optional)</span>
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+          )}
 
           <fieldset
             className="flex items-center gap-1.5 text-meta text-ink-secondary"

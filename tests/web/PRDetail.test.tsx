@@ -51,6 +51,7 @@ const session: PRSession = {
   sourceKind: null,
   sourceRefName: null,
   promptUsed: '',
+  extraPrompt: null,
   error: null,
 }
 
@@ -231,6 +232,93 @@ describe('PRDetail', () => {
           '/api/sessions/s1',
           expect.objectContaining({ method: 'DELETE' }),
         )
+      })
+    })
+
+    it('shows the existing extraPrompt as a collapsible panel when the session has one', () => {
+      render(
+        withRoute(<PRDetail />, {
+          session: { ...session, extraPrompt: 'see PRD section 4 — focus on async path' },
+          findings: [finding],
+        }),
+      )
+      expect(screen.getByRole('button', { name: /Toggle extra context/i })).toBeInTheDocument()
+      expect(screen.getByText(/see PRD section 4/i)).toBeInTheDocument()
+    })
+
+    it('hides the extra-context affordance label when the session has none', () => {
+      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      expect(
+        screen.getByRole('button', { name: /Add extra context for rerun/i }),
+      ).toBeInTheDocument()
+    })
+
+    it('sends the edited extraPrompt on rerun', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(window, 'fetch').mockImplementation(async (url, init) => {
+        void init
+        const u = String(url)
+        if (u === '/api/health') {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              defaultAgent: 'claude',
+              agents: {
+                claude: { found: true, path: '/usr/bin/claude' },
+                codex: { found: true, path: '/usr/bin/codex' },
+              },
+              gh: { found: true, authed: true },
+              fs: { folderPicker: { supported: false } },
+              daemon: { pid: 1, port: 1, startedAt: 0 },
+            }),
+            { status: 200 },
+          )
+        }
+        if (u === '/api/sessions/s1/rerun') {
+          return new Response(JSON.stringify({ id: 'fresh-1' }), { status: 202 })
+        }
+        if (u === '/api/sessions/s1') {
+          return new Response(
+            JSON.stringify({
+              session: { ...session, extraPrompt: 'old context' },
+              findings: [finding],
+            }),
+            { status: 200 },
+          )
+        }
+        if (u === '/api/sessions/fresh-1') {
+          return new Response(
+            JSON.stringify({ session: { ...session, id: 'fresh-1' }, findings: [] }),
+            { status: 200 },
+          )
+        }
+        if (u.endsWith('/diff')) {
+          return new Response(JSON.stringify({ diff: null }), { status: 200 })
+        }
+        return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+      })
+      render(
+        withRoute(<PRDetail />, {
+          session: { ...session, extraPrompt: 'old context' },
+          findings: [finding],
+        }),
+      )
+      await user.click(screen.getByRole('button', { name: /Edit extra context for rerun/i }))
+      const ta = screen.getByRole('textbox', { name: /^Extra context$/i })
+      await user.clear(ta)
+      await user.type(ta, 'new context')
+      await user.click(screen.getByRole('button', { name: /^save$/i }))
+      await user.click(screen.getByRole('button', { name: /^Rerun$/i }))
+      await vi.waitFor(() => {
+        const rerunCall = fetchSpy.mock.calls.find(
+          ([u, callInit]) =>
+            String(u) === '/api/sessions/s1/rerun' &&
+            (callInit as RequestInit | undefined)?.method === 'POST',
+        )
+        expect(rerunCall).toBeDefined()
+        const callInit = rerunCall![1] as RequestInit
+        const body = JSON.parse(callInit.body as string) as { extraPrompt?: string }
+        expect(body.extraPrompt).toBe('new context')
       })
     })
 

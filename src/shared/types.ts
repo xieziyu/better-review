@@ -40,6 +40,7 @@ export interface PRSession {
   sourceKind: SourceKind | null
   sourceRefName: string | null
   promptUsed: string
+  extraPrompt: string | null
   error: string | null
 }
 
@@ -101,6 +102,17 @@ export interface CreateSessionRequest {
   prInput: string
   agent?: AgentKind
   localRepoPath?: string
+  // Optional free-form notes attached to this single review (PRD excerpts,
+  // judgment guidance, etc.). Merged into the rendered prompt; persisted on
+  // the session so reruns can reuse or edit it.
+  extraPrompt?: string
+}
+export interface RerunSessionRequest {
+  agent?: AgentKind
+  // When omitted, the rerun reuses the previous session's `extraPrompt` as-is.
+  // When provided (including the empty string), it overrides — the empty
+  // string clears the carry-over.
+  extraPrompt?: string
 }
 export interface SubmitRequest {
   event: ReviewEvent

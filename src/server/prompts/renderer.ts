@@ -13,6 +13,10 @@ export interface PromptVars {
   sourceKind?: SourceKind
   sourcePath?: string
   headSha?: string
+  // Per-session free-form notes (PRD excerpts, judgment guidance, etc.).
+  // Empty / whitespace-only is treated as none and the entire
+  // `{{#EXTRA_NOTES}}…{{/EXTRA_NOTES}}` block (including header) is removed.
+  extraNotes?: string
 }
 
 // Markers wrap kind-specific content. We strip whole blocks whose suffix
@@ -37,8 +41,20 @@ function applySourceBlocks(template: string, kind: SourceKind | undefined): stri
   return out
 }
 
+const EXTRA_NOTES_BLOCK_RE = /\{\{#EXTRA_NOTES\}\}\n?([\s\S]*?)\{\{\/EXTRA_NOTES\}\}\n?/g
+
+function applyExtraNotes(template: string, notes: string | undefined): string {
+  const trimmed = notes?.trim() ?? ''
+  if (trimmed.length === 0) {
+    return template.replace(EXTRA_NOTES_BLOCK_RE, '')
+  }
+  return template.replace(EXTRA_NOTES_BLOCK_RE, (_full, inner: string) =>
+    inner.replaceAll('{{EXTRA_NOTES_BODY}}', trimmed),
+  )
+}
+
 export function renderPrompt(framework: string, vars: PromptVars): string {
-  return applySourceBlocks(framework, vars.sourceKind)
+  return applyExtraNotes(applySourceBlocks(framework, vars.sourceKind), vars.extraNotes)
     .replaceAll('{{RULES}}', vars.rules)
     .replaceAll('{{PR_META}}', vars.prMeta)
     .replaceAll('{{DIFF}}', vars.diff)

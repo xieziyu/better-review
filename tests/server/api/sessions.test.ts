@@ -95,6 +95,69 @@ describe('sessions API', () => {
     expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1' })
   })
 
+  it('POST /api/sessions forwards extraPrompt to startSession', async () => {
+    let received: {
+      prInput: string
+      agent?: string
+      localRepoPath?: string
+      extraPrompt?: string
+    } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'new1' }
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        extraPrompt: 'see PRD section 4',
+      }),
+    })
+    expect(res.status).toBe(201)
+    expect(received).toEqual({
+      prInput: 'https://github.com/owner/repo/pull/1',
+      extraPrompt: 'see PRD section 4',
+    })
+  })
+
+  it('POST /api/sessions drops empty/whitespace extraPrompt silently', async () => {
+    let received: { prInput: string; extraPrompt?: string } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'new1' }
+      },
+    })
+    const app = createApp(deps)
+    await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        extraPrompt: '   \n\n',
+      }),
+    })
+    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1' })
+  })
+
+  it('POST /api/sessions rejects non-string extraPrompt', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prInput: 'https://github.com/owner/repo/pull/1',
+        extraPrompt: 99,
+      }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('POST /api/sessions rejects non-string localRepoPath', async () => {
     const deps = makeTestDeps()
     const app = createApp(deps)
@@ -322,11 +385,11 @@ describe('sessions API', () => {
 
   it('POST /api/sessions/:id/rerun calls rerunSession and returns fresh id', async () => {
     let receivedId: string | null = null
-    let receivedAgent: string | undefined = undefined
+    let receivedOpts: { agent?: string; extraPrompt?: string } | undefined
     const deps = makeTestDeps({
-      rerunSession: async (id, agent) => {
+      rerunSession: async (id, opts) => {
         receivedId = id
-        receivedAgent = agent
+        receivedOpts = opts
         return { id: 'fresh-1' }
       },
     })
@@ -336,14 +399,14 @@ describe('sessions API', () => {
     const body = (await res.json()) as { id: string }
     expect(body.id).toBe('fresh-1')
     expect(receivedId).toBe('s1')
-    expect(receivedAgent).toBeUndefined()
+    expect(receivedOpts).toEqual({})
   })
 
   it('POST /api/sessions/:id/rerun forwards a valid agent override', async () => {
-    let receivedAgent: string | undefined = undefined
+    let receivedOpts: { agent?: string; extraPrompt?: string } | undefined
     const deps = makeTestDeps({
-      rerunSession: async (_id, agent) => {
-        receivedAgent = agent
+      rerunSession: async (_id, opts) => {
+        receivedOpts = opts
         return { id: 'fresh-2' }
       },
     })
@@ -354,7 +417,25 @@ describe('sessions API', () => {
       body: JSON.stringify({ agent: 'codex' }),
     })
     expect(res.status).toBe(202)
-    expect(receivedAgent).toBe('codex')
+    expect(receivedOpts?.agent).toBe('codex')
+  })
+
+  it('POST /api/sessions/:id/rerun forwards an extraPrompt override', async () => {
+    let receivedOpts: { agent?: string; extraPrompt?: string } | undefined
+    const deps = makeTestDeps({
+      rerunSession: async (_id, opts) => {
+        receivedOpts = opts
+        return { id: 'fresh-3' }
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/rerun', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ extraPrompt: 'new context' }),
+    })
+    expect(res.status).toBe(202)
+    expect(receivedOpts?.extraPrompt).toBe('new context')
   })
 
   it('POST /api/sessions/:id/rerun rejects an unknown agent', async () => {

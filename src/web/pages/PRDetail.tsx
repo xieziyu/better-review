@@ -1,7 +1,16 @@
 import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, FolderGit2, RotateCw, Square, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  FileText,
+  FolderGit2,
+  RotateCw,
+  Square,
+  Trash2,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -268,6 +277,128 @@ function PRHeader({
   )
 }
 
+interface ExtraContextPanelProps {
+  base: string | null
+  draft: string | null
+  editing: boolean
+  expanded: boolean
+  onToggleExpanded: () => void
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSaveEdit: () => void
+  onChange: (value: string) => void
+}
+
+function ExtraContextPanel({
+  base,
+  draft,
+  editing,
+  expanded,
+  onToggleExpanded,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onChange,
+}: ExtraContextPanelProps) {
+  const hasBase = !!base && base.trim().length > 0
+  const overridePending = !editing && draft !== null && draft !== (base ?? '')
+  const draftValue = draft ?? base ?? ''
+
+  if (!hasBase && !editing && draft === null) {
+    return (
+      <button
+        type="button"
+        onClick={onStartEdit}
+        className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+        aria-label="Add extra context for rerun"
+      >
+        <FileText size={14} aria-hidden="true" />
+        <span>Add extra context for rerun (optional)</span>
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+    )
+  }
+
+  if (editing) {
+    return (
+      <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-caps tracking-caps text-ink-muted uppercase">
+            Extra context (will apply to rerun)
+          </span>
+          <div className="flex items-center gap-2 text-meta">
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+            >
+              cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSaveEdit}
+              className="text-brand hover:opacity-80 transition-opacity duration-180 ease-out-quart"
+            >
+              save
+            </button>
+          </div>
+        </div>
+        <textarea
+          aria-label="Extra context"
+          value={draftValue}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次 rerun。"
+          className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+          spellCheck={false}
+        />
+      </div>
+    )
+  }
+
+  // Read-only view (collapsed or expanded).
+  return (
+    <div className="rounded-lg border border-rule bg-raised/40">
+      <div className="flex items-center gap-2 px-3 py-2 text-meta text-ink-secondary">
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          aria-expanded={expanded}
+          aria-label="Toggle extra context"
+          className="flex flex-1 min-w-0 items-center gap-2 hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+        >
+          {expanded ? (
+            <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+          ) : (
+            <ChevronRight size={14} className="shrink-0" aria-hidden="true" />
+          )}
+          <FileText size={14} className="shrink-0 text-ink-muted" aria-hidden="true" />
+          <span className="text-caps tracking-caps text-ink-muted uppercase">Extra context</span>
+          {overridePending ? (
+            <Tag tone="brand">edited for rerun</Tag>
+          ) : hasBase ? (
+            <span className="ml-1 truncate text-ink-muted text-meta font-mono">
+              {(base as string).slice(0, 80).replace(/\s+/g, ' ')}
+            </span>
+          ) : null}
+        </button>
+        <button
+          type="button"
+          onClick={onStartEdit}
+          aria-label="Edit extra context for rerun"
+          className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+        >
+          edit
+        </button>
+      </div>
+      {expanded && hasBase ? (
+        <pre className="px-3 pb-3 pt-0 font-mono text-code text-ink-secondary whitespace-pre-wrap break-words">
+          {base}
+        </pre>
+      ) : null}
+    </div>
+  )
+}
+
 export function PRDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
@@ -276,6 +407,11 @@ export function PRDetail() {
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
+  // null = no override → server carries the previous session's extraPrompt as-is.
+  // string (including '') = explicit override sent on rerun.
+  const [extraDraft, setExtraDraft] = useState<string | null>(null)
+  const [extraEditing, setExtraEditing] = useState(false)
+  const [extraExpanded, setExtraExpanded] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
@@ -308,6 +444,9 @@ export function PRDetail() {
     document.querySelector('main')?.scrollTo({ top: 0 })
     setSubmitOpen(false)
     setAgentChunks([])
+    setExtraDraft(null)
+    setExtraEditing(false)
+    setExtraExpanded(false)
   }, [id])
 
   useEffect(() => {
@@ -317,7 +456,11 @@ export function PRDetail() {
   }, [justSwitched])
 
   const rerun = useMutation({
-    mutationFn: (kind: AgentKind) => api.rerunSession(id, { agent: kind }),
+    mutationFn: (kind: AgentKind) => {
+      const body: { agent: AgentKind; extraPrompt?: string } = { agent: kind }
+      if (extraDraft !== null) body.extraPrompt = extraDraft
+      return api.rerunSession(id, body)
+    },
     onSuccess: ({ id: freshId }) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sessions })
       setJustSwitched(true)
@@ -377,6 +520,25 @@ export function PRDetail() {
           onRerunAgentChange={setRerunAgent}
           health={health}
           justSwitched={justSwitched}
+        />
+
+        <ExtraContextPanel
+          base={session.extraPrompt}
+          draft={extraDraft}
+          editing={extraEditing}
+          expanded={extraExpanded}
+          onToggleExpanded={() => setExtraExpanded((v) => !v)}
+          onStartEdit={() => {
+            setExtraDraft(extraDraft ?? session.extraPrompt ?? '')
+            setExtraEditing(true)
+            setExtraExpanded(true)
+          }}
+          onCancelEdit={() => {
+            setExtraEditing(false)
+            setExtraDraft(null)
+          }}
+          onSaveEdit={() => setExtraEditing(false)}
+          onChange={(v) => setExtraDraft(v)}
         />
 
         <AgentOutputPanel chunks={agentChunks} status={session.status} />

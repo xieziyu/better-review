@@ -28,6 +28,7 @@ export interface NewSessionInput {
   sourceKind?: SourceKind | null
   sourceRefName?: string | null
   promptUsed: string
+  extraPrompt?: string | null
 }
 
 interface Row {
@@ -49,6 +50,7 @@ interface Row {
   source_kind: string | null
   source_ref_name: string | null
   prompt_used: string
+  extra_prompt: string | null
   error: string | null
 }
 
@@ -72,6 +74,7 @@ function rowToSession(r: Row): PRSession {
     sourceKind: (r.source_kind as SourceKind | null) ?? null,
     sourceRefName: r.source_ref_name,
     promptUsed: r.prompt_used,
+    extraPrompt: r.extra_prompt,
     error: r.error,
   }
 }
@@ -87,16 +90,17 @@ export class SessionsRepo {
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
          status, agent, created_at, updated_at, workdir, local_repo_path,
-         source_kind, source_ref_name, prompt_used, error)
+         source_kind, source_ref_name, prompt_used, extra_prompt, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
               @status, @agent, @now, @now, @workdir, @localRepoPath,
-              @sourceKind, @sourceRefName, @promptUsed, NULL)
+              @sourceKind, @sourceRefName, @promptUsed, @extraPrompt, NULL)
     `,
       )
       .run({
         ...s,
         sourceKind: s.sourceKind ?? null,
         sourceRefName: s.sourceRefName ?? null,
+        extraPrompt: s.extraPrompt ?? null,
         now,
       })
   }

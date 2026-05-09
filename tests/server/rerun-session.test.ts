@@ -65,11 +65,106 @@ describe('makeRerunSession', () => {
     const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh-id' }))
     const rerun = makeRerunSession({ sessions, findings, startSession })
 
-    await rerun('s1', 'codex')
+    await rerun('s1', { agent: 'codex' })
 
     expect(startSession).toHaveBeenCalledWith({
       prInput: 'https://github.com/o/r/pull/1',
       agent: 'codex',
+    })
+  })
+
+  it('carries the previous extraPrompt over by default', async () => {
+    const { sessions, findings } = makeRepos()
+    sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+      extraPrompt: 'see PRD',
+    })
+    sessions.setStatus('s1', 'submitted')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh-id' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+    await rerun('s1')
+
+    expect(startSession).toHaveBeenCalledWith({
+      prInput: 'https://github.com/o/r/pull/1',
+      agent: 'claude',
+      extraPrompt: 'see PRD',
+    })
+  })
+
+  it('lets the caller override extraPrompt with a new string', async () => {
+    const { sessions, findings } = makeRepos()
+    sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+      extraPrompt: 'old',
+    })
+    sessions.setStatus('s1', 'submitted')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh-id' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+    await rerun('s1', { extraPrompt: 'new guidance' })
+
+    expect(startSession).toHaveBeenCalledWith({
+      prInput: 'https://github.com/o/r/pull/1',
+      agent: 'claude',
+      extraPrompt: 'new guidance',
+    })
+  })
+
+  it('clears the carry-over when caller passes empty string', async () => {
+    const { sessions, findings } = makeRepos()
+    sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'running',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+      extraPrompt: 'old',
+    })
+    sessions.setStatus('s1', 'submitted')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh-id' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+    await rerun('s1', { extraPrompt: '' })
+
+    expect(startSession).toHaveBeenCalledWith({
+      prInput: 'https://github.com/o/r/pull/1',
+      agent: 'claude',
     })
   })
 
