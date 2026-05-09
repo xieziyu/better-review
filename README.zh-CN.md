@@ -59,7 +59,13 @@ better-review stop                                  # 优雅关闭
 
 ### 创建一次 review
 
-主页输入框接受标准 GitHub PR URL（`https://github.com/<owner>/<repo>/pull/<n>`），回车或点 **Start review**。输入框下方的 segmented selector 可以临时切换本次 review 用的 agent，不点就用 `config.json` 里的 `defaultAgent`。命令行直接传 PR URL 也行——会同时打开 UI 并跳到该 PR。
+主页输入框接受标准 GitHub PR URL（`https://github.com/<owner>/<repo>/pull/<n>`），回车或点 **Start review**。表单下方还有三个可选输入：
+
+- **本地仓库路径**：指向你已有的 clone（如 `~/code/owner/repo`）。daemon 会在 PR head 上挂一份 `git worktree`，让 agent 看到的是合并后的源码而不是只有 diff。URL 命中过历史路径会自动填好。
+- **Extra context**：本次 review 专属的 prompt 补充（贴需求文档片段、设计意图、给 agent 的额外指引等），仅作用于这次 review，不会改 `review.md`。
+- **Agent** segmented selector：临时覆盖 `defaultAgent`，仅本次有效。
+
+命令行直接传 PR URL 也行——会用默认配置打开 UI 并跳到该 PR。
 
 ### 处理 findings
 
@@ -74,14 +80,12 @@ better-review stop                                  # 优雅关闭
 
 ### 提交到 GitHub
 
-**Submit** 抽屉分四步：
+**Submit** 抽屉分两步：
 
-1. **Review**：预览哪些 finding 走 inline、哪些会降级到 review body（off-diff 或 PR-wide），降级条目带黄色提示。
-2. **Body**：可选的 review 开场白。
-3. **Event**：`COMMENT` / `REQUEST_CHANGES` / `APPROVE`。
-4. **Confirm**：daemon 拼好 payload 并 POST 到 `gh api repos/<owner>/<repo>/pulls/<n>/reviews`。
+1. **Review**：预览选中的 finding 哪些走 inline、哪些会降级到 review body（off-diff 或 PR-wide），同页选择 review event（`COMMENT` / `REQUEST_CHANGES` / `APPROVE`）并编辑 review body。Body 会按 PR-wide finding 自动填充，可以手动覆盖。
+2. **Confirm**：最终确认页，按下 `⌘⏎` 提交。daemon 会 POST 到 `gh api repos/<owner>/<repo>/pulls/<n>/reviews` 并在抽屉里给出 GitHub URL。
 
-提交成功直接给出 GitHub URL。**不会自动重试**，失败会在 banner 和 submissions 表里留痕。
+**不会自动重试**，失败会在 banner 和 submissions 表里留痕。
 
 ### 自定义 review prompt
 
@@ -96,7 +100,7 @@ Prompt 分两层：
   prompts/builtin-rules.md         # 内置默认
   ```
 
-在侧栏 **Prompt** 标签里编辑两层之一。保存只影响后续 review；要让已有 PR 用上新规则，点 **Apply to current session** 或在 PR 详情页点 **Rerun**。
+在顶栏的 **Prompt** 入口里编辑（`Project` / `Global` 两个 tab，`⌘S` 保存）。保存只影响后续 review；要让已有 PR 用上新规则，在 prompt 编辑器里点 **Apply to current session**，或在 PR 详情页点 **Rerun**。顶栏还有一个 **Settings** 入口，可以从 UI 直接改默认 agent。
 
 ## 配置
 

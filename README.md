@@ -59,7 +59,13 @@ The first run creates `~/.better-review/` (override with `BETTER_REVIEW_HOME`).
 
 ### Create a review
 
-Paste a GitHub PR URL on the home page (only `https://github.com/<owner>/<repo>/pull/<n>` is accepted) and press **Start review**. The agent selector below the input lets you override the default for this session; otherwise `defaultAgent` from `config.json` wins. You can also pass the URL directly on the CLI — it opens the UI at that PR.
+Paste a GitHub PR URL on the home page (only `https://github.com/<owner>/<repo>/pull/<n>` is accepted) and press **Start review**. The form has three optional inputs you can layer on top:
+
+- **Local repo path** — point at your existing clone (e.g. `~/code/owner/repo`). The daemon adds a `git worktree` at the PR head so the agent sees PR-merged source, not just the diff. Auto-filled from history when the URL matches a previously-used path.
+- **Extra context** — a per-review prompt addendum (spec snippets, design intent, etc.). Affects only this session; doesn't touch `review.md`.
+- **Agent** — segmented selector to override `defaultAgent` for this session.
+
+You can also pass the URL directly on the CLI — it opens the UI at that PR with default settings.
 
 ### Triage findings
 
@@ -74,14 +80,12 @@ PR-wide findings (no `file`) live in a separate group at the top. Open the same 
 
 ### Submit to GitHub
 
-The **Submit** drawer walks four steps:
+The **Submit** drawer is two steps:
 
-1. **Review** — preview which findings become inline comments and which fall back to the review body (off-diff or PR-wide). Yellow chips flag the demotions.
-2. **Body** — optional opening prose for the review.
-3. **Event** — `COMMENT` / `REQUEST_CHANGES` / `APPROVE`.
-4. **Confirm** — daemon builds the payload and POSTs to `gh api repos/<owner>/<repo>/pulls/<n>/reviews`.
+1. **Review** — preview which selected findings become inline comments and which fall back to the review body (off-diff or PR-wide), pick a review event (`COMMENT` / `REQUEST_CHANGES` / `APPROVE`), and edit the review body. The body is auto-populated from PR-wide findings unless you override it.
+2. **Confirm** — final summary, then submit (`⌘⏎`). The daemon POSTs to `gh api repos/<owner>/<repo>/pulls/<n>/reviews` and shows the GitHub URL inline.
 
-Successful submissions return the GitHub URL inline. There are no automatic retries; failures surface in the banner and submissions table.
+There are no automatic retries; failures surface in the banner and the submissions table.
 
 ### Customise the review prompt
 
@@ -96,7 +100,7 @@ The prompt is split into two layers:
   prompts/builtin-rules.md         # built-in default
   ```
 
-Edit either scope from the **Prompt** tab in the sidebar. Saving a file changes future reviews; click **Apply to current session** or **Rerun** on a PR to pick up the new rules retroactively.
+Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews; use **Apply to current session** in the prompt editor — or **Rerun** on a PR detail page — to re-run with the updated rules. You can also change the default agent from the **Settings** link in the top bar.
 
 ## Configuration
 
