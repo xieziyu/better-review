@@ -7,6 +7,7 @@ export default {
     extend: {
       colors: {
         canvas: 'var(--bg-canvas)',
+        main: 'var(--bg-main)',
         raised: 'var(--bg-raised)',
         sunken: 'var(--bg-sunken)',
         ink: {
