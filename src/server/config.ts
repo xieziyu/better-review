@@ -3,7 +3,34 @@ import { join } from 'node:path'
 
 import { z } from 'zod'
 
-import { AGENT_KINDS, LANGUAGES } from '../shared/types'
+import { AGENT_KINDS, LANGUAGES, type Language } from '../shared/types'
+
+// Picks the supported locale that best matches the host. Used as the initial
+// default for `config.language` so a fresh install reflects the user's system
+// instead of always landing on English. Once the user saves config (whether by
+// changing language or any other field), the resolved value is persisted and
+// further OS-locale changes won't affect the app.
+export function detectSystemLanguage(): Language {
+  // Use the first explicit POSIX locale signal; fall back to ICU if none set.
+  // Env wins over Intl so users who set LANG explicitly get what they asked for.
+  let signal: string | null = null
+  for (const key of ['LC_ALL', 'LC_MESSAGES', 'LANG']) {
+    const v = process.env[key]
+    if (v) {
+      signal = v
+      break
+    }
+  }
+  if (!signal) {
+    try {
+      signal = Intl.DateTimeFormat().resolvedOptions().locale
+    } catch {
+      // Intl unavailable — fall through to default.
+    }
+  }
+  if (signal && signal.toLowerCase().startsWith('zh')) return 'zh-CN'
+  return 'en'
+}
 
 const rawConfigSchema = z.object({
   port: z.number().int().nonnegative().default(0),
@@ -11,7 +38,7 @@ const rawConfigSchema = z.object({
   stallMinutes: z.number().int().positive().default(3),
   defaultAgent: z.enum(AGENT_KINDS).default('claude'),
   perPRGCDays: z.number().int().nonnegative().default(7),
-  language: z.enum(LANGUAGES).default('en'),
+  language: z.enum(LANGUAGES).default(() => detectSystemLanguage()),
   // Deprecated alias kept for backward compatibility — superseded by `stallMinutes`.
   claudeStallMinutes: z.number().int().positive().optional(),
 })
