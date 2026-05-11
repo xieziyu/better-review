@@ -115,15 +115,15 @@ review.md                 # 全局 rule 覆盖（可选）
 sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、findings.json、agent.log、prompt.txt
 ```
 
-`config.json` 可改字段（全部可选）。**Settings** 页改的就是这个文件，绝大多数字段保存即生效；下表标注 *(需重启)* 的两项要重启 daemon 才生效。
+`config.json` 可改字段（全部可选）。**Settings** 页改的就是这个文件，绝大多数字段保存即生效；下表标注 _(需重启)_ 的两项要重启 daemon 才生效。
 
-| 字段                   | 默认        | 说明                                                                |
-| ---------------------- | ----------- | ------------------------------------------------------------------- |
-| `port`                 | `0`（随机） | 想要稳定 URL 就固定一个端口 *(需重启)*                              |
-| `maxConcurrentReviews` | `4`         | 并行 agent 进程上限，超过的排队 *(需重启)*                          |
-| `stallMinutes`         | `3`         | agent 多久没 stdout 就触发 watchdog                                 |
-| `defaultAgent`         | `"claude"`  | 可选 `"claude"` / `"codex"`；UI selector 可单次覆盖                 |
-| `perPRGCDays`          | `7`         | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC            |
+| 字段                   | 默认        | 说明                                                     |
+| ---------------------- | ----------- | -------------------------------------------------------- |
+| `port`                 | `0`（随机） | 想要稳定 URL 就固定一个端口 _(需重启)_                   |
+| `maxConcurrentReviews` | `4`         | 并行 agent 进程上限，超过的排队 _(需重启)_               |
+| `stallMinutes`         | `3`         | agent 多久没 stdout 就触发 watchdog                      |
+| `defaultAgent`         | `"claude"`  | 可选 `"claude"` / `"codex"`；UI selector 可单次覆盖      |
+| `perPRGCDays`          | `7`         | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC |
 
 ## 开发
 

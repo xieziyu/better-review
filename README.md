@@ -117,13 +117,13 @@ sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent
 
 `config.json` keys (all optional). The **Settings** page edits the same file; most keys hot-reload, the two flagged below need a daemon restart.
 
-| Key                    | Default      | Meaning                                                                            |
-| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
-| `port`                 | `0` (random) | Set to a fixed port if you want a stable URL. *(restart required)*                 |
-| `maxConcurrentReviews` | `4`          | Cap on parallel agent processes; the rest queue. *(restart required)*              |
-| `stallMinutes`         | `3`          | Watchdog kills an agent that emits no stdout for this long.                        |
-| `defaultAgent`         | `"claude"`   | `"claude"` or `"codex"`; UI selector overrides per session.                        |
-| `perPRGCDays`          | `7`          | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.        |
+| Key                    | Default      | Meaning                                                                     |
+| ---------------------- | ------------ | --------------------------------------------------------------------------- |
+| `port`                 | `0` (random) | Set to a fixed port if you want a stable URL. _(restart required)_          |
+| `maxConcurrentReviews` | `4`          | Cap on parallel agent processes; the rest queue. _(restart required)_       |
+| `stallMinutes`         | `3`          | Watchdog kills an agent that emits no stdout for this long.                 |
+| `defaultAgent`         | `"claude"`   | `"claude"` or `"codex"`; UI selector overrides per session.                 |
+| `perPRGCDays`          | `7`          | Garbage-collect per-PR workdirs older than this many days; `0` disables GC. |
 
 ## Development
 
