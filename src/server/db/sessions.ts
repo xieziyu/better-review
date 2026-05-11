@@ -29,6 +29,9 @@ export interface NewSessionInput {
   sourceRefName?: string | null
   promptUsed: string
   extraPrompt?: string | null
+  // PR head sha at the time of this review. Read by rerun-context to compute
+  // the incremental diff and detect force-push.
+  headSha?: string | null
 }
 
 interface Row {
@@ -51,6 +54,7 @@ interface Row {
   source_ref_name: string | null
   prompt_used: string
   extra_prompt: string | null
+  head_sha: string | null
   error: string | null
 }
 
@@ -75,6 +79,7 @@ function rowToSession(r: Row): PRSession {
     sourceRefName: r.source_ref_name,
     promptUsed: r.prompt_used,
     extraPrompt: r.extra_prompt,
+    headSha: r.head_sha,
     error: r.error,
   }
 }
@@ -90,10 +95,10 @@ export class SessionsRepo {
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
          status, agent, created_at, updated_at, workdir, local_repo_path,
-         source_kind, source_ref_name, prompt_used, extra_prompt, error)
+         source_kind, source_ref_name, prompt_used, extra_prompt, head_sha, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
               @status, @agent, @now, @now, @workdir, @localRepoPath,
-              @sourceKind, @sourceRefName, @promptUsed, @extraPrompt, NULL)
+              @sourceKind, @sourceRefName, @promptUsed, @extraPrompt, @headSha, NULL)
     `,
       )
       .run({
@@ -101,6 +106,7 @@ export class SessionsRepo {
         sourceKind: s.sourceKind ?? null,
         sourceRefName: s.sourceRefName ?? null,
         extraPrompt: s.extraPrompt ?? null,
+        headSha: s.headSha ?? null,
         now,
       })
   }
@@ -124,6 +130,26 @@ export class SessionsRepo {
       )
       .get(owner, repo, number) as Row | undefined
     return row ? rowToSession(row) : null
+  }
+
+  // Most-recent archived session for the PR. Drives rerun-context lookup:
+  // the new session knows its prior because we archive on rerun.
+  findLatestArchivedByPR(owner: string, repo: string, number: number): PRSession | null {
+    const row = this.db
+      .prepare(
+        "SELECT * FROM pr_sessions WHERE owner=? AND repo=? AND number=? AND status='archived' ORDER BY created_at DESC LIMIT 1",
+      )
+      .get(owner, repo, number) as Row | undefined
+    return row ? rowToSession(row) : null
+  }
+
+  countArchivedByPR(owner: string, repo: string, number: number): number {
+    const row = this.db
+      .prepare(
+        "SELECT COUNT(*) AS c FROM pr_sessions WHERE owner=? AND repo=? AND number=? AND status='archived'",
+      )
+      .get(owner, repo, number) as { c: number }
+    return row.c
   }
 
   recentRepos(filter: { owner: string; repo: string }, limit: number): RecentRepo[] {
@@ -172,6 +198,50 @@ export class SessionsRepo {
     this.db
       .prepare('UPDATE pr_sessions SET workdir=?, prompt_used=?, updated_at=? WHERE id=?')
       .run(workdir, promptUsed, Date.now(), id)
+  }
+
+  // Called by startSession once gh.prView finishes (now in the background).
+  // Backfills the human-readable PR fields plus head_sha onto the row that
+  // was inserted with nulls.
+  updatePRMeta(
+    id: string,
+    meta: {
+      title: string | null
+      author: string | null
+      url: string | null
+      baseRef: string | null
+      headRef: string | null
+      headSha: string | null
+    },
+  ): void {
+    this.db
+      .prepare(
+        `UPDATE pr_sessions
+            SET title=@title, author=@author, url=@url, base_ref=@baseRef, head_ref=@headRef,
+                head_sha=@headSha, updated_at=@now
+          WHERE id=@id`,
+      )
+      .run({ ...meta, id, now: Date.now() })
+  }
+
+  // Called once prep has resolved the source kind and rendered the final
+  // prompt — these only exist after gh + prior-review lookups complete.
+  updatePrepArtifacts(
+    id: string,
+    artifacts: {
+      promptUsed: string
+      sourceKind: SourceKind | null
+      sourceRefName: string | null
+    },
+  ): void {
+    this.db
+      .prepare(
+        `UPDATE pr_sessions
+            SET prompt_used=@promptUsed, source_kind=@sourceKind, source_ref_name=@sourceRefName,
+                updated_at=@now
+          WHERE id=@id`,
+      )
+      .run({ ...artifacts, id, now: Date.now() })
   }
 
   delete(id: string): void {

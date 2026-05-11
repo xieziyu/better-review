@@ -14,6 +14,7 @@ import { loadConfigWithWarnings } from './config'
 import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
 import { SessionsRepo } from './db/sessions'
+import { SubmissionCommentsRepo } from './db/submission-comments'
 import { SubmissionsRepo } from './db/submissions'
 import { makeDeleteSession } from './delete-session'
 import { getAgent, whichBinary } from './engine/agent'
@@ -71,6 +72,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const sessions = new SessionsRepo(db)
   const findings = new FindingsRepo(db)
   const submissions = new SubmissionsRepo(db)
+  const submissionComments = new SubmissionCommentsRepo(db)
   const bus = new EventBus()
   const queue = new ConcurrencyQueue(configState.maxConcurrentReviews)
   const runners = new RunnerRegistry()
@@ -101,6 +103,8 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const startSession = makeStartSession({
     sessions,
     findings,
+    submissions,
+    submissionComments,
     gh,
     bus,
     queue,
@@ -169,6 +173,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     sessions,
     findings,
     submissions,
+    submissionComments,
     bus,
     gh,
     promptStore,
@@ -201,6 +206,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
         sessions,
         findings,
         submissions,
+        submissionComments,
         gh,
       }
       if (body !== undefined) submitArgs.body = body

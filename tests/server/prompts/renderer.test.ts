@@ -75,4 +75,60 @@ describe('renderPrompt', () => {
     const out = renderPrompt(tpl, { ...baseVars, extraNotes: '  see PRD section 4  ' })
     expect(out).toBe('A\n## Notes\nsee PRD section 4\nB')
   })
+
+  it('strips the PRIOR_REVIEW block when priorReview is undefined', () => {
+    const tpl = 'A\n{{#PRIOR_REVIEW}}\nprior {{LAST_REVIEWED_SHA}}\n{{/PRIOR_REVIEW}}\nB'
+    expect(renderPrompt(tpl, baseVars)).toBe('A\nB')
+  })
+
+  it('renders PRIOR_REVIEW with inline comments + author reply marker', () => {
+    const tpl =
+      '{{#PRIOR_REVIEW}}\nsha={{LAST_REVIEWED_SHA}}\n{{#FORCE_PUSHED}}force{{/FORCE_PUSHED}}{{^FORCE_PUSHED}}clean{{/FORCE_PUSHED}}\nbody={{PRIOR_REVIEW_BODY}}\ninline:\n{{PRIOR_REVIEW_INLINE}}\nissue:\n{{PRIOR_REVIEW_ISSUE}}\n{{/PRIOR_REVIEW}}'
+    const out = renderPrompt(tpl, {
+      ...baseVars,
+      priorReview: {
+        lastReviewedSha: 'abc1234',
+        forcePushed: false,
+        reviewBody: 'overall',
+        inlineComments: [
+          {
+            file: 'a.ts',
+            line: 12,
+            startLine: null,
+            body: 'inline body',
+            replies: [
+              { author: 'alice', body: '不打算改，因为 X', isAuthor: true },
+              { author: 'bob', body: 'agree', isAuthor: false },
+            ],
+          },
+        ],
+        issueComments: [{ author: 'alice', body: '已修', isAuthor: true }],
+      },
+    })
+    expect(out).toContain('sha=abc1234')
+    expect(out).toContain('clean')
+    expect(out).not.toContain('force')
+    expect(out).toContain('a.ts:12')
+    expect(out).toContain('**@alice（作者）**')
+    expect(out).toContain('不打算改，因为 X')
+    expect(out).toContain('@bob')
+    expect(out).toContain('已修')
+  })
+
+  it('shows the force-pushed banner when forcePushed=true', () => {
+    const tpl =
+      '{{#PRIOR_REVIEW}}{{#FORCE_PUSHED}}FORCE{{/FORCE_PUSHED}}{{^FORCE_PUSHED}}CLEAN{{/FORCE_PUSHED}}{{/PRIOR_REVIEW}}'
+    const out = renderPrompt(tpl, {
+      ...baseVars,
+      priorReview: {
+        lastReviewedSha: 'abc1234',
+        forcePushed: true,
+        reviewBody: '',
+        inlineComments: [],
+        issueComments: [],
+      },
+    })
+    expect(out).toContain('FORCE')
+    expect(out).not.toContain('CLEAN')
+  })
 })

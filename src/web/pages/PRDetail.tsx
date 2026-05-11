@@ -16,6 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
+import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
@@ -25,7 +26,9 @@ import { cn } from '@/lib/utils'
 const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'danger' | 'neutral'> =
   {
     running: 'running',
-    pending: 'warning',
+    // `pending` now means "review prep in progress" (gh fetches, prior-
+    // context lookups, source prep). It behaves like running visually.
+    pending: 'running',
     ready: 'success',
     failed: 'danger',
     submitted: 'neutral',
@@ -35,7 +38,7 @@ const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'da
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   running: 'Running',
-  pending: 'Pending',
+  pending: 'Preparing',
   ready: 'Ready',
   failed: 'Failed',
   submitted: 'Submitted',
@@ -65,6 +68,10 @@ function SourceKindBadge({ session }: { session: PRSession }) {
 interface PRHeaderProps {
   session: PRSession
   selectedCount: number
+  // 1-based round number for the *current* session (first review = 1,
+  // first rerun = 2, …). Computed by the parent from archived sessions
+  // older than this one for the same PR.
+  roundNumber: number
   onRerun: () => void
   onSubmit: () => void
   onDelete: () => void
@@ -81,6 +88,7 @@ interface PRHeaderProps {
 function PRHeader({
   session,
   selectedCount,
+  roundNumber,
   onRerun,
   onSubmit,
   onDelete,
@@ -99,6 +107,14 @@ function PRHeader({
         <Tag tone={STATUS_TONE[session.status]} data-status={session.status}>
           {STATUS_LABEL[session.status]}
         </Tag>
+        {roundNumber > 1 ? (
+          <Tag
+            tone="brand"
+            title="本次 review 是这个 PR 上的第 N 次评审，agent 收到了上一轮 findings + 作者回复作为上下文"
+          >
+            第 {roundNumber} 轮 · 已携带上次上下文
+          </Tag>
+        ) : null}
         <span
           className="min-w-0 font-mono text-meta text-ink-secondary tabular-nums"
           aria-label={`${session.owner}/${session.repo}#${session.number}`}
@@ -407,6 +423,7 @@ export function PRDetail() {
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
+  const [prepSteps, setPrepSteps] = useState<PrepStep[]>([])
   // null = no override → server carries the previous session's extraPrompt as-is.
   // string (including '') = explicit override sent on rerun.
   const [extraDraft, setExtraDraft] = useState<string | null>(null)
@@ -420,6 +437,12 @@ export function PRDetail() {
   })
 
   const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
+  // Used to compute "round N" — counts prior archived sessions for the
+  // same PR. Cached under the sessions key so it shares with the sidebar.
+  const { data: allSessions } = useQuery({
+    queryKey: queryKeys.sessions,
+    queryFn: api.listSessions,
+  })
 
   const { data: diffFromEndpoint } = useQuery({
     queryKey: ['session', id, 'diff'],
@@ -433,6 +456,14 @@ export function PRDetail() {
       setAgentChunks((prev) => [...prev, e.chunk])
       return
     }
+    // Server-emitted prep phases share the `prep:` prefix. Agent runtime
+    // emits its own `progress` events too (stream-json phases for claude,
+    // line phases for codex) — we ignore those here.
+    if (e.type === 'progress' && e.phase.startsWith('prep:')) {
+      const step: PrepStep = { phase: e.phase, ts: Date.now() }
+      if (e.detail !== undefined) step.detail = e.detail
+      setPrepSteps((prev) => [...prev, step])
+    }
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
 
@@ -444,6 +475,7 @@ export function PRDetail() {
     document.querySelector('main')?.scrollTo({ top: 0 })
     setSubmitOpen(false)
     setAgentChunks([])
+    setPrepSteps([])
     setExtraDraft(null)
     setExtraEditing(false)
     setExtraExpanded(false)
@@ -502,6 +534,20 @@ export function PRDetail() {
   const activeFindings = findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
+  // Round N = 1 + (archived sessions older than this one for the same PR).
+  // The current session is non-archived (running/ready/submitted/etc) at
+  // load time; we only count strictly-prior runs.
+  const roundNumber = Array.isArray(allSessions)
+    ? 1 +
+      allSessions.filter(
+        (s) =>
+          s.owner === session.owner &&
+          s.repo === session.repo &&
+          s.number === session.number &&
+          s.status === 'archived' &&
+          s.createdAt < session.createdAt,
+      ).length
+    : 1
 
   return (
     <div className="px-8 py-8 mx-auto" style={{ width: 'clamp(720px, 84vw, 980px)' }}>
@@ -509,6 +555,7 @@ export function PRDetail() {
         <PRHeader
           session={session}
           selectedCount={selectedCount}
+          roundNumber={roundNumber}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
           onSubmit={() => setSubmitOpen(true)}
           onDelete={() => remove.mutate()}
@@ -540,6 +587,8 @@ export function PRDetail() {
           onSaveEdit={() => setExtraEditing(false)}
           onChange={(v) => setExtraDraft(v)}
         />
+
+        <PreparationPanel steps={prepSteps} status={session.status} />
 
         <AgentOutputPanel chunks={agentChunks} status={session.status} />
 

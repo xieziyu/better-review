@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { ReviewEvent } from '../../shared/types'
+import type { Finding, ReviewEvent } from '../../shared/types'
 import type { FindingsRepo } from '../db/findings'
 import type { SessionsRepo } from '../db/sessions'
+import type { SubmissionCommentsRepo, NewSubmissionComment } from '../db/submission-comments'
 import type { SubmissionsRepo } from '../db/submissions'
-import type { GhClient } from '../github/gh-client'
+import type { GhClient, ReviewComment } from '../github/gh-client'
 import { buildSubmitPayload } from './payload-builder'
+import { dedupAgainstPrior, type PriorPostedComment } from './submit-dedup'
 
 export interface SubmitArgs {
   sessionId: string
@@ -15,12 +17,41 @@ export interface SubmitArgs {
   sessions: SessionsRepo
   findings: FindingsRepo
   submissions: SubmissionsRepo
+  submissionComments: SubmissionCommentsRepo
   gh: GhClient
 }
 
 export interface SubmitResult {
   url: string
   droppedToBody: string[]
+  // Count of inline comments we held back because they duplicated a
+  // comment we already posted to the same PR in a prior submission.
+  skippedDuplicates: number
+}
+
+// Pick the originating Finding for each ReviewComment we sent. The payload
+// builder emits comments in the order of selected findings that survived
+// `isLineInDiff`, so we walk in the same order and match by path+line.
+function pairCommentsToFindings(
+  comments: ReviewComment[],
+  candidates: Finding[],
+): Array<{ comment: ReviewComment; finding: Finding | null }> {
+  const remaining = candidates.slice()
+  return comments.map((c) => {
+    const idx = remaining.findIndex(
+      (f) =>
+        f.file === c.path && f.line === c.line && (f.startLine ?? null) === (c.start_line ?? null),
+    )
+    if (idx >= 0) {
+      const [f] = remaining.splice(idx, 1)
+      return { comment: c, finding: f ?? null }
+    }
+    return { comment: c, finding: null }
+  })
+}
+
+function firstLine(s: string): string {
+  return s.split('\n').find((l) => l.trim().length > 0) ?? ''
 }
 
 export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
@@ -36,28 +67,93 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   }
   if (args.body !== undefined) buildArgs.userBody = args.body
   const built = buildSubmitPayload(buildArgs)
+
+  // Cross-session dedup: skip inline comments that match a comment we
+  // already posted for this PR in a prior submission.
+  const priorRows = args.submissionComments.listByPR(session.owner, session.repo, session.number)
+  const prior: PriorPostedComment[] = priorRows
+    .filter(
+      (r): r is typeof r & { line: number; path: string } => r.line !== null && r.file !== null,
+    )
+    .map((r) => ({
+      findingDbId: r.findingDbId,
+      githubCommentId: r.githubCommentId,
+      path: r.file as string,
+      line: r.line as number,
+      startLine: r.startLine,
+      body: r.body,
+    }))
+  const dedup = dedupAgainstPrior(built.payload.comments, prior)
+  const payload = { ...built.payload, comments: dedup.toSubmit }
+
   const findingIds = selected.map((f) => f.dbId)
+  // We pair the *post-dedup* inline comments back to findings so the
+  // submission_comments rows reflect what actually went out.
+  const inlineFindingCandidates = selected.filter((f) => f.file !== null && f.line !== null)
   try {
     const r = await args.gh.submitReview(
       { owner: session.owner, repo: session.repo, number: session.number },
-      built.payload,
+      payload,
     )
-    args.submissions.insert({
+    const submissionId = args.submissions.insert({
       sessionId: args.sessionId,
       event: args.event,
       githubUrl: r.html_url,
-      payloadJson: JSON.stringify(built.payload),
+      githubReviewId: r.id,
+      payloadJson: JSON.stringify(payload),
       findingIds,
       error: null,
     })
+    // Best-effort: pull back the actual review comments to capture their
+    // GitHub ids, and persist a row per posted inline comment. If the
+    // fetch fails, we still write rows without github_comment_id so
+    // future dedup can match by (file, line, body).
+    let allComments: Awaited<ReturnType<GhClient['listAllPRComments']>> = []
+    try {
+      allComments = await args.gh.listAllPRComments({
+        owner: session.owner,
+        repo: session.repo,
+        number: session.number,
+      })
+    } catch {
+      allComments = []
+    }
+    const ourComments = allComments.filter(
+      (c) => c.pull_request_review_id === r.id && c.in_reply_to_id === null,
+    )
+    const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates)
+    const rows: NewSubmissionComment[] = paired.map(({ comment, finding }) => {
+      const match = ourComments.find(
+        (gc) =>
+          gc.path === comment.path &&
+          gc.line === comment.line &&
+          (gc.start_line ?? null) === (comment.start_line ?? null),
+      )
+      return {
+        findingDbId: finding?.dbId ?? null,
+        githubCommentId: match?.id ?? null,
+        file: comment.path,
+        line: comment.line,
+        startLine: comment.start_line ?? null,
+        title: firstLine(comment.body),
+        body: comment.body,
+      }
+    })
+    args.submissionComments.insertMany(submissionId, rows)
+
     args.sessions.setStatus(args.sessionId, 'submitted')
-    return { url: r.html_url, droppedToBody: built.droppedToBody.map((f) => f.dbId) }
+    return {
+      url: r.html_url,
+      droppedToBody: built.droppedToBody.map((f) => f.dbId),
+      skippedDuplicates: dedup.skipped.length,
+    }
   } catch (e) {
     args.submissions.insert({
       sessionId: args.sessionId,
       event: args.event,
       githubUrl: null,
-      payloadJson: JSON.stringify(built.payload),
+      githubReviewId: null,
+      payloadJson: JSON.stringify(payload),
       findingIds,
       error: (e as Error).message,
     })

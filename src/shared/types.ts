@@ -41,6 +41,7 @@ export interface PRSession {
   sourceRefName: string | null
   promptUsed: string
   extraPrompt: string | null
+  headSha: string | null
   error: string | null
 }
 
@@ -68,10 +69,28 @@ export interface Submission {
   sessionId: string
   event: ReviewEvent
   githubUrl: string | null
+  githubReviewId: number | null
   payloadJson: string
   findingIds: string[]
   submittedAt: number
   error: string | null
+}
+
+// One row per inline comment we posted to GitHub from a submission. Maps
+// the finding that generated it to the resulting GitHub comment id; used by
+// submit-dedup (skip already-posted comments) and rerun-context (recover
+// which review comments were ours without refetching).
+export interface SubmissionComment {
+  id: string
+  submissionId: string
+  findingDbId: string | null
+  githubCommentId: number | null
+  file: string | null
+  line: number | null
+  startLine: number | null
+  title: string
+  body: string
+  createdAt: number
 }
 
 export interface AgentHealth {

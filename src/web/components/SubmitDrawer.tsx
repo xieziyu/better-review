@@ -375,6 +375,11 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                       in diff).
                     </div>
                   ) : null}
+                  {submit.data.skippedDuplicates > 0 ? (
+                    <div className="text-meta text-ink-secondary">
+                      {submit.data.skippedDuplicates} 条与上一轮重复，已跳过未重复发送。
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="border-y border-rule py-5 space-y-2">

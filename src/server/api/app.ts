@@ -8,6 +8,7 @@ import type { HealthStatus, ReviewEvent } from '../../shared/types'
 import type { Config } from '../config'
 import type { FindingsRepo } from '../db/findings'
 import type { SessionsRepo } from '../db/sessions'
+import type { SubmissionCommentsRepo } from '../db/submission-comments'
 import type { SubmissionsRepo } from '../db/submissions'
 import type { EventBus } from '../engine/events'
 import type { FolderPicker } from '../fs/folder-picker'
@@ -28,6 +29,7 @@ export interface AppDeps {
   sessions: SessionsRepo
   findings: FindingsRepo
   submissions: SubmissionsRepo
+  submissionComments: SubmissionCommentsRepo
   bus: EventBus
   gh: GhClient
   promptStore: PromptStore
@@ -58,7 +60,7 @@ export interface AppDeps {
     id: string,
     event: ReviewEvent,
     body?: string,
-  ) => Promise<{ url: string; droppedToBody: string[] }>
+  ) => Promise<{ url: string; droppedToBody: string[]; skippedDuplicates: number }>
   health: () => Promise<HealthStatus>
 }
 

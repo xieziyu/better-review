@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Test shim for the `gh` CLI. Each branch covers a single command shape the
+# server actually invokes; tests opt into specific behaviours by setting
+# environment variables (FAKE_GH_*) before spawning the daemon / GhClient.
 case "$1" in
   "auth")
     if [[ "$FAKE_GH_AUTHED" == "0" ]]; then echo "not logged in" >&2; exit 1; fi
@@ -19,13 +22,22 @@ JSON
         exit 0 ;;
     esac ;;
   "api")
+    # `gh api` is the catch-all for REST endpoints. Distinguish submit
+    # (POST .../pulls/:n/reviews) from GET listReviews by sniffing the
+    # raw arg list for `-X POST` — same URL, different verb.
+    is_post=0
+    for a in "$@"; do
+      if [[ "$a" == "POST" ]]; then is_post=1; break; fi
+    done
+    shift
+    if [[ "$1" == "--paginate" ]]; then shift; fi
+    arg="$1"
     # Contents API: gh api repos/<owner>/<repo>/contents/<path>?ref=<sha>
     # Tests opt in by setting FAKE_GH_CONTENTS_DIR to a directory whose layout
     # mirrors what the agent should see at the requested ref. The shim reads
     # the file from there, base64-encodes it, and emits the same JSON shape
     # the real Contents API returns. Files missing from the dir surface as
     # 404 so the snapshot path can exercise its skip-and-continue branch.
-    arg="$2"
     if [[ "$arg" == repos/*/contents/* ]]; then
       if [[ -z "$FAKE_GH_CONTENTS_DIR" ]]; then
         echo "FAKE_GH_CONTENTS_DIR not set" >&2; exit 1
@@ -41,8 +53,54 @@ JSON
       printf '{"type":"file","encoding":"base64","content":"%s"}\n' "$content_b64"
       exit 0
     fi
+    # Reviews list — strip query string before matching. POST to the
+    # same URL is the submit endpoint and falls through to the submit
+    # branch below.
+    bare="${arg%%\?*}"
+    if [[ "$bare" == repos/*/pulls/*/reviews && "$is_post" == "0" ]]; then
+      if [[ -n "$FAKE_GH_REVIEWS_FILE" && -f "$FAKE_GH_REVIEWS_FILE" ]]; then
+        cat "$FAKE_GH_REVIEWS_FILE"
+      else
+        echo '[]'
+      fi
+      exit 0
+    fi
+    # Inline review comments (pulls level).
+    if [[ "$bare" == repos/*/pulls/*/comments ]]; then
+      if [[ -n "$FAKE_GH_PR_COMMENTS_FILE" && -f "$FAKE_GH_PR_COMMENTS_FILE" ]]; then
+        cat "$FAKE_GH_PR_COMMENTS_FILE"
+      else
+        echo '[]'
+      fi
+      exit 0
+    fi
+    # PR-level (issue) comments — main conversation thread.
+    if [[ "$bare" == repos/*/issues/*/comments ]]; then
+      if [[ -n "$FAKE_GH_ISSUE_COMMENTS_FILE" && -f "$FAKE_GH_ISSUE_COMMENTS_FILE" ]]; then
+        cat "$FAKE_GH_ISSUE_COMMENTS_FILE"
+      else
+        echo '[]'
+      fi
+      exit 0
+    fi
+    # Compare endpoint. Surfaces force-push to rerun-context.
+    if [[ "$bare" == repos/*/compare/* ]]; then
+      if [[ "$FAKE_GH_COMPARE_NOTFOUND" == "1" ]]; then
+        echo "HTTP 404: No common ancestor between bases" >&2
+        exit 1
+      fi
+      if [[ -n "$FAKE_GH_COMPARE_FILE" && -f "$FAKE_GH_COMPARE_FILE" ]]; then
+        cat "$FAKE_GH_COMPARE_FILE"
+      else
+        echo '{"status":"ahead","ahead_by":1,"behind_by":0,"total_commits":1,"files":[]}'
+      fi
+      exit 0
+    fi
+    # Submit (POST). The submit branch checks for `-X POST` (or fallback
+    # when the URL ends in /reviews and we couldn't tell apart from list).
     if [[ "$FAKE_GH_SUBMIT_FAIL" == "1" ]]; then echo "HTTP 422" >&2; exit 1; fi
-    echo '{"id":99,"html_url":"https://github.com/o/r/pull/1#pullrequestreview-99"}'
+    REVIEW_ID="${FAKE_GH_REVIEW_ID:-99}"
+    echo "{\"id\":${REVIEW_ID},\"html_url\":\"https://github.com/o/r/pull/1#pullrequestreview-${REVIEW_ID}\"}"
     exit 0 ;;
 esac
 echo "unsupported: $@" >&2; exit 2

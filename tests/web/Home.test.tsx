@@ -44,6 +44,7 @@ const session: PRSession = {
   sourceRefName: null,
   promptUsed: '',
   extraPrompt: null,
+  headSha: null,
   error: null,
 }
 

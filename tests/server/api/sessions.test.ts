@@ -275,6 +275,7 @@ describe('sessions API', () => {
       sessionId: 's1',
       event: 'COMMENT',
       githubUrl: 'https://gh',
+      githubReviewId: null,
       payloadJson: '{}',
       findingIds: ['F1'],
       error: null,

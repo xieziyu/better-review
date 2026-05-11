@@ -8,6 +8,7 @@ import type { Config } from '../../../src/server/config'
 import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
+import { SubmissionCommentsRepo } from '../../../src/server/db/submission-comments'
 import { SubmissionsRepo } from '../../../src/server/db/submissions'
 import { makeDeleteSession } from '../../../src/server/delete-session'
 import { EventBus } from '../../../src/server/engine/events'
@@ -37,6 +38,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
   const db = openDatabase(join(dbDir, 's.db'))
   const sessions = new SessionsRepo(db)
   const submissions = new SubmissionsRepo(db)
+  const submissionComments = new SubmissionCommentsRepo(db)
   const queue = new ConcurrencyQueue(1)
   const runners = new RunnerRegistry()
   const sessionsDir = overrides.sessionsDir ?? mkdtempSync(join(tmpdir(), 'br-sessions-'))
@@ -62,6 +64,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     sessions,
     findings: new FindingsRepo(db),
     submissions,
+    submissionComments,
     bus,
     gh: {} as GhClient,
     promptStore: new PromptStore({ cwd, home }),
@@ -85,7 +88,8 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     deleteSession: overrides.deleteSession ?? defaultDelete,
     cancelSession: overrides.cancelSession ?? defaultCancel,
     submitSession:
-      overrides.submitSession ?? (async () => ({ url: 'https://gh', droppedToBody: [] })),
+      overrides.submitSession ??
+      (async () => ({ url: 'https://gh', droppedToBody: [], skippedDuplicates: 0 })),
     health:
       overrides.health ??
       (async () => ({

@@ -10,7 +10,7 @@ describe('submit API', () => {
         expect(id).toBe('s1')
         expect(event).toBe('COMMENT')
         expect(body).toBe('hello')
-        return { url: 'https://gh/r/1', droppedToBody: ['d1'] }
+        return { url: 'https://gh/r/1', droppedToBody: ['d1'], skippedDuplicates: 2 }
       },
     })
     const app = createApp(d)
@@ -23,6 +23,7 @@ describe('submit API', () => {
     const j = await res.json()
     expect(j.url).toBe('https://gh/r/1')
     expect(j.droppedToBody).toEqual(['d1'])
+    expect(j.skippedDuplicates).toBe(2)
   })
 
   it('POST /api/sessions/:id/submit rejects missing event', async () => {

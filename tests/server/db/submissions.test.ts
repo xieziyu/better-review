@@ -37,6 +37,7 @@ describe('SubmissionsRepo', () => {
       sessionId: 's1',
       event: 'COMMENT',
       githubUrl: 'https://gh/x',
+      githubReviewId: 42,
       payloadJson: '{}',
       findingIds: ['a', 'b'],
       error: null,
@@ -45,5 +46,28 @@ describe('SubmissionsRepo', () => {
     expect(list[0]!.id).toBe(id)
     expect(list[0]!.findingIds).toEqual(['a', 'b'])
     expect(list[0]!.event).toBe('COMMENT')
+    expect(list[0]!.githubReviewId).toBe(42)
+  })
+
+  it('latestSuccessfulForSession ignores errored submissions', () => {
+    repo.insert({
+      sessionId: 's1',
+      event: 'COMMENT',
+      githubUrl: null,
+      githubReviewId: null,
+      payloadJson: '{}',
+      findingIds: [],
+      error: 'boom',
+    })
+    const okId = repo.insert({
+      sessionId: 's1',
+      event: 'COMMENT',
+      githubUrl: 'https://gh/x',
+      githubReviewId: 7,
+      payloadJson: '{}',
+      findingIds: [],
+      error: null,
+    })
+    expect(repo.latestSuccessfulForSession('s1')?.id).toBe(okId)
   })
 })

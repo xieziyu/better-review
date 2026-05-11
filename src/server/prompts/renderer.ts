@@ -1,5 +1,27 @@
 import type { SourceKind } from '../../shared/types'
 
+export interface PriorReplyForPrompt {
+  author: string
+  body: string
+  isAuthor: boolean
+}
+
+export interface PriorInlineForPrompt {
+  file: string | null
+  line: number | null
+  startLine: number | null
+  body: string
+  replies: PriorReplyForPrompt[]
+}
+
+export interface PriorReviewVars {
+  lastReviewedSha: string
+  forcePushed: boolean
+  reviewBody: string
+  inlineComments: PriorInlineForPrompt[]
+  issueComments: PriorReplyForPrompt[]
+}
+
 export interface PromptVars {
   rules: string
   prMeta: string
@@ -17,6 +39,11 @@ export interface PromptVars {
   // Empty / whitespace-only is treated as none and the entire
   // `{{#EXTRA_NOTES}}…{{/EXTRA_NOTES}}` block (including header) is removed.
   extraNotes?: string
+  // Rerun context: when present, the `{{#PRIOR_REVIEW}}` block survives
+  // and is filled with the prior review body + inline + issue comments.
+  // When absent, the entire block is stripped → byte-identical output to
+  // a first-ever review.
+  priorReview?: PriorReviewVars
 }
 
 // Markers wrap kind-specific content. We strip whole blocks whose suffix
@@ -53,8 +80,91 @@ function applyExtraNotes(template: string, notes: string | undefined): string {
   )
 }
 
+const PRIOR_REVIEW_BLOCK_RE = /\{\{#PRIOR_REVIEW\}\}\n?([\s\S]*?)\{\{\/PRIOR_REVIEW\}\}\n?/g
+const PRIOR_FORCE_BLOCK_RE = /\{\{#FORCE_PUSHED\}\}\n?([\s\S]*?)\{\{\/FORCE_PUSHED\}\}\n?/g
+const PRIOR_NOT_FORCE_BLOCK_RE = /\{\{\^FORCE_PUSHED\}\}\n?([\s\S]*?)\{\{\/FORCE_PUSHED\}\}\n?/g
+
+function formatPriorInline(items: PriorInlineForPrompt[]): string {
+  if (items.length === 0) return '_（上一轮没有发出任何行内评论。）_'
+  const out: string[] = []
+  items.forEach((c, idx) => {
+    const loc =
+      c.file === null
+        ? '（无具体位置）'
+        : c.line === null
+          ? c.file
+          : c.startLine && c.startLine < c.line
+            ? `${c.file}:${c.startLine}-${c.line}`
+            : `${c.file}:${c.line}`
+    const firstBody = c.body.trim()
+    out.push(`#${idx + 1} · \`${loc}\``)
+    out.push('')
+    out.push(
+      firstBody
+        .split('\n')
+        .map((l) => `> ${l}`)
+        .join('\n'),
+    )
+    if (c.replies.length > 0) {
+      out.push('')
+      out.push('回复：')
+      for (const r of c.replies) {
+        const tag = r.isAuthor ? `**@${r.author}（作者）**` : `@${r.author}`
+        const indented = r.body
+          .trim()
+          .split('\n')
+          .map((l) => `    ${l}`)
+          .join('\n')
+        out.push(`- ${tag}：`)
+        out.push(indented)
+      }
+    }
+    out.push('')
+  })
+  return out.join('\n').trimEnd()
+}
+
+function formatIssueComments(items: PriorReplyForPrompt[]): string {
+  if (items.length === 0) return '_（PR 主对话区无评论。）_'
+  return items
+    .map((c) => {
+      const tag = c.isAuthor ? `**@${c.author}（作者）**` : `@${c.author}`
+      const body = c.body
+        .trim()
+        .split('\n')
+        .map((l) => `    ${l}`)
+        .join('\n')
+      return `- ${tag}：\n${body}`
+    })
+    .join('\n')
+}
+
+function applyPriorReview(template: string, prior: PriorReviewVars | undefined): string {
+  if (!prior) {
+    return template.replace(PRIOR_REVIEW_BLOCK_RE, '')
+  }
+  const forceVisible = prior.forcePushed
+  return template.replace(PRIOR_REVIEW_BLOCK_RE, (_full, inner: string) => {
+    let body = inner
+    body = body.replace(PRIOR_FORCE_BLOCK_RE, (_f, b: string) => (forceVisible ? b : ''))
+    body = body.replace(PRIOR_NOT_FORCE_BLOCK_RE, (_f, b: string) => (forceVisible ? '' : b))
+    body = body
+      .replaceAll('{{LAST_REVIEWED_SHA}}', prior.lastReviewedSha || '(unknown)')
+      .replaceAll(
+        '{{PRIOR_REVIEW_BODY}}',
+        prior.reviewBody.trim().length > 0 ? prior.reviewBody.trim() : '_（上一轮总评为空。）_',
+      )
+      .replaceAll('{{PRIOR_REVIEW_INLINE}}', formatPriorInline(prior.inlineComments))
+      .replaceAll('{{PRIOR_REVIEW_ISSUE}}', formatIssueComments(prior.issueComments))
+    return body
+  })
+}
+
 export function renderPrompt(framework: string, vars: PromptVars): string {
-  return applyExtraNotes(applySourceBlocks(framework, vars.sourceKind), vars.extraNotes)
+  return applyPriorReview(
+    applyExtraNotes(applySourceBlocks(framework, vars.sourceKind), vars.extraNotes),
+    vars.priorReview,
+  )
     .replaceAll('{{RULES}}', vars.rules)
     .replaceAll('{{PR_META}}', vars.prMeta)
     .replaceAll('{{DIFF}}', vars.diff)

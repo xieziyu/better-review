@@ -7,9 +7,10 @@ import { describe, it, expect } from 'vitest'
 import { openDatabase } from '../../../src/server/db/connection'
 import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
+import { SubmissionCommentsRepo } from '../../../src/server/db/submission-comments'
 import { SubmissionsRepo } from '../../../src/server/db/submissions'
 import { submitSession } from '../../../src/server/engine/submit'
-import type { GhClient, ReviewPayload } from '../../../src/server/github/gh-client'
+import type { GhClient, GhReviewComment, ReviewPayload } from '../../../src/server/github/gh-client'
 import type { PRTarget } from '../../../src/server/github/pr-target-parser'
 
 const DIFF = `diff --git a/foo.ts b/foo.ts
@@ -27,6 +28,7 @@ function setup() {
   const sessions = new SessionsRepo(db)
   const findings = new FindingsRepo(db)
   const submissions = new SubmissionsRepo(db)
+  const submissionComments = new SubmissionCommentsRepo(db)
   sessions.insert({
     id: 's1',
     owner: 'o',
@@ -43,12 +45,31 @@ function setup() {
     localRepoPath: null,
     promptUsed: 'p',
   })
-  return { sessions, findings, submissions }
+  return { sessions, findings, submissions, submissionComments }
+}
+
+function ghStub(
+  opts: {
+    onSubmit?: (p: ReviewPayload) => void
+    reviewId?: number
+    comments?: GhReviewComment[]
+    shouldThrow?: boolean
+  } = {},
+): GhClient {
+  const reviewId = opts.reviewId ?? 1
+  return {
+    submitReview: async (_t: PRTarget, p: ReviewPayload) => {
+      if (opts.shouldThrow) throw new Error('boom')
+      opts.onSubmit?.(p)
+      return { html_url: 'https://gh', id: reviewId }
+    },
+    listAllPRComments: async () => opts.comments ?? [],
+  } as unknown as GhClient
 }
 
 describe('submitSession', () => {
   it('calls gh, records submission, returns URL + dropped', async () => {
-    const { sessions, findings, submissions } = setup()
+    const { sessions, findings, submissions, submissionComments } = setup()
     findings.insertMany('s1', [
       {
         id: 'R1',
@@ -70,22 +91,19 @@ describe('submitSession', () => {
       },
     ])
     let received: ReviewPayload | null = null
-    const gh = {
-      submitReview: async (_t: PRTarget, p: ReviewPayload) => {
-        received = p
-        return { html_url: 'https://gh', id: 1 }
-      },
-    } as unknown as GhClient
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
     const out = await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
       sessions,
       findings,
       submissions,
+      submissionComments,
       gh,
     })
     expect(out.url).toBe('https://gh')
     expect(out.droppedToBody).toHaveLength(1)
+    expect(out.skippedDuplicates).toBe(0)
     expect(received).not.toBeNull()
     expect(received!.comments).toHaveLength(1)
     expect(submissions.listBySession('s1')).toHaveLength(1)
@@ -93,7 +111,7 @@ describe('submitSession', () => {
   })
 
   it('only includes selected findings', async () => {
-    const { sessions, findings, submissions } = setup()
+    const { sessions, findings, submissions, submissionComments } = setup()
     findings.insertMany('s1', [
       {
         id: 'R1',
@@ -117,18 +135,14 @@ describe('submitSession', () => {
     const all = findings.listBySession('s1')
     findings.setSelected(all[1]!.dbId, false)
     let received: ReviewPayload | null = null
-    const gh = {
-      submitReview: async (_t: PRTarget, p: ReviewPayload) => {
-        received = p
-        return { html_url: 'https://gh', id: 1 }
-      },
-    } as unknown as GhClient
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
       sessions,
       findings,
       submissions,
+      submissionComments,
       gh,
     })
     expect(received!.comments).toHaveLength(1)
@@ -136,7 +150,7 @@ describe('submitSession', () => {
   })
 
   it('records error submission and rethrows on gh failure', async () => {
-    const { sessions, findings, submissions } = setup()
+    const { sessions, findings, submissions, submissionComments } = setup()
     findings.insertMany('s1', [
       {
         id: 'R1',
@@ -148,11 +162,7 @@ describe('submitSession', () => {
         body: 'b1',
       },
     ])
-    const gh = {
-      submitReview: async () => {
-        throw new Error('boom')
-      },
-    } as unknown as GhClient
+    const gh = ghStub({ shouldThrow: true })
     await expect(
       submitSession({
         sessionId: 's1',
@@ -160,6 +170,7 @@ describe('submitSession', () => {
         sessions,
         findings,
         submissions,
+        submissionComments,
         gh,
       }),
     ).rejects.toThrow('boom')
@@ -167,5 +178,124 @@ describe('submitSession', () => {
     expect(subs).toHaveLength(1)
     expect(subs[0]!.error).toBe('boom')
     expect(subs[0]!.githubUrl).toBeNull()
+    expect(subs[0]!.githubReviewId).toBeNull()
+  })
+
+  it('persists submission_comments with finding mapping and GitHub ids on success', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 't1',
+        body: 'b1',
+      },
+    ])
+    const gh = ghStub({
+      reviewId: 5000,
+      comments: [
+        {
+          id: 9001,
+          pull_request_review_id: 5000,
+          user: { login: 'me' },
+          path: 'foo.ts',
+          line: 11,
+          start_line: null,
+          side: 'RIGHT',
+          start_side: null,
+          commit_id: 'sha',
+          original_commit_id: 'sha',
+          in_reply_to_id: null,
+          body: 'whatever GitHub returns',
+          created_at: '2026-05-11T00:00:00Z',
+        },
+      ],
+    })
+    await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    const subs = submissions.listBySession('s1')
+    expect(subs[0]!.githubReviewId).toBe(5000)
+    const sc = submissionComments.listByPR('o', 'r', 1)
+    expect(sc).toHaveLength(1)
+    expect(sc[0]!.file).toBe('foo.ts')
+    expect(sc[0]!.line).toBe(11)
+    expect(sc[0]!.githubCommentId).toBe(9001)
+    expect(sc[0]!.findingDbId).toBe(findings.listBySession('s1')[0]!.dbId)
+  })
+
+  it('dedups against prior posted comments on the same PR', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    // Seed a prior session + submission + posted comment for the same PR.
+    sessions.insert({
+      id: 'prior',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'archived',
+      agent: 'claude',
+      workdir: '/w-prior',
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const priorSubId = submissions.insert({
+      sessionId: 'prior',
+      event: 'COMMENT',
+      githubUrl: 'https://gh/prior',
+      githubReviewId: 100,
+      payloadJson: '{}',
+      findingIds: [],
+      error: null,
+    })
+    submissionComments.insertMany(priorSubId, [
+      {
+        findingDbId: null,
+        githubCommentId: 8000,
+        file: 'foo.ts',
+        line: 11,
+        startLine: null,
+        title: 'duplicate title we will hit again',
+        body: '🔴 **[must]** duplicate title we will hit again\n\nbody',
+      },
+    ])
+    // New session proposes the same problem at the same line.
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 'duplicate title we will hit again',
+        body: 'body',
+      },
+    ])
+    let received: ReviewPayload | null = null
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
+    const out = await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(out.skippedDuplicates).toBe(1)
+    expect(received!.comments).toHaveLength(0)
   })
 })

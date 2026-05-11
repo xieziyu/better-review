@@ -144,6 +144,7 @@ describe('PromptEditor', () => {
         sourceRefName: null,
         promptUsed: '',
         extraPrompt: null,
+        headSha: null,
         error: null,
       },
     ]

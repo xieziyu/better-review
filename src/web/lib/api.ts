@@ -83,7 +83,10 @@ export const api = {
   selectFinding: (id: string, b: SelectFindingRequest): Promise<Finding> =>
     req(`/api/findings/${id}/select`, { method: 'PATCH', body: JSON.stringify(b) }),
   deleteFinding: (id: string): Promise<void> => req(`/api/findings/${id}`, { method: 'DELETE' }),
-  submit: (id: string, b: SubmitRequest): Promise<{ url: string; droppedToBody: string[] }> =>
+  submit: (
+    id: string,
+    b: SubmitRequest,
+  ): Promise<{ url: string; droppedToBody: string[]; skippedDuplicates: number }> =>
     req(`/api/sessions/${id}/submit`, { method: 'POST', body: JSON.stringify(b) }),
   pickDirectory: async (prompt?: string): Promise<{ path: string | null; supported: boolean }> => {
     try {

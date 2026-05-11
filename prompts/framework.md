@@ -13,6 +13,35 @@ The submitter has attached the following context for this review — it may incl
 {{EXTRA_NOTES_BODY}}
 
 {{/EXTRA_NOTES}}
+{{#PRIOR_REVIEW}}
+
+## 上一轮 Review 的上下文
+
+你已经评审过本 PR 一次。下面是上次提的评论以及作者后续的回复。把这当作信息，不是 checklist：
+
+- 重点关注两件事：(1) 上次提的 must / should 是否真的修了；(2) diff 里标了 `← NEW since` 的 hunk —— 这些是上一轮 review 之后才出现的变更。
+- 作者已经针对上次评论给出**合理解释**的问题，**不要再原样提一次**；如果作者的解释经不起推敲，可以重新提出，但必须在新 finding 的 body 里明确说"我看了你对上轮 #<X> 的回复，理由不成立的地方是……"。
+- 已经发出去的评论列在下面。如果你这次发现的是同一处问题，直接跳过；不同角度的新问题正常提。
+  {{#FORCE_PUSHED}}
+- ⚠️ 注意：自上次评审以来 PR 发生过 force-push，上一轮的 commit `{{LAST_REVIEWED_SHA}}` 已经不在当前历史里。把整份 diff 视为新增内容，不要假设"上次审过的地方都没动"。
+  {{/FORCE_PUSHED}}
+  {{^FORCE_PUSHED}}
+- 上次评审的 commit 是 `{{LAST_REVIEWED_SHA}}`。
+  {{/FORCE_PUSHED}}
+
+### 上一轮 review 总评
+
+{{PRIOR_REVIEW_BODY}}
+
+### 上一轮行内评论
+
+{{PRIOR_REVIEW_INLINE}}
+
+### PR 主对话区
+
+{{PRIOR_REVIEW_ISSUE}}
+
+{{/PRIOR_REVIEW}}
 {{#SOURCE:worktree}}
 
 ## Source at PR head

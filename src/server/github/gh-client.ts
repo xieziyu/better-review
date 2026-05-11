@@ -44,6 +44,107 @@ export interface ReviewPayload {
   comments: ReviewComment[]
 }
 
+// Subset of `GET /pulls/:n/reviews` response — only the fields we use.
+export interface GhReview {
+  id: number
+  user: { login: string } | null
+  state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING'
+  body: string
+  commit_id: string | null
+  submitted_at: string | null
+  html_url: string
+}
+
+// Subset of `GET /pulls/:n/comments` (and review-comments) response.
+// `pull_request_review_id` ties an inline comment to the review that posted
+// it; `in_reply_to_id` threads replies under their original.
+export interface GhReviewComment {
+  id: number
+  pull_request_review_id: number | null
+  user: { login: string } | null
+  path: string
+  line: number | null
+  start_line: number | null
+  side: 'RIGHT' | 'LEFT' | null
+  start_side: 'RIGHT' | 'LEFT' | null
+  commit_id: string | null
+  original_commit_id: string | null
+  in_reply_to_id: number | null
+  body: string
+  created_at: string
+}
+
+// PR-level (issue) comments — the main conversation thread. Authors often
+// reply here ("已修", "不打算改因为…") and we want the agent to see that.
+export interface GhIssueComment {
+  id: number
+  user: { login: string } | null
+  body: string
+  created_at: string
+}
+
+// `GET /repos/:o/:r/compare/:base...:head`. Used to detect force-push
+// (status=diverged or behind_by>0) and to extract new hunk ranges that
+// landed between the prior review's head and the current head.
+export interface GhCompareFile {
+  filename: string
+  status: string
+  patch?: string
+}
+export interface GhCompare {
+  status: 'identical' | 'ahead' | 'behind' | 'diverged'
+  ahead_by: number
+  behind_by: number
+  total_commits: number
+  files: GhCompareFile[]
+}
+
+// `gh api --paginate` concatenates page bodies. For JSON-array endpoints
+// that produces output like `[…][…][…]`. Parse all top-level arrays and
+// flatten. Empty stdout → empty list (some endpoints return nothing when
+// the list is empty after the first page).
+function parseConcatenatedJsonArrays<T>(stdout: string): T[] {
+  const out: T[] = []
+  const text = stdout.trim()
+  if (text.length === 0) return out
+  let i = 0
+  while (i < text.length) {
+    while (i < text.length && text[i] !== '[') i += 1
+    if (i >= text.length) break
+    let depth = 0
+    let inStr = false
+    let escape = false
+    const start = i
+    for (; i < text.length; i += 1) {
+      const ch = text[i]
+      if (inStr) {
+        if (escape) escape = false
+        else if (ch === '\\') escape = true
+        else if (ch === '"') inStr = false
+        continue
+      }
+      if (ch === '"') {
+        inStr = true
+        continue
+      }
+      if (ch === '[') depth += 1
+      else if (ch === ']') {
+        depth -= 1
+        if (depth === 0) {
+          i += 1
+          break
+        }
+      }
+    }
+    const chunk = text.slice(start, i)
+    if (chunk.length > 0) {
+      const arr = JSON.parse(chunk) as T[]
+      for (const item of arr) out.push(item)
+    }
+  }
+  return out
+}
+
 export class GhClient {
   private gh: string
   constructor(opts: { ghPath?: string } = {}) {
@@ -142,6 +243,89 @@ export class GhClient {
     )
     if (r.exitCode !== 0) throw new Error(`gh pr diff failed: ${String(r.stderr).slice(0, 500)}`)
     return { unifiedDiff: String(r.stdout) }
+  }
+
+  // Lists all reviews on a PR. Paginated with --paginate so multi-round
+  // PRs return everything. Returns [] on transient failure (the rerun
+  // context path treats absence of prior reviews as "no context").
+  async listReviews(t: PRTarget): Promise<GhReview[]> {
+    const url = `repos/${t.owner}/${t.repo}/pulls/${t.number}/reviews?per_page=100`
+    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    if (r.exitCode !== 0) {
+      const txt = String(r.stderr || '') + String(r.stdout || '')
+      if (/HTTP 404|Not Found/i.test(txt))
+        throw new GhPRNotFoundError(`${t.owner}/${t.repo}#${t.number}`)
+      throw new Error(`gh api reviews failed: ${txt.slice(0, 500)}`)
+    }
+    return parseConcatenatedJsonArrays<GhReview>(String(r.stdout))
+  }
+
+  // Lists every PR review comment (inline) including replies. Comments
+  // belonging to one review share `pull_request_review_id`; replies point
+  // at the original via `in_reply_to_id`. Threading is left to the caller.
+  async listAllPRComments(t: PRTarget): Promise<GhReviewComment[]> {
+    const url = `repos/${t.owner}/${t.repo}/pulls/${t.number}/comments?per_page=100`
+    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    if (r.exitCode !== 0) {
+      const txt = String(r.stderr || '') + String(r.stdout || '')
+      if (/HTTP 404|Not Found/i.test(txt))
+        throw new GhPRNotFoundError(`${t.owner}/${t.repo}#${t.number}`)
+      throw new Error(`gh api pulls comments failed: ${txt.slice(0, 500)}`)
+    }
+    return parseConcatenatedJsonArrays<GhReviewComment>(String(r.stdout))
+  }
+
+  // PR-level discussion (the issue comments thread). The PR author often
+  // replies here ("已修", "不打算改") rather than under each inline thread.
+  async listIssueComments(t: PRTarget): Promise<GhIssueComment[]> {
+    const url = `repos/${t.owner}/${t.repo}/issues/${t.number}/comments?per_page=100`
+    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    if (r.exitCode !== 0) {
+      const txt = String(r.stderr || '') + String(r.stdout || '')
+      if (/HTTP 404|Not Found/i.test(txt))
+        throw new GhPRNotFoundError(`${t.owner}/${t.repo}#${t.number}`)
+      throw new Error(`gh api issue comments failed: ${txt.slice(0, 500)}`)
+    }
+    return parseConcatenatedJsonArrays<GhIssueComment>(String(r.stdout))
+  }
+
+  // `GET /repos/:o/:r/compare/:base...:head`. Caller uses `status` to
+  // detect force-push and `files[*].patch` to extract new hunks. The diff
+  // we feed the agent always remains the full base..head; this is only
+  // used to annotate which hunks are NEW since the last review.
+  async compareCommits(
+    t: { owner: string; repo: string },
+    base: string,
+    head: string,
+  ): Promise<GhCompare> {
+    const url = `repos/${t.owner}/${t.repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
+    const r = await execa(this.gh, ['api', url, '-H', 'Accept: application/vnd.github+json'], {
+      reject: false,
+    })
+    if (r.exitCode !== 0) {
+      const txt = String(r.stderr || '') + String(r.stdout || '')
+      // 404 here usually means the base sha is no longer reachable (force
+      // push). Surface a typed error so rerun-context can degrade to "no
+      // increment, treat all as new".
+      if (/HTTP 404|Not Found|No common ancestor/i.test(txt)) {
+        throw new GhFileNotFoundError(`compare/${base}...${head}`, head)
+      }
+      throw new Error(`gh api compare failed: ${txt.slice(0, 500)}`)
+    }
+    const j = JSON.parse(String(r.stdout)) as {
+      status: GhCompare['status']
+      ahead_by: number
+      behind_by: number
+      total_commits: number
+      files?: GhCompareFile[]
+    }
+    return {
+      status: j.status,
+      ahead_by: j.ahead_by,
+      behind_by: j.behind_by,
+      total_commits: j.total_commits,
+      files: j.files ?? [],
+    }
   }
 
   async submitReview(
