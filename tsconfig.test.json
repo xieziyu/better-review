@@ -1,14 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node", "vitest/globals"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/web/*"],
-      "@shared/*": ["src/shared/*"]
-    }
+    "types": ["node", "vitest/globals"]
   },
   "include": ["tests/**/*", "src/**/*"]
 }
