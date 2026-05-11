@@ -26,7 +26,20 @@
     "aria": "Finding inspector",
     "emptyEyebrow": "Inspector",
     "emptyTitle": "Select a finding to inspect",
-    "emptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here."
+    "emptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here.",
+    "section": {
+      "category": "Category",
+      "target": "Target",
+      "claim": "Claim",
+      "suggestion": "Suggestion",
+      "suggestionEmpty": "No suggestion provided.",
+      "source": "Source"
+    },
+    "cta": {
+      "submit": "Submit review",
+      "edit": "Edit",
+      "discard": "Discard"
+    }
   },
   "common": {
     "save": "Save",

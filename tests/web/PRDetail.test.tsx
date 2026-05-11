@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { PRDetail } from '@/pages/PRDetail'
+import { SelectionProvider } from '@/lib/selection'
 
 function withRoute(
   ui: React.ReactNode,
@@ -23,11 +24,13 @@ function withRoute(
   }
   return (
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
-        <Routes>
-          <Route path="/pr/:id" element={ui} />
-        </Routes>
-      </MemoryRouter>
+      <SelectionProvider>
+        <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
+          <Routes>
+            <Route path="/pr/:id" element={ui} />
+          </Routes>
+        </MemoryRouter>
+      </SelectionProvider>
     </QueryClientProvider>
   )
 }

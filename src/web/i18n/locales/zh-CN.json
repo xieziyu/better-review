@@ -26,7 +26,20 @@
     "aria": "Finding 详情",
     "emptyEyebrow": "详情",
     "emptyTitle": "选中一个 finding",
-    "emptyBody": "从列表里选一个 finding，它的 claim、suggestion、source 与提交动作会出现在这里。"
+    "emptyBody": "从列表里选一个 finding，它的 claim、suggestion、source 与提交动作会出现在这里。",
+    "section": {
+      "category": "Category",
+      "target": "Target",
+      "claim": "Claim",
+      "suggestion": "Suggestion",
+      "suggestionEmpty": "未提供 suggestion。",
+      "source": "Source"
+    },
+    "cta": {
+      "submit": "提交评审",
+      "edit": "编辑",
+      "discard": "丢弃"
+    }
   },
   "common": {
     "save": "保存",

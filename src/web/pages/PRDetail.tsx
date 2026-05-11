@@ -21,6 +21,7 @@ import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
+import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
@@ -415,7 +416,8 @@ export function PRDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
-  const [submitOpen, setSubmitOpen] = useState(false)
+  const submitDrawer = useSubmitDrawer()
+  const { setSelectedFindingDbId } = useSelectedFinding()
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
@@ -440,13 +442,6 @@ export function PRDetail() {
     queryFn: api.listSessions,
   })
 
-  const { data: diffFromEndpoint } = useQuery({
-    queryKey: ['session', id, 'diff'],
-    queryFn: () => api.getSessionDiff(id),
-    enabled: !!id,
-    retry: false,
-  })
-
   useSSE(`/api/sessions/${id}/events`, (e) => {
     if (e.type === 'agent-output') {
       setAgentChunks((prev) => [...prev, e.chunk])
@@ -469,7 +464,8 @@ export function PRDetail() {
 
   useEffect(() => {
     document.querySelector('main')?.scrollTo({ top: 0 })
-    setSubmitOpen(false)
+    submitDrawer.close()
+    setSelectedFindingDbId(null)
     setAgentChunks([])
     setPrepSteps([])
     setExtraDraft(null)
@@ -526,7 +522,6 @@ export function PRDetail() {
   }
 
   const { session, findings } = data
-  const inlineDiff = data.diff ?? diffFromEndpoint ?? null
   const activeFindings = findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -553,7 +548,7 @@ export function PRDetail() {
           selectedCount={selectedCount}
           roundNumber={roundNumber}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
-          onSubmit={() => setSubmitOpen(true)}
+          onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
           onCancel={() => cancel.mutate()}
           rerunPending={rerun.isPending}
@@ -646,7 +641,7 @@ export function PRDetail() {
         ) : null}
 
         {activeFindings.length > 0 ? (
-          <FindingList findings={activeFindings} session={session} unifiedDiff={inlineDiff} />
+          <FindingList findings={activeFindings} session={session} />
         ) : null}
 
         {selectedCount > 0 ? (
@@ -657,7 +652,9 @@ export function PRDetail() {
           </div>
         ) : null}
 
-        {submitOpen ? <SubmitDrawer sessionId={id} onClose={() => setSubmitOpen(false)} /> : null}
+        {submitDrawer.isOpen ? (
+          <SubmitDrawer sessionId={id} onClose={submitDrawer.close} />
+        ) : null}
       </div>
     </div>
   )
