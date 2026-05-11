@@ -85,12 +85,12 @@ const PRIOR_FORCE_BLOCK_RE = /\{\{#FORCE_PUSHED\}\}\n?([\s\S]*?)\{\{\/FORCE_PUSH
 const PRIOR_NOT_FORCE_BLOCK_RE = /\{\{\^FORCE_PUSHED\}\}\n?([\s\S]*?)\{\{\/FORCE_PUSHED\}\}\n?/g
 
 function formatPriorInline(items: PriorInlineForPrompt[]): string {
-  if (items.length === 0) return '_（上一轮没有发出任何行内评论。）_'
+  if (items.length === 0) return '_(No inline comments were posted in the prior review.)_'
   const out: string[] = []
   items.forEach((c, idx) => {
     const loc =
       c.file === null
-        ? '（无具体位置）'
+        ? '(no specific location)'
         : c.line === null
           ? c.file
           : c.startLine && c.startLine < c.line
@@ -107,15 +107,15 @@ function formatPriorInline(items: PriorInlineForPrompt[]): string {
     )
     if (c.replies.length > 0) {
       out.push('')
-      out.push('回复：')
+      out.push('Replies:')
       for (const r of c.replies) {
-        const tag = r.isAuthor ? `**@${r.author}（作者）**` : `@${r.author}`
+        const tag = r.isAuthor ? `**@${r.author} (author)**` : `@${r.author}`
         const indented = r.body
           .trim()
           .split('\n')
           .map((l) => `    ${l}`)
           .join('\n')
-        out.push(`- ${tag}：`)
+        out.push(`- ${tag}:`)
         out.push(indented)
       }
     }
@@ -125,16 +125,16 @@ function formatPriorInline(items: PriorInlineForPrompt[]): string {
 }
 
 function formatIssueComments(items: PriorReplyForPrompt[]): string {
-  if (items.length === 0) return '_（PR 主对话区无评论。）_'
+  if (items.length === 0) return '_(No comments in the PR conversation thread.)_'
   return items
     .map((c) => {
-      const tag = c.isAuthor ? `**@${c.author}（作者）**` : `@${c.author}`
+      const tag = c.isAuthor ? `**@${c.author} (author)**` : `@${c.author}`
       const body = c.body
         .trim()
         .split('\n')
         .map((l) => `    ${l}`)
         .join('\n')
-      return `- ${tag}：\n${body}`
+      return `- ${tag}:\n${body}`
     })
     .join('\n')
 }
@@ -152,7 +152,7 @@ function applyPriorReview(template: string, prior: PriorReviewVars | undefined):
       .replaceAll('{{LAST_REVIEWED_SHA}}', prior.lastReviewedSha || '(unknown)')
       .replaceAll(
         '{{PRIOR_REVIEW_BODY}}',
-        prior.reviewBody.trim().length > 0 ? prior.reviewBody.trim() : '_（上一轮总评为空。）_',
+        prior.reviewBody.trim().length > 0 ? prior.reviewBody.trim() : '_(The prior review summary was empty.)_',
       )
       .replaceAll('{{PRIOR_REVIEW_INLINE}}', formatPriorInline(prior.inlineComments))
       .replaceAll('{{PRIOR_REVIEW_ISSUE}}', formatIssueComments(prior.issueComments))

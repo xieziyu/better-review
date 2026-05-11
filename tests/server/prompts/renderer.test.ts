@@ -109,7 +109,7 @@ describe('renderPrompt', () => {
     expect(out).toContain('clean')
     expect(out).not.toContain('force')
     expect(out).toContain('a.ts:12')
-    expect(out).toContain('**@alice（作者）**')
+    expect(out).toContain('**@alice (author)**')
     expect(out).toContain('不打算改，因为 X')
     expect(out).toContain('@bob')
     expect(out).toContain('已修')
