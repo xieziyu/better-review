@@ -269,7 +269,7 @@ function PRHeader({
           )}
           <Button
             type="button"
-            variant="ink"
+            variant="primary"
             size="md"
             onClick={onSubmit}
             disabled={selectedCount === 0}

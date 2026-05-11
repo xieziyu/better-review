@@ -20,6 +20,9 @@
     --severity-nit: oklch(0.55 0.1 200);
     --accent-ready: oklch(0.54 0.13 155);
     --accent-running: oklch(0.6 0.16 140);
+    --btn-primary-bg: oklch(0.92 0.06 245);
+    --btn-primary-border: oklch(0.55 0.13 245);
+    --btn-primary-ink: oklch(0.22 0.01 240);
   }
 
   [data-theme='dark'] {
@@ -39,6 +42,9 @@
     --severity-nit: oklch(0.7 0.09 200);
     --accent-ready: oklch(0.72 0.13 155);
     --accent-running: oklch(0.78 0.17 140);
+    --btn-primary-bg: oklch(0.32 0.07 245);
+    --btn-primary-border: oklch(0.55 0.13 245);
+    --btn-primary-ink: oklch(0.96 0.005 240);
   }
 
   html {

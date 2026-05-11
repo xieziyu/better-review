@@ -346,7 +346,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
               <KbdTooltip keys={['⌘', '⏎']} label={t('common.save')}>
                 <Button
                   type="button"
-                  variant="ink"
+                  variant="primary"
                   size="sm"
                   onClick={() => save.mutate()}
                   disabled={save.isPending}

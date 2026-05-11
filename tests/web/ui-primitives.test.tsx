@@ -22,7 +22,7 @@ describe('ui primitives', () => {
     const btn = screen.getByRole('button', { name: 'submit' })
     btn.click()
     expect(fn).toHaveBeenCalledOnce()
-    expect(btn.className).toMatch(/bg-brand/)
+    expect(btn.className).toMatch(/btn-primary-bg/)
   })
 
   it('Tag renders tone and uppercases content visually via class', () => {
@@ -32,11 +32,14 @@ describe('ui primitives', () => {
     expect(el.className).toMatch(/bg-brand/)
   })
 
-  it('SeverityLabel writes data-level and visible wordmark', () => {
-    render(<SeverityLabel level="must" />)
-    const el = screen.getByText('MUST')
-    expect(el.getAttribute('data-level')).toBe('must')
-    expect(el.className).toMatch(/text-severity-must/)
+  it('SeverityLabel writes data-level and inline `→ CAPS` wordmark', () => {
+    const { container } = render(<SeverityLabel level="must" />)
+    const wrapper = container.querySelector('[data-level="must"]')
+    expect(wrapper).toBeTruthy()
+    expect(wrapper?.className).toMatch(/text-severity-must/)
+    expect(wrapper?.textContent).toContain('→')
+    expect(wrapper?.textContent).toContain('MUST')
+    expect(screen.getByLabelText(/severity: must/i)).toBe(wrapper)
   })
 
   it('SectionHeader shows eyebrow + title + meta + actions', () => {

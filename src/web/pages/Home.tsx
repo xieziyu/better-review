@@ -176,7 +176,7 @@ export function Home() {
               aria-label={t('home.prAriaLabel')}
               autoFocus
             />
-            <Button type="submit" variant="ink" size="md" disabled={!trimmed || create.isPending}>
+            <Button type="submit" variant="primary" size="md" disabled={!trimmed || create.isPending}>
               {create.isPending ? t('home.starting') : t('home.startReview')}
             </Button>
           </div>

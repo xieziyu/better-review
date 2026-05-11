@@ -194,7 +194,7 @@ export function PromptEditor() {
               <p className="font-mono text-meta text-ink-muted">{scopeState!.path}</p>
               <Button
                 type="button"
-                variant="ink"
+                variant="primary"
                 size="sm"
                 onClick={() => setDraft(data.rules.effective.content)}
               >
@@ -213,7 +213,7 @@ export function PromptEditor() {
                 <KbdTooltip keys={['⌘', 'S']} label={t('common.save')}>
                   <Button
                     type="button"
-                    variant="ink"
+                    variant="primary"
                     size="sm"
                     onClick={() => saveMut.mutate()}
                     disabled={draft === null || saveMut.isPending}
@@ -363,7 +363,7 @@ function ApplyToSessionsModal({
           </Button>
           <Button
             type="button"
-            variant="ink"
+            variant="primary"
             size="sm"
             onClick={() => apply.mutate()}
             disabled={checkedCount === 0 || apply.isPending}

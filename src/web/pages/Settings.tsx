@@ -287,7 +287,7 @@ export function Settings() {
       <div className="flex items-center gap-3 pt-4 border-t border-rule">
         <Button
           type="submit"
-          variant="ink"
+          variant="primary"
           size="sm"
           disabled={!dirty || hasErrors || saveMut.isPending}
         >

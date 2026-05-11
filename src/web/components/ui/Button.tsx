@@ -9,8 +9,7 @@ const button = cva(
     variants: {
       variant: {
         primary:
-          'border-brand bg-brand text-brand-ink hover:[background-color:color-mix(in_oklch,var(--brand)_85%,black)]',
-        ink: 'border-ink-primary bg-ink-primary text-canvas hover:[background-color:color-mix(in_oklch,var(--ink-primary)_88%,var(--brand))]',
+          'border-[color:var(--btn-primary-border)] bg-[color:var(--btn-primary-bg)] text-[color:var(--btn-primary-ink)] hover:bg-[color:color-mix(in_oklch,var(--btn-primary-bg)_85%,var(--btn-primary-border))]',
         ghost:
           'border-rule bg-raised/35 text-ink-primary hover:bg-raised hover:border-ink-muted active:bg-sunken',
         danger:
