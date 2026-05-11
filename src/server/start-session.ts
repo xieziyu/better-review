@@ -87,13 +87,17 @@ export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string 
 
 // Phase names emitted as SSE `progress` events during prep. The UI filters on
 // these so it can show prep steps separately from agent-runtime progress.
-// Kept stable and exported so the frontend can stay in sync.
+// Phases are stable identifiers that the web app translates per language; the
+// optional `detail` is interpolation data (e.g., agent name for `starting`),
+// never user-facing prose.
 export const PREP_PHASES = {
   fetchingPR: 'prep:fetching-pr',
   fetchingDiff: 'prep:fetching-diff',
   loadingPriorReview: 'prep:loading-prior-review',
-  preparingSource: 'prep:preparing-source',
+  preparingSourceWorktree: 'prep:preparing-source:worktree',
+  preparingSourceSnapshot: 'prep:preparing-source:snapshot',
   renderingPrompt: 'prep:rendering-prompt',
+  renderingPromptWithPrior: 'prep:rendering-prompt:with-prior',
   starting: 'prep:starting',
 } as const
 
@@ -180,7 +184,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
           type: 'progress',
           sessionId: id,
           phase: PREP_PHASES.starting,
-          detail: `启动 ${resolvedAgent.agent.displayName}`,
+          detail: resolvedAgent.agent.displayName,
         })
         await runReview(runArgs)
       } catch (e) {
@@ -219,7 +223,6 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     type: 'progress',
     sessionId: id,
     phase: PREP_PHASES.fetchingPR,
-    detail: '获取 PR 元数据',
   })
   const meta = await deps.gh.prView(target)
   // Backfill the row so the UI shows title/author as soon as we know them
@@ -237,7 +240,6 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     type: 'progress',
     sessionId: id,
     phase: PREP_PHASES.fetchingDiff,
-    detail: '拉取 diff',
   })
   const diff = await deps.gh.prDiff(target)
   writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
@@ -249,13 +251,13 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     type: 'progress',
     sessionId: id,
     phase: PREP_PHASES.loadingPriorReview,
-    detail: '检查上一轮 review 上下文',
   })
   deps.bus.emit({
     type: 'progress',
     sessionId: id,
-    phase: PREP_PHASES.preparingSource,
-    detail: localRepoPath ? '准备 PR head 工作树' : '快照 PR head 源码',
+    phase: localRepoPath
+      ? PREP_PHASES.preparingSourceWorktree
+      : PREP_PHASES.preparingSourceSnapshot,
   })
   const [priorCtxResult, sourceResult] = await Promise.allSettled([
     loadPriorReviewContext(
@@ -296,8 +298,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   deps.bus.emit({
     type: 'progress',
     sessionId: id,
-    phase: PREP_PHASES.renderingPrompt,
-    detail: priorCtx ? '组装 prompt（含上轮上下文）' : '组装 prompt',
+    phase: priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
   })
   const incremental =
     priorCtx && priorCtx.compare && !priorCtx.isForcePushed
@@ -309,7 +310,11 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     priorCtx?.lastReviewedSha ?? null,
   )
 
-  const resolved = resolveEffectivePrompt({ cwd: deps.cwd, home: deps.paths.home })
+  const resolved = resolveEffectivePrompt({
+    cwd: deps.cwd,
+    home: deps.paths.home,
+    lang: deps.getConfig().language,
+  })
   const promptVars: Parameters<typeof renderPrompt>[1] = {
     rules: resolved.rules.content,
     prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,

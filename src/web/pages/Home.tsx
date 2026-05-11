@@ -3,10 +3,12 @@ import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, FileText, FolderGit2, FolderOpen, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
+import { useRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const PR_URL_RE = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/
@@ -29,20 +31,9 @@ const STATUS_TONE: Record<
   cancelled: 'neutral',
 }
 
-function relativeTime(updatedAt: number): string {
-  const diffMs = Date.now() - updatedAt
-  if (diffMs < 0) return 'just now'
-  const seconds = Math.floor(diffMs / 1000)
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
 function RecentRow({ session }: { session: PRSession }) {
+  const { t } = useTranslation()
+  const relativeTime = useRelativeTime()
   return (
     <Link
       to={`/pr/${session.id}`}
@@ -52,13 +43,13 @@ function RecentRow({ session }: { session: PRSession }) {
         <span className="font-mono text-meta text-ink-secondary tabular-nums">
           {session.owner}/{session.repo}#{session.number}
         </span>
-        <Tag tone={STATUS_TONE[session.status]}>{session.status}</Tag>
+        <Tag tone={STATUS_TONE[session.status]}>{t(`sidebar.status.${session.status}`)}</Tag>
         <span className="ml-auto text-caps tracking-caps text-ink-muted uppercase">
           {relativeTime(session.updatedAt)}
         </span>
       </div>
       <div className="mt-1 text-h2 text-ink-primary group-hover:text-brand transition-colors duration-180 ease-out-quart">
-        {session.title ?? '(no title)'}
+        {session.title ?? t('home.recent.noTitle')}
       </div>
       {session.author ? (
         <div className="mt-0.5 font-mono text-meta text-ink-muted">@{session.author}</div>
@@ -68,6 +59,8 @@ function RecentRow({ session }: { session: PRSession }) {
 }
 
 export function Home() {
+  const { t } = useTranslation()
+  const relativeTime = useRelativeTime()
   const [input, setInput] = useState('')
   const [localRepo, setLocalRepo] = useState('')
   const [localRepoTouched, setLocalRepoTouched] = useState(false)
@@ -138,7 +131,7 @@ export function Home() {
         setLocalRepoTouched(true)
       }
     } catch (e) {
-      setPickerError(e instanceof ApiError ? e.message : 'Failed to open folder picker')
+      setPickerError(e instanceof ApiError ? e.message : t('home.pickerError'))
     } finally {
       setPickerBusy(false)
     }
@@ -148,11 +141,11 @@ export function Home() {
     <div className="px-8 py-12 mx-auto" style={{ width: 'clamp(680px, 80vw, 880px)' }}>
       <header className="space-y-7">
         <div>
-          <div className="text-caps tracking-caps text-ink-muted uppercase mb-3">better-review</div>
-          <h1 className="text-display text-ink-primary">Review GitHub PRs locally</h1>
-          <p className="mt-3 text-h2 text-ink-secondary font-normal">
-            Paste a pull request to start a session.
-          </p>
+          <div className="text-caps tracking-caps text-ink-muted uppercase mb-3">
+            {t('home.eyebrow')}
+          </div>
+          <h1 className="text-display text-ink-primary">{t('home.title')}</h1>
+          <p className="mt-3 text-h2 text-ink-secondary font-normal">{t('home.subtitle')}</p>
         </div>
 
         <form
@@ -178,13 +171,13 @@ export function Home() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="https://github.com/owner/repo/pull/123"
+              placeholder={t('home.prUrlPlaceholder')}
               className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
-              aria-label="PR target"
+              aria-label={t('home.prAriaLabel')}
               autoFocus
             />
             <Button type="submit" variant="ink" size="md" disabled={!trimmed || create.isPending}>
-              {create.isPending ? 'Starting…' : 'Start review'}
+              {create.isPending ? t('home.starting') : t('home.startReview')}
             </Button>
           </div>
 
@@ -198,9 +191,9 @@ export function Home() {
                 setLocalRepo(e.target.value)
                 setLocalRepoTouched(true)
               }}
-              placeholder="Local repo (optional) — ~/code/owner/repo to give the agent source access"
+              placeholder={t('home.localRepoPlaceholder')}
               className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-              aria-label="Local repository path"
+              aria-label={t('home.localRepoAriaLabel')}
               spellCheck={false}
               autoComplete="off"
             />
@@ -210,11 +203,11 @@ export function Home() {
                 onClick={browseLocalRepo}
                 disabled={pickerBusy}
                 className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
-                aria-label="Browse for local repository"
-                title="Open native folder picker"
+                aria-label={t('home.browseAriaLabel')}
+                title={t('home.browseTitle')}
               >
                 <FolderOpen size={14} aria-hidden="true" />
-                {pickerBusy ? 'Opening…' : 'Browse'}
+                {pickerBusy ? t('home.opening') : t('home.browse')}
               </button>
             ) : null}
             {localRepo ? (
@@ -225,9 +218,9 @@ export function Home() {
                   setLocalRepoTouched(true)
                 }}
                 className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                aria-label="Clear local repo"
+                aria-label={t('home.clearAriaLabel')}
               >
-                clear
+                {t('home.clear')}
               </button>
             ) : null}
           </div>
@@ -237,17 +230,17 @@ export function Home() {
           <datalist id="recent-repos">
             {recentRepos?.items.map((r) => (
               <option key={r.path} value={r.path}>
-                {r.matchedCurrentRepo ? '★ matches PR · ' : ''}last used{' '}
-                {relativeTime(r.lastUsedAt)} · ×{r.useCount}
+                {r.matchedCurrentRepo ? t('home.recentRepoMatch') : ''}
+                {t('home.recentRepoMeta', {
+                  when: relativeTime(r.lastUsedAt),
+                  count: r.useCount,
+                })}
               </option>
             ))}
           </datalist>
           {showAutoFillHint ? (
             <div className="text-meta text-ink-muted -mt-1 pl-1">
-              ⓘ Auto-filled from history · matches{' '}
-              <span className="font-mono">
-                {target!.owner}/{target!.repo}
-              </span>
+              {t('home.autoFillHint', { owner: target!.owner, repo: target!.repo })}
             </div>
           ) : null}
 
@@ -255,7 +248,7 @@ export function Home() {
             <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-caps tracking-caps text-ink-muted uppercase">
-                  Extra context for this review
+                  {t('home.extra.header')}
                 </span>
                 <button
                   type="button"
@@ -264,17 +257,17 @@ export function Home() {
                     setExtraPrompt('')
                   }}
                   className="inline-flex items-center gap-1 text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                  aria-label="Remove extra context"
+                  aria-label={t('home.extra.removeAriaLabel')}
                 >
                   <X size={12} aria-hidden="true" />
-                  remove
+                  {t('home.extra.remove')}
                 </button>
               </div>
               <textarea
-                aria-label="Extra context"
+                aria-label={t('home.extra.ariaLabel')}
                 value={extraPrompt}
                 onChange={(e) => setExtraPrompt(e.target.value)}
-                placeholder="贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次 review，不会改 review.md。"
+                placeholder={t('home.extra.placeholder')}
                 className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
                 spellCheck={false}
               />
@@ -284,20 +277,22 @@ export function Home() {
               type="button"
               onClick={() => setExtraOpen(true)}
               className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
-              aria-label="Add extra context"
+              aria-label={t('home.extra.addAriaLabel')}
             >
               <FileText size={14} aria-hidden="true" />
-              <span>Add extra context (optional)</span>
+              <span>{t('home.extra.addLabel')}</span>
               <ChevronDown size={14} aria-hidden="true" />
             </button>
           )}
 
           <fieldset
             className="flex items-center gap-1.5 text-meta text-ink-secondary"
-            aria-label="Review agent"
+            aria-label={t('home.agent.legend')}
           >
-            <legend className="sr-only">Review agent</legend>
-            <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">Agent</span>
+            <legend className="sr-only">{t('home.agent.legend')}</legend>
+            <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">
+              {t('home.agent.label')}
+            </span>
             {AGENT_KINDS.map((k) => {
               const found = health?.agents[k].found ?? true
               const selected = effectiveAgent === k
@@ -308,7 +303,7 @@ export function Home() {
                   onClick={() => setAgent(k)}
                   disabled={!found}
                   aria-pressed={selected}
-                  title={found ? undefined : `${k} CLI not found in PATH`}
+                  title={found ? undefined : t('home.agent.notFoundTitle', { kind: k })}
                   className={cn(
                     'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
                     selected
@@ -325,7 +320,7 @@ export function Home() {
                         selected ? 'text-canvas/70' : 'text-ink-muted',
                       )}
                     >
-                      (default)
+                      {t('home.agent.defaultSuffix')}
                     </span>
                   ) : null}
                 </button>
@@ -336,25 +331,27 @@ export function Home() {
 
         {create.isError ? (
           <div className="text-meta text-severity-must">
-            {create.error instanceof ApiError ? create.error.message : 'Failed to start review'}
+            {create.error instanceof ApiError ? create.error.message : t('home.submitError')}
           </div>
         ) : null}
       </header>
 
       <section className="mt-16">
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-caps tracking-caps text-ink-muted uppercase">Recent</h2>
+          <h2 className="text-caps tracking-caps text-ink-muted uppercase">
+            {t('home.recent.title')}
+          </h2>
           {sessions.length > 3 ? (
             <span className="text-caps tracking-caps text-ink-muted uppercase">
-              {sessions.length} total
+              {t('home.recent.total', { count: sessions.length })}
             </span>
           ) : null}
         </div>
         {recent.length === 0 ? (
           <EmptyState
-            eyebrow="No history"
-            title="Nothing to recall yet"
-            body="Sessions you start here will be available in the sidebar across browser restarts."
+            eyebrow={t('home.recent.emptyEyebrow')}
+            title={t('home.recent.emptyTitle')}
+            body={t('home.recent.emptyBody')}
           />
         ) : (
           <div>
@@ -366,14 +363,14 @@ export function Home() {
       </section>
 
       <footer className="mt-12 border-t border-rule pt-4 flex items-center gap-3 text-meta text-ink-muted">
-        <KbdHint keys={['⏎']} label="start review" />
+        <KbdHint keys={['⏎']} label={t('home.footer.startReviewLabel')} />
         <span>·</span>
-        <span>Configure default agent in</span>
+        <span>{t('home.footer.configureBefore')}</span>
         <Link
           to="/settings"
           className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
         >
-          settings
+          {t('home.footer.configureLink')}
         </Link>
       </footer>
     </div>

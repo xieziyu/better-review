@@ -4,7 +4,7 @@ import { createApp } from '../../../src/server/api/app'
 import { makeTestDeps } from './_deps'
 
 describe('prompts API', () => {
-  it('GET /api/prompts returns framework + rules state', async () => {
+  it('GET /api/prompts returns framework + rules state in the configured language', async () => {
     const d = makeTestDeps()
     const app = createApp(d)
     const res = await app.request('/api/prompts')
@@ -15,9 +15,30 @@ describe('prompts API', () => {
     expect(j.framework.content).toContain('{{FINDINGS_PATH}}')
     expect(j.rules.effective.source).toBe('builtin')
     expect(j.rules.effective.path).toBeNull()
+    // Default config.language is 'en', so the English framework + rules are returned.
+    expect(j.framework.content).toContain('Severity rubric')
     expect(j.rules.effective.content).toContain('Scope & Plan Alignment')
     expect(j.rules.scopes.global.exists).toBe(false)
     expect(j.rules.scopes.project.exists).toBe(false)
+  })
+
+  it('GET /api/prompts honors config.language=zh-CN', async () => {
+    const d = makeTestDeps({
+      config: {
+        port: 5555,
+        maxConcurrentReviews: 1,
+        stallMinutes: 1,
+        defaultAgent: 'claude',
+        perPRGCDays: 1,
+        language: 'zh-CN',
+      },
+    })
+    const app = createApp(d)
+    const res = await app.request('/api/prompts')
+    const j = await res.json()
+    expect(j.framework.content).toContain('严重程度判定')
+    expect(j.rules.effective.source).toBe('builtin')
+    expect(j.rules.effective.content).toContain('范围与计划对齐')
   })
 
   it('GET /api/prompts reflects written global scope', async () => {

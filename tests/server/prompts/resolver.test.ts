@@ -14,26 +14,38 @@ describe('resolveEffectiveRules', () => {
     home = mkdtempSync(join(tmpdir(), 'br-home-'))
   })
 
-  it('returns builtin rules when no overrides', () => {
-    const r = resolveEffectiveRules({ cwd, home })
+  it('returns English builtin rules when no overrides and lang=en', () => {
+    const r = resolveEffectiveRules({ cwd, home, lang: 'en' })
     expect(r.source).toBe('builtin')
     expect(r.path).toBeNull()
     expect(r.content).toContain('Scope & Plan Alignment')
   })
 
-  it('global home overrides builtin', () => {
+  it('returns Chinese builtin rules when no overrides and lang=zh-CN', () => {
+    const r = resolveEffectiveRules({ cwd, home, lang: 'zh-CN' })
+    expect(r.source).toBe('builtin')
+    expect(r.path).toBeNull()
+    expect(r.content).toContain('范围与计划对齐')
+  })
+
+  it('global home overrides builtin regardless of language', () => {
     writeFileSync(join(home, 'review.md'), 'GLOBAL')
-    const r = resolveEffectiveRules({ cwd, home })
-    expect(r.source).toBe('global')
-    expect(r.content).toBe('GLOBAL')
-    expect(r.path).toBe(join(home, 'review.md'))
+    expect(resolveEffectiveRules({ cwd, home, lang: 'en' })).toMatchObject({
+      source: 'global',
+      content: 'GLOBAL',
+      path: join(home, 'review.md'),
+    })
+    expect(resolveEffectiveRules({ cwd, home, lang: 'zh-CN' })).toMatchObject({
+      source: 'global',
+      content: 'GLOBAL',
+    })
   })
 
   it('project cwd overrides global', () => {
     writeFileSync(join(home, 'review.md'), 'GLOBAL')
     mkdirSync(join(cwd, '.better-review'))
     writeFileSync(join(cwd, '.better-review', 'review.md'), 'PROJECT')
-    const r = resolveEffectiveRules({ cwd, home })
+    const r = resolveEffectiveRules({ cwd, home, lang: 'en' })
     expect(r.source).toBe('project')
     expect(r.content).toBe('PROJECT')
   })
@@ -47,8 +59,8 @@ describe('resolveEffectivePrompt', () => {
     home = mkdtempSync(join(tmpdir(), 'br-home-'))
   })
 
-  it('returns framework + rules + effective composition', () => {
-    const r = resolveEffectivePrompt({ cwd, home })
+  it('returns framework + rules + effective composition in English', () => {
+    const r = resolveEffectivePrompt({ cwd, home, lang: 'en' })
     expect(r.framework).toContain('{{RULES}}')
     expect(r.framework).toContain('{{DIFF}}')
     expect(r.framework).toContain('{{FINDINGS_PATH}}')
@@ -57,14 +69,23 @@ describe('resolveEffectivePrompt', () => {
     expect(r.effective).toContain('Scope & Plan Alignment')
   })
 
-  it('substitutes user-provided rules into framework', () => {
+  it('returns framework + rules + effective composition in Chinese', () => {
+    const r = resolveEffectivePrompt({ cwd, home, lang: 'zh-CN' })
+    expect(r.framework).toContain('{{RULES}}')
+    expect(r.framework).toContain('严重程度判定')
+    expect(r.rules.source).toBe('builtin')
+    expect(r.effective).toContain('范围与计划对齐')
+  })
+
+  it('substitutes user-provided rules into framework regardless of language', () => {
     writeFileSync(join(home, 'review.md'), 'CUSTOM RULE LIST')
-    const r = resolveEffectivePrompt({ cwd, home })
+    const r = resolveEffectivePrompt({ cwd, home, lang: 'zh-CN' })
     expect(r.rules.source).toBe('global')
     expect(r.rules.content).toBe('CUSTOM RULE LIST')
     expect(r.effective).toContain('CUSTOM RULE LIST')
     expect(r.effective).not.toContain('{{RULES}}')
-    // Other placeholders are untouched (they get filled by the renderer later).
+    // Framework stays in the chosen language; other placeholders untouched.
     expect(r.effective).toContain('{{DIFF}}')
+    expect(r.effective).toContain('严重程度判定')
   })
 })

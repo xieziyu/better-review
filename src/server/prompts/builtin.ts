@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import type { Language } from '../../shared/types'
+
 const here = dirname(fileURLToPath(import.meta.url))
 
 function load(name: string): string {
@@ -19,15 +21,23 @@ function load(name: string): string {
   throw new Error(`builtin prompt asset not found: ${name}`)
 }
 
-let frameworkCache: string | null = null
-let builtinRulesCache: string | null = null
+const frameworkCache = new Map<Language, string>()
+const builtinRulesCache = new Map<Language, string>()
 
-export function getFramework(): string {
-  if (frameworkCache === null) frameworkCache = load('framework.md')
-  return frameworkCache
+export function getFramework(lang: Language): string {
+  let v = frameworkCache.get(lang)
+  if (v === undefined) {
+    v = load(`framework.${lang}.md`)
+    frameworkCache.set(lang, v)
+  }
+  return v
 }
 
-export function getBuiltinRules(): string {
-  if (builtinRulesCache === null) builtinRulesCache = load('builtin-rules.md')
-  return builtinRulesCache
+export function getBuiltinRules(lang: Language): string {
+  let v = builtinRulesCache.get(lang)
+  if (v === undefined) {
+    v = load(`builtin-rules.${lang}.md`)
+    builtinRulesCache.set(lang, v)
+  }
+  return v
 }

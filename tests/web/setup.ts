@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+// Initialize i18next once per test process — components call useTranslation()
+// and would otherwise render translation keys instead of resolved strings.
+import '../../src/web/i18n'
 
 // jsdom does not implement EventSource; provide a noop stub for tests.
 class StubEventSource {

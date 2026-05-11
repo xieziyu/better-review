@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z, ZodError } from 'zod'
 
-import { AGENT_KINDS } from '../../../shared/types'
+import { AGENT_KINDS, LANGUAGES } from '../../../shared/types'
 import { saveConfig, type Config } from '../../config'
 import type { AppDeps } from '../app'
 
@@ -11,6 +11,7 @@ const updatableSchema = z.object({
   stallMinutes: z.number().int().min(1).max(60),
   defaultAgent: z.enum(AGENT_KINDS),
   perPRGCDays: z.number().int().min(0).max(365),
+  language: z.enum(LANGUAGES),
 })
 
 export function configRoutes(deps: AppDeps): Hono {

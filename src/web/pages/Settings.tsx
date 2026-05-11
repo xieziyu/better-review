@@ -1,6 +1,7 @@
-import { AGENT_KINDS, type AppConfig } from '@shared/types'
+import { AGENT_KINDS, LANGUAGES, type AppConfig, type Language } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 
 import { Button, Field, NumberInput, Select, Tag } from '@/components/ui'
 import { ApiError, api, queryKeys } from '@/lib/api'
@@ -12,24 +13,27 @@ interface FieldErrors {
   perPRGCDays?: string
 }
 
-function validate(draft: AppConfig | null): FieldErrors {
+function validate(
+  draft: AppConfig | null,
+  message: (min: number, max: number) => string,
+): FieldErrors {
   const errors: FieldErrors = {}
   if (!draft) return errors
   if (!Number.isInteger(draft.port) || draft.port < 0 || draft.port > 65535) {
-    errors.port = 'Must be an integer between 0 and 65535.'
+    errors.port = message(0, 65535)
   }
   if (
     !Number.isInteger(draft.maxConcurrentReviews) ||
     draft.maxConcurrentReviews < 1 ||
     draft.maxConcurrentReviews > 16
   ) {
-    errors.maxConcurrentReviews = 'Must be an integer between 1 and 16.'
+    errors.maxConcurrentReviews = message(1, 16)
   }
   if (!Number.isInteger(draft.stallMinutes) || draft.stallMinutes < 1 || draft.stallMinutes > 60) {
-    errors.stallMinutes = 'Must be an integer between 1 and 60.'
+    errors.stallMinutes = message(1, 60)
   }
   if (!Number.isInteger(draft.perPRGCDays) || draft.perPRGCDays < 0 || draft.perPRGCDays > 365) {
-    errors.perPRGCDays = 'Must be an integer between 0 and 365.'
+    errors.perPRGCDays = message(0, 365)
   }
   return errors
 }
@@ -40,11 +44,13 @@ function isDirty(server: AppConfig, draft: AppConfig): boolean {
     server.maxConcurrentReviews !== draft.maxConcurrentReviews ||
     server.stallMinutes !== draft.stallMinutes ||
     server.defaultAgent !== draft.defaultAgent ||
-    server.perPRGCDays !== draft.perPRGCDays
+    server.perPRGCDays !== draft.perPRGCDays ||
+    server.language !== draft.language
   )
 }
 
 export function Settings() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const cfgQ = useQuery({ queryKey: queryKeys.config, queryFn: api.getConfig })
   const healthQ = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
@@ -56,12 +62,29 @@ export function Settings() {
     if (cfgQ.data && draft === null) setDraft({ ...cfgQ.data.config })
   }, [cfgQ.data, draft])
 
+  // Keep the form's `language` in lockstep with the server config so the
+  // top-bar LanguageSwitcher (which writes through the same query cache) is
+  // reflected immediately in this page's Select. Other fields stay local-only
+  // so unsaved numeric edits aren't clobbered.
+  const serverLanguage = cfgQ.data?.config.language
+  useEffect(() => {
+    if (!serverLanguage) return
+    setDraft((prev) => {
+      if (!prev || prev.language === serverLanguage) return prev
+      return { ...prev, language: serverLanguage }
+    })
+  }, [serverLanguage])
+
   const dirty = useMemo(() => {
     if (!cfgQ.data || !draft) return false
     return isDirty(cfgQ.data.config, draft)
   }, [cfgQ.data, draft])
 
-  const errors = useMemo(() => validate(draft), [draft])
+  const validationMessage = useMemo(
+    () => (min: number, max: number) => t('settings.validation.intBetween', { min, max }),
+    [t],
+  )
+  const errors = useMemo(() => validate(draft, validationMessage), [draft, validationMessage])
   const hasErrors = Object.values(errors).some(Boolean)
 
   const saveMut = useMutation({
@@ -69,6 +92,7 @@ export function Settings() {
     onSuccess: ({ config }) => {
       qc.setQueryData(queryKeys.config, { config, file: cfgQ.data?.file ?? '' })
       void qc.invalidateQueries({ queryKey: queryKeys.health })
+      void qc.invalidateQueries({ queryKey: queryKeys.prompts })
       setDraft({ ...config })
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 2000)
@@ -77,8 +101,11 @@ export function Settings() {
 
   if (!cfgQ.data || !draft) {
     return (
-      <div className="px-8 py-10 mx-auto max-w-2xl space-y-6" aria-label="Loading settings">
-        <div className="text-caps tracking-caps text-ink-muted uppercase">Loading</div>
+      <div
+        className="px-8 py-10 mx-auto max-w-2xl space-y-6"
+        aria-label={t('settings.loadingAriaLabel')}
+      >
+        <div className="text-caps tracking-caps text-ink-muted uppercase">{t('app.loading')}</div>
         <div className="h-8 w-2/3 bg-raised rounded" />
         <div className="h-px w-full bg-rule" />
         <div className="h-9 w-full bg-raised/70 rounded" />
@@ -112,34 +139,59 @@ export function Settings() {
       className="px-8 py-10 mx-auto max-w-2xl space-y-10"
     >
       <header>
-        <div className="text-caps tracking-caps text-ink-muted uppercase mb-2">Settings</div>
-        <h1 className="text-display text-ink-primary">Runtime</h1>
+        <div className="text-caps tracking-caps text-ink-muted uppercase mb-2">
+          {t('settings.eyebrow')}
+        </div>
+        <h1 className="text-display text-ink-primary">{t('settings.title')}</h1>
         <p className="mt-3 text-body text-ink-secondary">
-          Stored at{' '}
+          {t('settings.storedAt')}{' '}
           <code className="font-mono text-code text-ink-primary bg-sunken px-1 py-0.5 rounded-sm">
             {cfgQ.data.file}
           </code>
-          . Most changes apply immediately; <code className="font-mono text-code">port</code> and{' '}
-          <code className="font-mono text-code">maxConcurrentReviews</code> require restarting the
-          daemon.
+          .{' '}
+          <Trans
+            i18nKey="settings.intro"
+            components={[
+              <code key="port" className="font-mono text-code" />,
+              <code key="mcr" className="font-mono text-code" />,
+            ]}
+          />
         </p>
       </header>
 
       <section className="space-y-6">
         <Field
-          label="Default agent"
+          label={t('settings.language.label')}
+          htmlFor="cfg-language"
+          hint={t('settings.language.hint')}
+        >
+          <Select
+            id="cfg-language"
+            value={draft.language}
+            onChange={(e) => set('language', e.currentTarget.value as Language)}
+          >
+            {LANGUAGES.map((lng) => (
+              <option key={lng} value={lng}>
+                {t(`settings.language.options.${lng}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field
+          label={t('settings.defaultAgent.label')}
           htmlFor="cfg-defaultAgent"
-          hint="Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later."
+          hint={t('settings.defaultAgent.hint')}
           trail={
             agentHealth
               ? AGENT_KINDS.map((k) =>
                   agentHealth[k].found ? (
                     <Tag key={k} tone="success">
-                      {k} found
+                      {t('settings.defaultAgent.found', { kind: k })}
                     </Tag>
                   ) : (
                     <Tag key={k} tone="danger">
-                      {k} missing
+                      {t('settings.defaultAgent.missing', { kind: k })}
                     </Tag>
                   ),
                 )
@@ -162,9 +214,9 @@ export function Settings() {
         </Field>
 
         <Field
-          label="Stall minutes"
+          label={t('settings.stallMinutes.label')}
           htmlFor="cfg-stallMinutes"
-          hint="Watchdog kills an agent run with no stdout for this many minutes."
+          hint={t('settings.stallMinutes.hint')}
           {...(errors.stallMinutes ? { error: errors.stallMinutes } : {})}
         >
           <NumberInput
@@ -179,9 +231,9 @@ export function Settings() {
         </Field>
 
         <Field
-          label="Per-PR GC days"
+          label={t('settings.perPRGCDays.label')}
           htmlFor="cfg-perPRGCDays"
-          hint="Garbage-collect per-PR workdirs after this many days. 0 disables GC."
+          hint={t('settings.perPRGCDays.hint')}
           {...(errors.perPRGCDays ? { error: errors.perPRGCDays } : {})}
         >
           <NumberInput
@@ -196,10 +248,10 @@ export function Settings() {
         </Field>
 
         <Field
-          label="Max concurrent reviews"
+          label={t('settings.maxConcurrentReviews.label')}
           htmlFor="cfg-maxConcurrentReviews"
-          hint="How many agent processes may run in parallel."
-          trail={<Tag tone="warning">restart required</Tag>}
+          hint={t('settings.maxConcurrentReviews.hint')}
+          trail={<Tag tone="warning">{t('settings.restartRequired')}</Tag>}
           {...(errors.maxConcurrentReviews ? { error: errors.maxConcurrentReviews } : {})}
         >
           <NumberInput
@@ -214,10 +266,10 @@ export function Settings() {
         </Field>
 
         <Field
-          label="Port"
+          label={t('settings.port.label')}
           htmlFor="cfg-port"
-          hint="0 lets the OS pick. Otherwise a free port between 1 and 65535."
-          trail={<Tag tone="warning">restart required</Tag>}
+          hint={t('settings.port.hint')}
+          trail={<Tag tone="warning">{t('settings.restartRequired')}</Tag>}
           {...(errors.port ? { error: errors.port } : {})}
         >
           <NumberInput
@@ -239,7 +291,7 @@ export function Settings() {
           size="sm"
           disabled={!dirty || hasErrors || saveMut.isPending}
         >
-          {saveMut.isPending ? 'Saving…' : 'Save'}
+          {saveMut.isPending ? t('common.saving') : t('common.save')}
         </Button>
         <Button
           type="button"
@@ -248,12 +300,12 @@ export function Settings() {
           disabled={!dirty || saveMut.isPending}
           onClick={() => setDraft({ ...cfgQ.data.config })}
         >
-          Discard
+          {t('common.discard')}
         </Button>
-        {savedFlash ? <Tag tone="success">saved</Tag> : null}
+        {savedFlash ? <Tag tone="success">{t('common.saved')}</Tag> : null}
         {saveMut.isError ? (
           <span className="text-meta text-severity-must">
-            {saveMut.error instanceof ApiError ? saveMut.error.message : 'Save failed'}
+            {saveMut.error instanceof ApiError ? saveMut.error.message : t('common.saveFailed')}
           </span>
         ) : null}
       </div>

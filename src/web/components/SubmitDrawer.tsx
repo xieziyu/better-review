@@ -2,6 +2,7 @@ import type { Finding, ReviewEvent } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 
 import { Button, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
@@ -15,19 +16,7 @@ interface Props {
 
 type Step = 1 | 2
 
-const EVENT_OPTIONS: Array<{ value: ReviewEvent; label: string; description: string }> = [
-  {
-    value: 'COMMENT',
-    label: 'COMMENT',
-    description: 'Leave comments without approving or rejecting.',
-  },
-  {
-    value: 'REQUEST_CHANGES',
-    label: 'REQUEST_CHANGES',
-    description: 'Block merge until addressed.',
-  },
-  { value: 'APPROVE', label: 'APPROVE', description: 'Mark as ready to merge.' },
-]
+const EVENT_VALUES: ReviewEvent[] = ['COMMENT', 'REQUEST_CHANGES', 'APPROVE']
 
 const SEVERITY_TONE: Record<Finding['severity'], 'must' | 'should' | 'nit'> = {
   must: 'must',
@@ -95,6 +84,7 @@ function PreviewFindingRow({ finding }: { finding: Finding }) {
 }
 
 export function SubmitDrawer({ sessionId, onClose }: Props) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data } = useQuery({
     queryKey: queryKeys.session(sessionId),
@@ -175,15 +165,17 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Submit review"
+        aria-label={t('submit.ariaLabel')}
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-[680px] bg-canvas border-l border-rule shadow-2xl flex flex-col min-h-0"
       >
         <div aria-hidden="true" className="h-px bg-brand shrink-0" />
         <header className="px-7 pt-6 pb-5 flex items-start gap-4 shrink-0 border-b border-rule">
           <div className="flex-1 min-w-0">
-            <div className="text-caps tracking-caps text-brand uppercase mb-2">Ready to submit</div>
-            <h2 className="text-h1 text-ink-primary">Review</h2>
+            <div className="text-caps tracking-caps text-brand uppercase mb-2">
+              {t('submit.eyebrow')}
+            </div>
+            <h2 className="text-h1 text-ink-primary">{t('submit.title')}</h2>
             {data?.session ? (
               <div className="mt-1 font-mono text-meta text-ink-secondary tabular-nums">
                 {data.session.owner}/{data.session.repo}#{data.session.number}
@@ -193,7 +185,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
           <button
             type="button"
             onClick={requestClose}
-            aria-label="Close"
+            aria-label={t('submit.closeAriaLabel')}
             className="p-2 -m-2 text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
           >
             <X size={18} aria-hidden="true" />
@@ -208,21 +200,27 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 className="border-b border-rule pb-5 space-y-2"
               >
                 <div className="font-mono text-h2 text-ink-primary tabular-nums">
-                  {selected.length} finding{selected.length === 1 ? '' : 's'} selected of{' '}
-                  {findings.length} total
+                  {t('submit.selectionSummary', {
+                    count: selected.length,
+                    total: findings.length,
+                  })}
                 </div>
                 <div className="font-mono text-meta text-ink-secondary tabular-nums">
-                  inline {inline.length} · body {movedToBody.length} · pr-wide {prWide.length}
+                  {t('submit.breakdown', {
+                    inline: inline.length,
+                    body: movedToBody.length,
+                    prWide: prWide.length,
+                  })}
                 </div>
                 <div className="font-mono text-meta text-ink-muted tabular-nums">
-                  {counts.must} must · {counts.should} should · {counts.nit} nit
+                  {t('submit.severityCounts', counts)}
                 </div>
               </section>
 
               {inline.length > 0 ? (
                 <section>
                   <h3 className="text-caps tracking-caps text-ink-muted uppercase mb-2">
-                    Inline · {inline.length}
+                    {t('submit.inlineSection', { count: inline.length })}
                   </h3>
                   <div data-testid="inline-list" role="list" className="divide-y divide-rule">
                     {inline.map((f) => (
@@ -235,11 +233,13 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {movedToBody.length > 0 ? (
                 <section>
                   <h3 className="text-caps tracking-caps text-severity-should uppercase mb-1">
-                    Moved to body · {movedToBody.length}
+                    {t('submit.movedToBodySection', { count: movedToBody.length })}
                   </h3>
                   <p className="text-meta text-ink-secondary mb-2">
-                    Their <code className="font-mono">file:line</code> is outside the PR diff, so
-                    GitHub would reject them as inline comments.
+                    <Trans
+                      i18nKey="submit.movedToBodyNote"
+                      components={[<code key="file" className="font-mono" />]}
+                    />
                   </p>
                   <div
                     data-testid="moved-to-body-list"
@@ -256,9 +256,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {prWide.length > 0 ? (
                 <section>
                   <h3 className="text-caps tracking-caps text-ink-muted uppercase mb-1">
-                    PR-wide · {prWide.length}
+                    {t('submit.prWideSection', { count: prWide.length })}
                   </h3>
-                  <p className="text-meta text-ink-secondary mb-2">added to the review body</p>
+                  <p className="text-meta text-ink-secondary mb-2">{t('submit.prWideNote')}</p>
                   <div data-testid="pr-wide-list" role="list" className="divide-y divide-rule">
                     {prWide.map((f) => (
                       <PreviewFindingRow key={f.dbId} finding={f} />
@@ -269,23 +269,27 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
               {selected.length === 0 ? (
                 <p className="text-meta text-ink-muted border-t border-rule pt-4">
-                  No findings selected.
+                  {t('submit.noSelection')}
                 </p>
               ) : null}
 
               <hr className="border-t border-brand" />
 
               <section className="space-y-4">
-                <fieldset role="radiogroup" aria-label="Review event type" className="space-y-2">
+                <fieldset
+                  role="radiogroup"
+                  aria-label={t('submit.event.ariaLabel')}
+                  className="space-y-2"
+                >
                   <legend className="text-caps tracking-caps text-ink-muted uppercase mb-1">
-                    Event type
+                    {t('submit.event.label')}
                   </legend>
-                  {EVENT_OPTIONS.map((opt) => (
+                  {EVENT_VALUES.map((value) => (
                     <label
-                      key={opt.value}
+                      key={value}
                       className={cn(
                         'group grid grid-cols-[auto_1fr] sm:grid-cols-[auto_11rem_1fr] gap-x-3 gap-y-1 rounded-md border px-3.5 py-3 cursor-pointer transition-[background-color,border-color,color] duration-180 ease-out-quart focus-within:outline focus-within:outline-[1.5px] focus-within:outline-brand focus-within:outline-offset-2',
-                        event === opt.value
+                        event === value
                           ? 'border-brand bg-raised text-ink-primary'
                           : 'border-rule bg-transparent text-ink-secondary hover:border-ink-muted hover:bg-raised/45 hover:text-ink-primary',
                       )}
@@ -293,17 +297,17 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                       <input
                         type="radio"
                         name="event"
-                        value={opt.value}
-                        checked={event === opt.value}
-                        onChange={() => setEvent(opt.value)}
-                        aria-label={opt.label}
+                        value={value}
+                        checked={event === value}
+                        onChange={() => setEvent(value)}
+                        aria-label={value}
                         className="sr-only"
                       />
                       <span
                         aria-hidden="true"
                         className={cn(
                           'flex size-4 shrink-0 self-center items-center justify-center rounded-full border transition-colors duration-180 ease-out-quart',
-                          event === opt.value
+                          event === value
                             ? 'border-brand bg-brand'
                             : 'border-rule bg-canvas group-hover:border-ink-muted',
                         )}
@@ -311,15 +315,15 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                         <span
                           className={cn(
                             'size-1.5 rounded-full transition-colors duration-180 ease-out-quart',
-                            event === opt.value ? 'bg-brand-ink' : 'bg-transparent',
+                            event === value ? 'bg-brand-ink' : 'bg-transparent',
                           )}
                         />
                       </span>
                       <span className="flex min-h-5 items-center font-mono text-meta tabular-nums">
-                        {opt.label}
+                        {value}
                       </span>
                       <span className="col-start-2 flex min-h-5 items-center text-meta text-ink-muted sm:col-start-auto">
-                        {opt.description}
+                        {t(`submit.event.${value}_desc`)}
                       </span>
                     </label>
                   ))}
@@ -327,10 +331,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
                 <label className="block">
                   <span className="text-caps tracking-caps text-ink-muted uppercase">
-                    Review body (markdown)
+                    {t('submit.reviewBody')}
                   </span>
                   <textarea
-                    aria-label="Review body"
+                    aria-label={t('submit.reviewBodyAria')}
                     value={body}
                     onChange={(e) => {
                       setBody(e.target.value)
@@ -340,16 +344,13 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   />
                   {prWide.length > 0 && !bodyTouched ? (
                     <span className="block text-meta text-ink-muted mt-1">
-                      Auto-filled from {prWide.length} PR-wide finding
-                      {prWide.length === 1 ? '' : 's'}.
+                      {t('submit.autoFilled', { count: prWide.length })}
                     </span>
                   ) : null}
                 </label>
 
                 {!diff && selected.some((f) => f.file !== null) ? (
-                  <p className="text-meta text-ink-muted">
-                    Diff not loaded. Line-in-diff check will run on submit.
-                  </p>
+                  <p className="text-meta text-ink-muted">{t('submit.diffNotLoaded')}</p>
                 ) : null}
               </section>
             </>
@@ -359,7 +360,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
             <section className="space-y-5">
               {submit.data ? (
                 <div className="border-t border-brand pt-5 space-y-2">
-                  <div className="text-caps tracking-caps text-brand uppercase">Submitted</div>
+                  <div className="text-caps tracking-caps text-brand uppercase">
+                    {t('submit.submitted')}
+                  </div>
                   <a
                     href={submit.data.url}
                     target="_blank"
@@ -371,44 +374,44 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   </a>
                   {submit.data.droppedToBody.length > 0 ? (
                     <div className="text-meta text-severity-should">
-                      {submit.data.droppedToBody.length} finding(s) dropped to review body (line not
-                      in diff).
+                      {t('submit.droppedToBody', { count: submit.data.droppedToBody.length })}
                     </div>
                   ) : null}
                   {submit.data.skippedDuplicates > 0 ? (
                     <div className="text-meta text-ink-secondary">
-                      {submit.data.skippedDuplicates} 条与上一轮重复，已跳过未重复发送。
+                      {t('submit.skippedDuplicates', { count: submit.data.skippedDuplicates })}
                     </div>
                   ) : null}
                 </div>
               ) : (
                 <div className="border-y border-rule py-5 space-y-2">
                   <div className="text-caps tracking-caps text-ink-muted uppercase">
-                    Confirmation
+                    {t('submit.confirmation')}
                   </div>
                   <div className="text-h2 text-ink-primary font-mono">
                     {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                   </div>
                   <div className="text-meta text-ink-secondary">
-                    {inline.length} inline comment{inline.length === 1 ? '' : 's'}
+                    {t('submit.confirmationLine', { count: inline.length })}
                   </div>
                   {movedToBody.length > 0 ? (
                     <div className="text-meta text-ink-secondary">
-                      {movedToBody.length} finding{movedToBody.length === 1 ? '' : 's'} may move to
-                      the review body
+                      {t('submit.confirmationMaybeMove', { count: movedToBody.length })}
                     </div>
                   ) : null}
                   {body.trim() || prWide.length > 0 ? (
-                    <div className="text-meta text-ink-secondary">1 review body comment</div>
+                    <div className="text-meta text-ink-secondary">
+                      {t('submit.confirmationReviewBody')}
+                    </div>
                   ) : null}
-                  <p className="text-meta text-ink-muted pt-2">
-                    This will post immediately. There is no &quot;draft&quot; mode.
-                  </p>
+                  <p className="text-meta text-ink-muted pt-2">{t('submit.confirmationNote')}</p>
                 </div>
               )}
               {submit.isError ? (
                 <div className="text-meta text-severity-must border-t border-severity-must/40 pt-3">
-                  {submit.error instanceof ApiError ? submit.error.message : 'Submit failed'}
+                  {submit.error instanceof ApiError
+                    ? submit.error.message
+                    : t('submit.submitFailed')}
                 </div>
               ) : null}
             </section>
@@ -418,7 +421,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
         <footer className="shrink-0 border-t border-rule bg-canvas">
           <div className="px-7 py-3.5 flex items-center justify-between">
             <Button type="button" variant="ghost" size="md" onClick={requestClose}>
-              {submit.data ? 'Close' : 'Cancel'}
+              {submit.data ? t('submit.closeButton') : t('common.cancel')}
             </Button>
             <div className="flex items-center gap-3">
               {step > 1 && !submit.data ? (
@@ -428,7 +431,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   size="md"
                   onClick={() => setStep((s) => (s - 1) as Step)}
                 >
-                  Back
+                  {t('common.back')}
                 </Button>
               ) : null}
               {step < 2 ? (
@@ -439,11 +442,11 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   onClick={() => setStep((s) => (s + 1) as Step)}
                   disabled={step === 1 && selected.length === 0}
                 >
-                  Next
+                  {t('common.next')}
                 </Button>
               ) : null}
               {step === 2 && !submit.data ? (
-                <KbdTooltip keys={['⌘', '⏎']} label="submit">
+                <KbdTooltip keys={['⌘', '⏎']} label={t('submit.submitButton')}>
                   <Button
                     type="button"
                     variant="primary"
@@ -451,7 +454,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     onClick={() => submit.mutate()}
                     disabled={submit.isPending || selected.length === 0}
                   >
-                    {submit.isPending ? 'Submitting…' : 'Submit'}
+                    {submit.isPending ? t('submit.submitting') : t('submit.submitButton')}
                   </Button>
                 </KbdTooltip>
               ) : null}

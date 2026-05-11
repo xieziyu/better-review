@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
@@ -36,24 +37,13 @@ const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'da
     cancelled: 'neutral',
   }
 
-const STATUS_LABEL: Record<SessionStatus, string> = {
-  running: 'Running',
-  pending: 'Preparing',
-  ready: 'Ready',
-  failed: 'Failed',
-  submitted: 'Submitted',
-  archived: 'Archived',
-  cancelled: 'Cancelled',
-}
-
 function SourceKindBadge({ session }: { session: PRSession }) {
+  const { t } = useTranslation()
   const kind = session.sourceKind
   if (!kind || kind === 'none') return null
-  const label = kind === 'worktree' ? '源码：PR head 工作树' : '源码：差异文件快照（部分）'
-  const title =
-    kind === 'worktree'
-      ? '此次评审基于 PR head 的 git worktree，agent 看到的源码与 diff 一致'
-      : '仅 diff 涉及的文件被快照到 PR head；callers 与相邻模块未包含'
+  const isWorktree = kind === 'worktree'
+  const label = t(isWorktree ? 'prdetail.sourceWorktreeLabel' : 'prdetail.sourceSnapshotLabel')
+  const title = t(isWorktree ? 'prdetail.sourceWorktreeTitle' : 'prdetail.sourceSnapshotTitle')
   return (
     <span
       className="inline-flex items-center gap-1 text-meta text-ink-secondary"
@@ -101,18 +91,16 @@ function PRHeader({
   health,
   justSwitched,
 }: PRHeaderProps) {
+  const { t } = useTranslation()
   return (
     <header className="space-y-4">
       <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
         <Tag tone={STATUS_TONE[session.status]} data-status={session.status}>
-          {STATUS_LABEL[session.status]}
+          {t(`prdetail.status.${session.status}`)}
         </Tag>
         {roundNumber > 1 ? (
-          <Tag
-            tone="brand"
-            title="本次 review 是这个 PR 上的第 N 次评审，agent 收到了上一轮 findings + 作者回复作为上下文"
-          >
-            第 {roundNumber} 轮 · 已携带上次上下文
+          <Tag tone="brand" title={t('prdetail.roundTitle')}>
+            {t('prdetail.roundLabel', { n: roundNumber })}
           </Tag>
         ) : null}
         <span
@@ -132,18 +120,18 @@ function PRHeader({
             href={session.url}
             target="_blank"
             rel="noreferrer"
-            aria-label="Open PR on GitHub"
+            aria-label={t('prdetail.openOnGithub')}
             className="inline-flex items-center gap-1 text-meta text-ink-secondary transition-colors duration-180 ease-out-quart hover:text-brand"
           >
             <ExternalLink size={12} aria-hidden="true" />
-            GitHub
+            {t('prdetail.github')}
           </a>
         ) : null}
         {session.localRepoPath ? (
           <span
             className="inline-flex max-w-[44ch] items-center gap-1 font-mono text-meta text-ink-secondary"
-            title={`Local repo: ${session.localRepoPath}`}
-            aria-label={`Local repo: ${session.localRepoPath}`}
+            title={t('prdetail.localRepoLabel', { path: session.localRepoPath })}
+            aria-label={t('prdetail.localRepoLabel', { path: session.localRepoPath })}
           >
             <FolderGit2 size={12} className="text-ink-muted shrink-0" aria-hidden="true" />
             <span className="truncate">{session.localRepoPath}</span>
@@ -153,11 +141,11 @@ function PRHeader({
 
         {justSwitched ? (
           <Tag tone="brand" className="animate-running-pulse">
-            new run started
+            {t('prdetail.newRunStarted')}
           </Tag>
         ) : null}
         {session.status === 'submitted' ? (
-          <span className="text-meta text-ink-secondary">Submitted to GitHub.</span>
+          <span className="text-meta text-ink-secondary">{t('prdetail.submittedNote')}</span>
         ) : null}
       </div>
 
@@ -167,8 +155,10 @@ function PRHeader({
 
       <div className="flex items-center gap-4 flex-wrap">
         <fieldset className="flex items-center gap-1.5 text-meta text-ink-secondary">
-          <legend className="sr-only">Review agent</legend>
-          <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">Agent</span>
+          <legend className="sr-only">{t('prdetail.agentLegend')}</legend>
+          <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">
+            {t('prdetail.agentLabel')}
+          </span>
           {AGENT_KINDS.map((k) => {
             const found = health?.agents[k].found ?? true
             const selected = rerunAgent === k
@@ -179,7 +169,7 @@ function PRHeader({
                 onClick={() => onRerunAgentChange(k)}
                 disabled={!found || rerunPending}
                 aria-pressed={selected}
-                title={found ? undefined : `${k} CLI not found in PATH`}
+                title={found ? undefined : t('home.agent.notFoundTitle', { kind: k })}
                 className={cn(
                   'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
                   selected
@@ -197,9 +187,9 @@ function PRHeader({
         <div className="ml-auto flex items-center gap-2">
           {session.status === 'running' ? (
             <ConfirmAction
-              title="Cancel running review?"
-              description="Collected findings will be kept."
-              confirmLabel="Cancel run"
+              title={t('prdetail.cancelTitle')}
+              description={t('prdetail.cancelDesc')}
+              confirmLabel={t('prdetail.cancelConfirm')}
               onConfirm={onCancel}
               disabled={cancelPending}
             >
@@ -210,22 +200,22 @@ function PRHeader({
                   size="sm"
                   onClick={requestConfirm}
                   disabled={cancelPending}
-                  aria-label="Cancel running review"
+                  aria-label={t('prdetail.cancelRunningAriaLabel')}
                 >
                   <Square size={12} fill="currentColor" aria-hidden="true" />
-                  Cancel
+                  {t('prdetail.cancel')}
                 </Button>
               )}
             </ConfirmAction>
           ) : null}
           <ConfirmAction
-            title="Delete this session?"
+            title={t('prdetail.deleteTitle')}
             description={
               session.status === 'running'
-                ? 'The running review will be canceled and all findings will be lost.'
-                : 'All findings will be removed. This cannot be undone.'
+                ? t('prdetail.deleteDescRunning')
+                : t('prdetail.deleteDescDefault')
             }
-            confirmLabel="Delete"
+            confirmLabel={t('prdetail.delete')}
             onConfirm={onDelete}
             disabled={deletePending}
           >
@@ -236,19 +226,19 @@ function PRHeader({
                 size="sm"
                 onClick={requestConfirm}
                 disabled={deletePending}
-                aria-label="Delete session"
+                aria-label={t('prdetail.deleteAriaLabel')}
               >
                 <Trash2 size={12} aria-hidden="true" />
-                Delete
+                {t('prdetail.delete')}
               </Button>
             )}
           </ConfirmAction>
           <span className="h-5 w-px bg-rule" aria-hidden="true" />
           {session.status === 'running' ? (
             <ConfirmAction
-              title="Rerun while review is still in progress?"
-              description="The current run will be canceled before starting a new one."
-              confirmLabel="Rerun"
+              title={t('prdetail.rerunRunningTitle')}
+              description={t('prdetail.rerunRunningDesc')}
+              confirmLabel={t('prdetail.rerunConfirm')}
               onConfirm={onRerun}
               disabled={rerunPending}
             >
@@ -261,7 +251,7 @@ function PRHeader({
                   disabled={rerunPending}
                 >
                   <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
-                  Rerun
+                  {t('prdetail.rerun')}
                 </Button>
               )}
             </ConfirmAction>
@@ -274,7 +264,7 @@ function PRHeader({
               disabled={rerunPending}
             >
               <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
-              Rerun
+              {t('prdetail.rerun')}
             </Button>
           )}
           <Button
@@ -283,9 +273,11 @@ function PRHeader({
             size="md"
             onClick={onSubmit}
             disabled={selectedCount === 0}
-            title={selectedCount === 0 ? 'Select at least one finding' : undefined}
+            title={selectedCount === 0 ? t('prdetail.submitTitleZero') : undefined}
           >
-            Submit{selectedCount > 0 ? ` · ${selectedCount}` : ''}
+            {selectedCount > 0
+              ? `${t('prdetail.submit')} · ${selectedCount}`
+              : t('prdetail.submit')}
           </Button>
         </div>
       </div>
@@ -316,6 +308,7 @@ function ExtraContextPanel({
   onSaveEdit,
   onChange,
 }: ExtraContextPanelProps) {
+  const { t } = useTranslation()
   const hasBase = !!base && base.trim().length > 0
   const overridePending = !editing && draft !== null && draft !== (base ?? '')
   const draftValue = draft ?? base ?? ''
@@ -326,10 +319,10 @@ function ExtraContextPanel({
         type="button"
         onClick={onStartEdit}
         className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
-        aria-label="Add extra context for rerun"
+        aria-label={t('prdetail.extraContext.addAriaLabel')}
       >
         <FileText size={14} aria-hidden="true" />
-        <span>Add extra context for rerun (optional)</span>
+        <span>{t('prdetail.extraContext.addLabel')}</span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
     )
@@ -340,7 +333,7 @@ function ExtraContextPanel({
       <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-caps tracking-caps text-ink-muted uppercase">
-            Extra context (will apply to rerun)
+            {t('prdetail.extraContext.editorHeader')}
           </span>
           <div className="flex items-center gap-2 text-meta">
             <button
@@ -348,22 +341,22 @@ function ExtraContextPanel({
               onClick={onCancelEdit}
               className="text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
             >
-              cancel
+              {t('prdetail.extraContext.cancel')}
             </button>
             <button
               type="button"
               onClick={onSaveEdit}
               className="text-brand hover:opacity-80 transition-opacity duration-180 ease-out-quart"
             >
-              save
+              {t('prdetail.extraContext.save')}
             </button>
           </div>
         </div>
         <textarea
-          aria-label="Extra context"
+          aria-label={t('prdetail.extraContext.ariaLabel')}
           value={draftValue}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次 rerun。"
+          placeholder={t('prdetail.extraContext.placeholder')}
           className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
           spellCheck={false}
         />
@@ -379,7 +372,7 @@ function ExtraContextPanel({
           type="button"
           onClick={onToggleExpanded}
           aria-expanded={expanded}
-          aria-label="Toggle extra context"
+          aria-label={t('prdetail.extraContext.toggleAriaLabel')}
           className="flex flex-1 min-w-0 items-center gap-2 hover:text-ink-primary transition-colors duration-180 ease-out-quart"
         >
           {expanded ? (
@@ -388,9 +381,11 @@ function ExtraContextPanel({
             <ChevronRight size={14} className="shrink-0" aria-hidden="true" />
           )}
           <FileText size={14} className="shrink-0 text-ink-muted" aria-hidden="true" />
-          <span className="text-caps tracking-caps text-ink-muted uppercase">Extra context</span>
+          <span className="text-caps tracking-caps text-ink-muted uppercase">
+            {t('prdetail.extraContext.label')}
+          </span>
           {overridePending ? (
-            <Tag tone="brand">edited for rerun</Tag>
+            <Tag tone="brand">{t('prdetail.extraContext.editedTag')}</Tag>
           ) : hasBase ? (
             <span className="ml-1 truncate text-ink-muted text-meta font-mono">
               {(base as string).slice(0, 80).replace(/\s+/g, ' ')}
@@ -400,10 +395,10 @@ function ExtraContextPanel({
         <button
           type="button"
           onClick={onStartEdit}
-          aria-label="Edit extra context for rerun"
+          aria-label={t('prdetail.extraContext.editAriaLabel')}
           className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
         >
-          edit
+          {t('prdetail.extraContext.edit')}
         </button>
       </div>
       {expanded && hasBase ? (
@@ -416,6 +411,7 @@ function ExtraContextPanel({
 }
 
 export function PRDetail() {
+  const { t } = useTranslation()
   const { id = '' } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
@@ -483,8 +479,8 @@ export function PRDetail() {
 
   useEffect(() => {
     if (!justSwitched) return
-    const t = setTimeout(() => setJustSwitched(false), 2500)
-    return () => clearTimeout(t)
+    const tmr = setTimeout(() => setJustSwitched(false), 2500)
+    return () => clearTimeout(tmr)
   }, [justSwitched])
 
   const rerun = useMutation({
@@ -520,7 +516,7 @@ export function PRDetail() {
   if (isLoading || !data) {
     return (
       <div className="px-8 py-10 max-w-3xl space-y-4">
-        <div className="text-caps tracking-caps text-ink-muted uppercase">Loading</div>
+        <div className="text-caps tracking-caps text-ink-muted uppercase">{t('app.loading')}</div>
         <div className="h-8 w-2/3 bg-raised rounded" />
         <div className="h-px w-full bg-rule" />
         <div className="h-3 w-full bg-raised/70 rounded" />
@@ -595,7 +591,7 @@ export function PRDetail() {
         {session.error ? (
           <div className="border-l-[1px] border-severity-must pl-4 py-2">
             <div className="text-caps tracking-caps text-severity-must uppercase mb-1">
-              Session error
+              {t('prdetail.sessionError')}
             </div>
             <div className="text-body text-ink-primary">{session.error}</div>
           </div>
@@ -603,19 +599,19 @@ export function PRDetail() {
 
         {rerun.isError ? (
           <div className="text-meta text-severity-must">
-            {rerun.error instanceof ApiError ? rerun.error.message : 'Rerun failed'}
+            {rerun.error instanceof ApiError ? rerun.error.message : t('prdetail.rerunFailed')}
           </div>
         ) : null}
 
         {remove.isError ? (
           <div className="text-meta text-severity-must">
-            {remove.error instanceof ApiError ? remove.error.message : 'Delete failed'}
+            {remove.error instanceof ApiError ? remove.error.message : t('prdetail.deleteFailed')}
           </div>
         ) : null}
 
         {cancel.isError ? (
           <div className="text-meta text-severity-must">
-            {cancel.error instanceof ApiError ? cancel.error.message : 'Cancel failed'}
+            {cancel.error instanceof ApiError ? cancel.error.message : t('prdetail.cancelFailed')}
           </div>
         ) : null}
 
@@ -626,16 +622,16 @@ export function PRDetail() {
               aria-hidden="true"
             />
             <span className="text-body">
-              {session.agent} is reviewing. Findings will stream in here as they're produced.
+              {t('prdetail.agentReviewing', { agent: session.agent })}
             </span>
           </div>
         ) : null}
 
         {session.status === 'ready' && activeFindings.length === 0 ? (
           <EmptyState
-            eyebrow="Ready"
-            title="No issues found"
-            body="Either the PR is clean, or the prompt missed something. Rerun to get a different angle."
+            eyebrow={t('prdetail.noIssuesEyebrow')}
+            title={t('prdetail.noIssuesTitle')}
+            body={t('prdetail.noIssuesBody')}
             action={
               <Button
                 type="button"
@@ -643,7 +639,7 @@ export function PRDetail() {
                 size="sm"
                 onClick={() => rerun.mutate(effectiveRerunAgent)}
               >
-                Rerun with {effectiveRerunAgent}
+                {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
               </Button>
             }
           />
@@ -655,7 +651,9 @@ export function PRDetail() {
 
         {selectedCount > 0 ? (
           <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase">
-            <span className="text-ink-secondary">{selectedCount} selected</span>
+            <span className="text-ink-secondary">
+              {t('prdetail.selectedCount', { count: selectedCount })}
+            </span>
           </div>
         ) : null}
 

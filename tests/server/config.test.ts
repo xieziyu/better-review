@@ -29,4 +29,17 @@ describe('loadConfig', () => {
     expect((c as Record<string, unknown>).foo).toBeUndefined()
     expect(c.port).toBe(1234)
   })
+  it('defaults language to "en"', () => {
+    expect(defaultConfig.language).toBe('en')
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ port: 1 }))
+    expect(loadConfig(home).language).toBe('en')
+  })
+  it('round-trips a zh-CN language setting', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ language: 'zh-CN' }))
+    expect(loadConfig(home).language).toBe('zh-CN')
+  })
+  it('rejects unsupported language values', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ language: 'fr' }))
+    expect(() => loadConfig(home)).toThrow()
+  })
 })

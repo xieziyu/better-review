@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { z } from 'zod'
 
-import { AGENT_KINDS } from '../shared/types'
+import { AGENT_KINDS, LANGUAGES } from '../shared/types'
 
 const rawConfigSchema = z.object({
   port: z.number().int().nonnegative().default(0),
@@ -11,6 +11,7 @@ const rawConfigSchema = z.object({
   stallMinutes: z.number().int().positive().default(3),
   defaultAgent: z.enum(AGENT_KINDS).default('claude'),
   perPRGCDays: z.number().int().nonnegative().default(7),
+  language: z.enum(LANGUAGES).default('en'),
   // Deprecated alias kept for backward compatibility — superseded by `stallMinutes`.
   claudeStallMinutes: z.number().int().positive().optional(),
 })
@@ -60,6 +61,7 @@ const writableKeys = [
   'stallMinutes',
   'defaultAgent',
   'perPRGCDays',
+  'language',
 ] as const
 
 export function saveConfig(file: string, config: Config): void {

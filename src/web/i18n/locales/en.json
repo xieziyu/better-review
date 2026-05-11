@@ -1,0 +1,379 @@
+{
+  "app": {
+    "loading": "Loading",
+    "loadingPage": "Loading page",
+    "nav": {
+      "prompt": "Prompt",
+      "settings": "Settings",
+      "primary": "Primary"
+    },
+    "languageSwitcher": {
+      "buttonLabel": "Change language",
+      "menuAriaLabel": "Language menu"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "edit": "Edit",
+    "delete": "Delete",
+    "discard": "Discard",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm",
+    "saved": "saved",
+    "saveFailed": "Save failed"
+  },
+  "time": {
+    "justNow": "just now",
+    "secondsAgo": "{{n}}s ago",
+    "minutesAgo": "{{n}}m ago",
+    "hoursAgo": "{{n}}h ago",
+    "daysAgo": "{{n}}d ago",
+    "minutes": "{{n}}m",
+    "hoursAndMinutes": "{{h}}h {{m}}m",
+    "daysAndHours": "{{d}}d {{h}}h"
+  },
+  "home": {
+    "eyebrow": "better-review",
+    "title": "Review GitHub PRs locally",
+    "subtitle": "Paste a pull request to start a session.",
+    "prUrlPlaceholder": "https://github.com/owner/repo/pull/123",
+    "prAriaLabel": "PR target",
+    "startReview": "Start review",
+    "starting": "Starting…",
+    "localRepoPlaceholder": "Local repo (optional) — ~/code/owner/repo to give the agent source access",
+    "localRepoAriaLabel": "Local repository path",
+    "browse": "Browse",
+    "browseAriaLabel": "Browse for local repository",
+    "browseTitle": "Open native folder picker",
+    "opening": "Opening…",
+    "clear": "clear",
+    "clearAriaLabel": "Clear local repo",
+    "pickerError": "Failed to open folder picker",
+    "recentRepoMatch": "★ matches PR · ",
+    "recentRepoMeta": "last used {{when}} · ×{{count}}",
+    "autoFillHint": "ⓘ Auto-filled from history · matches {{owner}}/{{repo}}",
+    "extra": {
+      "header": "Extra context for this review",
+      "remove": "remove",
+      "removeAriaLabel": "Remove extra context",
+      "ariaLabel": "Extra context",
+      "placeholder": "Paste a spec or PRD excerpt, the intended behaviour change, or judgment guidance for borderline cases… Applies only to this review; does not modify review.md.",
+      "addLabel": "Add extra context (optional)",
+      "addAriaLabel": "Add extra context"
+    },
+    "agent": {
+      "legend": "Review agent",
+      "label": "Agent",
+      "notFoundTitle": "{{kind}} CLI not found in PATH",
+      "defaultSuffix": "(default)"
+    },
+    "submitError": "Failed to start review",
+    "recent": {
+      "title": "Recent",
+      "total": "{{count}} total",
+      "emptyEyebrow": "No history",
+      "emptyTitle": "Nothing to recall yet",
+      "emptyBody": "Sessions you start here will be available in the sidebar across browser restarts.",
+      "noTitle": "(no title)"
+    },
+    "footer": {
+      "startReviewLabel": "start review",
+      "configureBefore": "Configure default agent in",
+      "configureLink": "settings"
+    }
+  },
+  "settings": {
+    "loadingAriaLabel": "Loading settings",
+    "eyebrow": "Settings",
+    "title": "Runtime",
+    "storedAt": "Stored at",
+    "intro": "Most changes apply immediately; <0>port</0> and <1>maxConcurrentReviews</1> require restarting the daemon.",
+    "validation": {
+      "intBetween": "Must be an integer between {{min}} and {{max}}."
+    },
+    "language": {
+      "label": "Language",
+      "hint": "Controls the UI language and the language the review agent writes findings in.",
+      "options": {
+        "en": "English",
+        "zh-CN": "简体中文"
+      }
+    },
+    "defaultAgent": {
+      "label": "Default agent",
+      "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later.",
+      "found": "{{kind}} found",
+      "missing": "{{kind}} missing"
+    },
+    "stallMinutes": {
+      "label": "Stall minutes",
+      "hint": "Watchdog kills an agent run with no stdout for this many minutes."
+    },
+    "perPRGCDays": {
+      "label": "Per-PR GC days",
+      "hint": "Garbage-collect per-PR workdirs after this many days. 0 disables GC."
+    },
+    "maxConcurrentReviews": {
+      "label": "Max concurrent reviews",
+      "hint": "How many agent processes may run in parallel."
+    },
+    "port": {
+      "label": "Port",
+      "hint": "0 lets the OS pick. Otherwise a free port between 1 and 65535."
+    },
+    "restartRequired": "restart required"
+  },
+  "prdetail": {
+    "status": {
+      "running": "Running",
+      "pending": "Preparing",
+      "ready": "Ready",
+      "failed": "Failed",
+      "submitted": "Submitted",
+      "archived": "Archived",
+      "cancelled": "Cancelled"
+    },
+    "loadingAriaLabel": "Loading PR detail",
+    "roundLabel": "Round {{n}} · with prior context",
+    "roundTitle": "This review is round N for this PR. The agent received the previous findings plus author replies as context.",
+    "agentLegend": "Review agent",
+    "agentLabel": "Agent",
+    "openOnGithub": "Open PR on GitHub",
+    "github": "GitHub",
+    "localRepoLabel": "Local repo: {{path}}",
+    "sourceWorktreeLabel": "Source: PR head worktree",
+    "sourceWorktreeTitle": "Review based on a git worktree at PR head; the agent sees source matching the diff.",
+    "sourceSnapshotLabel": "Source: snapshot of diff files (partial)",
+    "sourceSnapshotTitle": "Only the files touched by the diff are snapshotted at PR head; callers and adjacent modules are not included.",
+    "newRunStarted": "new run started",
+    "submittedNote": "Submitted to GitHub.",
+    "cancelRunningAriaLabel": "Cancel running review",
+    "cancelTitle": "Cancel running review?",
+    "cancelDesc": "Collected findings will be kept.",
+    "cancelConfirm": "Cancel run",
+    "cancel": "Cancel",
+    "deleteAriaLabel": "Delete session",
+    "deleteTitle": "Delete this session?",
+    "deleteDescRunning": "The running review will be canceled and all findings will be lost.",
+    "deleteDescDefault": "All findings will be removed. This cannot be undone.",
+    "delete": "Delete",
+    "rerunRunningTitle": "Rerun while review is still in progress?",
+    "rerunRunningDesc": "The current run will be canceled before starting a new one.",
+    "rerunConfirm": "Rerun",
+    "rerun": "Rerun",
+    "submit": "Submit",
+    "submitTitleZero": "Select at least one finding",
+    "agentReviewing": "{{agent}} is reviewing. Findings will stream in here as they're produced.",
+    "noIssuesEyebrow": "Ready",
+    "noIssuesTitle": "No issues found",
+    "noIssuesBody": "Either the PR is clean, or the prompt missed something. Rerun to get a different angle.",
+    "rerunWith": "Rerun with {{agent}}",
+    "selectedCount": "{{count}} selected",
+    "sessionError": "Session error",
+    "rerunFailed": "Rerun failed",
+    "deleteFailed": "Delete failed",
+    "cancelFailed": "Cancel failed",
+    "extraContext": {
+      "addAriaLabel": "Add extra context for rerun",
+      "addLabel": "Add extra context for rerun (optional)",
+      "editorHeader": "Extra context (will apply to rerun)",
+      "cancel": "cancel",
+      "save": "save",
+      "ariaLabel": "Extra context",
+      "placeholder": "Paste a spec or PRD excerpt, the intended behaviour change, or judgment guidance for borderline cases… Applies only to this rerun.",
+      "toggleAriaLabel": "Toggle extra context",
+      "label": "Extra context",
+      "editedTag": "edited for rerun",
+      "editAriaLabel": "Edit extra context for rerun",
+      "edit": "edit"
+    }
+  },
+  "prep": {
+    "label": "Preparing",
+    "working": "working",
+    "ariaLabel": "Review preparation progress",
+    "phase": {
+      "prep:fetching-pr": "Fetching PR metadata",
+      "prep:fetching-diff": "Fetching diff",
+      "prep:loading-prior-review": "Checking prior review context",
+      "prep:preparing-source:worktree": "Preparing PR head worktree",
+      "prep:preparing-source:snapshot": "Snapshotting PR head source",
+      "prep:rendering-prompt": "Assembling prompt",
+      "prep:rendering-prompt:with-prior": "Assembling prompt (with prior context)",
+      "prep:starting": "Starting {{agent}}"
+    }
+  },
+  "finding": {
+    "wholePR": "(whole PR)",
+    "unselectAriaLabel": "Unselect finding {{id}}",
+    "selectAriaLabel": "Select finding {{id}}",
+    "edited": "Edited",
+    "openOnGithub": "Open on GitHub",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete finding {{id}}?",
+    "deleteDesc": "This removes it from the current review session.",
+    "deleteConfirm": "Delete",
+    "suggestion": "Suggestion",
+    "saveFailed": "save failed",
+    "form": {
+      "title": "Title",
+      "titleAria": "Title",
+      "severity": "Severity",
+      "body": "Body (markdown)",
+      "bodyAria": "Body",
+      "preview": "Preview",
+      "previewEmpty": "*(empty)*",
+      "suggestion": "Suggestion (optional)",
+      "suggestionAria": "Suggestion"
+    },
+    "list": {
+      "emptyEyebrow": "No findings",
+      "emptyTitle": "Nothing to review",
+      "emptyBody": "Either the agent ran cleanly, or it had nothing to say. Rerun to give it another pass.",
+      "prWide": "PR-wide",
+      "addedToBody": "added to review body on submit"
+    }
+  },
+  "submit": {
+    "ariaLabel": "Submit review",
+    "eyebrow": "Ready to submit",
+    "title": "Review",
+    "closeAriaLabel": "Close",
+    "event": {
+      "ariaLabel": "Review event type",
+      "label": "Event type",
+      "COMMENT_desc": "Leave comments without approving or rejecting.",
+      "REQUEST_CHANGES_desc": "Block merge until addressed.",
+      "APPROVE_desc": "Mark as ready to merge."
+    },
+    "selectionSummary_one": "{{count}} finding selected of {{total}} total",
+    "selectionSummary_other": "{{count}} findings selected of {{total}} total",
+    "breakdown": "inline {{inline}} · body {{body}} · pr-wide {{prWide}}",
+    "severityCounts": "{{must}} must · {{should}} should · {{nit}} nit",
+    "inlineSection": "Inline · {{count}}",
+    "movedToBodySection": "Moved to body · {{count}}",
+    "movedToBodyNote": "Their <0>file:line</0> is outside the PR diff, so GitHub would reject them as inline comments.",
+    "prWideSection": "PR-wide · {{count}}",
+    "prWideNote": "added to the review body",
+    "noSelection": "No findings selected.",
+    "reviewBody": "Review body (markdown)",
+    "reviewBodyAria": "Review body",
+    "autoFilled_one": "Auto-filled from 1 PR-wide finding.",
+    "autoFilled_other": "Auto-filled from {{count}} PR-wide findings.",
+    "diffNotLoaded": "Diff not loaded. Line-in-diff check will run on submit.",
+    "submitted": "Submitted",
+    "droppedToBody": "{{count}} finding(s) dropped to review body (line not in diff).",
+    "skippedDuplicates": "{{count}} duplicates from the prior round, skipped.",
+    "confirmation": "Confirmation",
+    "confirmationLine_one": "{{count}} inline comment",
+    "confirmationLine_other": "{{count}} inline comments",
+    "confirmationMaybeMove_one": "{{count}} finding may move to the review body",
+    "confirmationMaybeMove_other": "{{count}} findings may move to the review body",
+    "confirmationReviewBody": "1 review body comment",
+    "confirmationNote": "This will post immediately. There is no \"draft\" mode.",
+    "submitFailed": "Submit failed",
+    "submitButton": "Submit",
+    "submitting": "Submitting…",
+    "closeButton": "Close"
+  },
+  "agentOutput": {
+    "label": "Agent output",
+    "streaming": "streaming",
+    "transcriptAria": "Agent output transcript",
+    "waiting": "Waiting for the agent…",
+    "followAria": "follow stream to bottom",
+    "follow": "follow"
+  },
+  "sidebar": {
+    "newReviewAria": "New review (back to home)",
+    "newReview": "New review",
+    "sessionsAria": "Sessions",
+    "resizeAria": "Resize sidebar",
+    "emptyEyebrow": "No sessions",
+    "emptyTitle": "Paste a PR to begin",
+    "emptyBody": "The agent runs locally; this list shows everything in flight, done, or stale.",
+    "group": {
+      "active": "Active",
+      "done": "Done",
+      "stale": "Stale"
+    },
+    "status": {
+      "running": "Running",
+      "pending": "Pending",
+      "ready": "Ready",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "submitted": "Submitted",
+      "archived": "Archived"
+    },
+    "noTitle": "(no title)"
+  },
+  "daemon": {
+    "healthy": "Daemon healthy",
+    "warnings": "Daemon has warnings",
+    "blockers": "Daemon has blockers",
+    "status": "Daemon status",
+    "upFor": "Daemon up {{uptime}}",
+    "popoverAria": "Daemon status",
+    "agents": "Agents",
+    "tools": "Tools",
+    "paths": "Paths",
+    "default": "default",
+    "missing": "missing",
+    "notAuthed": "not authed",
+    "authed": "authed",
+    "notFound": "(not found)",
+    "home": "home",
+    "log": "log"
+  },
+  "prompt": {
+    "tabs": {
+      "effective": "Guidelines",
+      "framework": "Framework",
+      "project": "Project",
+      "global": "Global"
+    },
+    "tabTitleEffective": "Review Guidelines",
+    "tabTitleFallback": "Prompt",
+    "loading": "Loading prompt…",
+    "source": "Source:",
+    "sourceLabel": {
+      "project": "project override",
+      "global": "global override",
+      "builtin": "builtin rules (no overrides)"
+    },
+    "applyToCurrent": "Apply to current session",
+    "guidelinesAria": "Review guidelines",
+    "readOnlyCurrent": "Read-only. Current source: {{source}}.",
+    "frameworkAria": "Framework",
+    "readOnlyFramework": "Read-only. The framework is built into better-review and cannot be overridden. Your rules (Project / Global) are injected at the <0>{{placeholder}}</0> placeholder.",
+    "noOverride": "No {{scope}} override exists. The {{source}} applies.",
+    "overrideAtScope": "Override at this scope",
+    "writableAria": "{{scope}} rules",
+    "save": "Save to {{scope}}",
+    "saving": "Saving…",
+    "resetTitle": "Reset prompt override?",
+    "resetDesc": "{{path}} will be deleted. The next-level fallback will apply.",
+    "resetConfirm": "Reset",
+    "resetButton": "Reset to fallback",
+    "saveFailed": "Save failed",
+    "resetFailed": "Reset failed",
+    "applyModal": {
+      "ariaLabel": "Apply prompt to sessions",
+      "title": "Apply prompt to sessions",
+      "subtitle": "Selected sessions will be rerun with the saved prompt.",
+      "rerunFailed": "Rerun failed",
+      "apply": "Apply ({{count}})",
+      "applying": "Applying…"
+    },
+    "tabState": {
+      "readOnly": "read only",
+      "empty": "empty"
+    }
+  }
+}

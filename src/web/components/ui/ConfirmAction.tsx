@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from './Button'
 
@@ -19,6 +20,7 @@ export function ConfirmAction({
   disabled,
   children,
 }: ConfirmActionProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement | null>(null)
 
@@ -54,7 +56,7 @@ export function ConfirmAction({
           className="absolute right-0 top-[calc(100%+8px)] z-30 w-72 rounded-md border border-rule bg-canvas p-3 text-left"
         >
           <span className="block text-caps tracking-caps text-severity-must uppercase">
-            Confirm
+            {t('common.confirm')}
           </span>
           <span className="mt-1 block text-body font-medium text-ink-primary">{title}</span>
           {description ? (
@@ -62,7 +64,7 @@ export function ConfirmAction({
           ) : null}
           <span className="mt-3 flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"

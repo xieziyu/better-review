@@ -12,6 +12,7 @@ const baseConfig: AppConfig = {
   stallMinutes: 3,
   defaultAgent: 'claude',
   perPRGCDays: 7,
+  language: 'en',
 }
 
 const baseHealth: HealthStatus = {
@@ -44,11 +45,12 @@ function renderSettings(opts?: { config?: AppConfig; health?: HealthStatus }) {
     file: '/Users/x/.better-review/config.json',
   })
   qc.setQueryData(['health'], opts?.health ?? baseHealth)
-  return render(
+  const utils = render(
     <QueryClientProvider client={qc}>
       <Settings />
     </QueryClientProvider>,
   )
+  return { ...utils, qc }
 }
 
 describe('Settings', () => {
@@ -139,6 +141,21 @@ describe('Settings', () => {
     expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({ stallMinutes: 5 })
 
     await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument())
+  })
+
+  it('keeps the language Select in lockstep with the cached config (top-bar switcher)', async () => {
+    const { qc } = renderSettings()
+    expect(screen.getByLabelText(/^language$/i)).toHaveValue('en')
+    // Simulate the top-bar LanguageSwitcher: it persists via PUT and updates
+    // the shared TanStack Query cache. The Settings Select must follow.
+    qc.setQueryData(['config'], {
+      config: { ...baseConfig, language: 'zh-CN' as const },
+      file: '/Users/x/.better-review/config.json',
+    })
+    await waitFor(() => expect(screen.getByLabelText(/^language$/i)).toHaveValue('zh-CN'))
+    // Form is back to clean — the external change matched the server, so
+    // Save stays disabled rather than reading as a pending user edit.
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
   })
 
   it('renders an inline error when the save mutation fails', async () => {

@@ -7,10 +7,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
 
 import { EmptyState } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
+import { useRelativeTime } from '@/lib/format'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
@@ -27,22 +29,6 @@ const GROUP_OF: Record<SessionStatus, GroupKey> = {
 }
 
 const GROUP_ORDER: GroupKey[] = ['active', 'done', 'stale']
-
-const GROUP_LABEL: Record<GroupKey, string> = {
-  active: 'Active',
-  done: 'Done',
-  stale: 'Stale',
-}
-
-const STATUS_LABEL: Record<SessionStatus, string> = {
-  running: 'Running',
-  pending: 'Pending',
-  ready: 'Ready',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  submitted: 'Submitted',
-  archived: 'Archived',
-}
 
 const STATUS_TONE: Record<SessionStatus, string> = {
   running: 'text-accent-running',
@@ -74,25 +60,13 @@ function persistWidth(w: number): void {
   window.localStorage.setItem(SIDEBAR_KEY, String(w))
 }
 
-function relativeTime(updatedAt: number): string {
-  const diffMs = Date.now() - updatedAt
-  if (diffMs < 0) return 'just now'
-  const seconds = Math.floor(diffMs / 1000)
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
 function NewReviewLink() {
+  const { t } = useTranslation()
   return (
     <NavLink
       to="/"
       end
-      aria-label="New review (back to home)"
+      aria-label={t('sidebar.newReviewAria')}
       className={({ isActive }) =>
         cn(
           'flex items-center gap-2 px-5 py-3 border-b border-rule text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
@@ -103,7 +77,7 @@ function NewReviewLink() {
       }
     >
       <Plus size={14} aria-hidden="true" />
-      <span>New review</span>
+      <span>{t('sidebar.newReview')}</span>
     </NavLink>
   )
 }
@@ -113,6 +87,8 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session }: SessionRowProps) {
+  const { t } = useTranslation()
+  const relativeTime = useRelativeTime()
   const closed = CLOSED_STATUSES.has(session.status)
   return (
     <NavLink
@@ -143,7 +119,7 @@ function SessionRow({ session }: SessionRowProps) {
               closed ? 'text-ink-secondary' : 'text-ink-primary',
             )}
           >
-            {session.title ?? '(no title)'}
+            {session.title ?? t('sidebar.noTitle')}
           </h3>
           <div
             className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
@@ -159,7 +135,7 @@ function SessionRow({ session }: SessionRowProps) {
               )}
               data-status={session.status}
             >
-              {STATUS_LABEL[session.status]}
+              {t(`sidebar.status.${session.status}`)}
             </span>
             {session.author ? (
               <>
@@ -185,6 +161,7 @@ function SessionRow({ session }: SessionRowProps) {
 }
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: sessions = [] } = useQuery({
     queryKey: queryKeys.sessions,
@@ -253,13 +230,13 @@ export function Sidebar() {
       className="relative shrink-0 border-r border-rule bg-raised flex flex-col min-h-0"
     >
       <NewReviewLink />
-      <nav className="flex-1 overflow-y-auto" aria-label="Sessions">
+      <nav className="flex-1 overflow-y-auto" aria-label={t('sidebar.sessionsAria')}>
         {sessions.length === 0 ? (
           <div className="px-5 py-8">
             <EmptyState
-              eyebrow="No sessions"
-              title="Paste a PR to begin"
-              body="The agent runs locally; this list shows everything in flight, done, or stale."
+              eyebrow={t('sidebar.emptyEyebrow')}
+              title={t('sidebar.emptyTitle')}
+              body={t('sidebar.emptyBody')}
             />
           </div>
         ) : (
@@ -271,7 +248,7 @@ export function Sidebar() {
                 <section key={g} className="pt-5 first:pt-3">
                   <h3 className="flex items-center gap-2 px-5 pb-1.5">
                     <span className="text-caps tracking-caps text-ink-muted uppercase">
-                      {GROUP_LABEL[g]}
+                      {t(`sidebar.group.${g}`)}
                     </span>
                     <span className="font-mono text-meta text-ink-muted tabular-nums">
                       {items.length}
@@ -292,7 +269,7 @@ export function Sidebar() {
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize sidebar"
+        aria-label={t('sidebar.resizeAria')}
         aria-valuenow={width}
         aria-valuemin={SIDEBAR_MIN}
         aria-valuemax={SIDEBAR_MAX}

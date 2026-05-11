@@ -110,9 +110,19 @@ The daemon depends on these shell tools at runtime: at least one review agent CL
 
 ### Prompts
 
-This project's review-style prompts (built-in `prompts/builtin.md`, project/global overrides) follow a hard convention:
+Built-in prompts are **language-paired**. Every agent-facing prompt has an `<name>.en.md` and an `<name>.zh-CN.md` variant under `prompts/` — currently `framework.en.md` / `framework.zh-CN.md` and `builtin-rules.en.md` / `builtin-rules.zh-CN.md`. `src/server/prompts/builtin.ts` picks a variant based on `config.language`; `src/server/prompts/resolver.ts` threads the language through. Project / global overrides (`<cwd>/.better-review/review.md`, `~/.better-review/review.md`) remain **single-file, user-owned** — the resolver picks them first regardless of language.
 
-> **Chinese prose, English code identifiers.** Findings titles, bodies, suggestions, and any natural-language guidance are written in 简体中文. File paths, symbol names, CLI flags, and code snippets stay in English. Apply this when editing `prompts/builtin.md`, when wiring new placeholders, or when generating examples in tests.
+When editing prompts:
+
+- Keep both variants in sync: same structure, same `{{PLACEHOLDERS}}`, same number of sections. If you add a new placeholder to one variant, add it to the other too.
+- Chinese variants follow the convention: **Chinese prose, English code identifiers** — file paths, symbol names, CLI flags, code snippets, `category` strings (`Scope`, `Correctness`, …), and `severity` values (`must` / `should` / `nit`) all stay English; they are data, not prose.
+- Each variant must end with an explicit "output language" directive so findings come back in the correct language.
+
+### Web i18n
+
+The SPA uses **react-i18next** with a single `common` namespace. Dictionaries live at `src/web/i18n/locales/{en,zh-CN}.json`; the entry point that initializes i18next is `src/web/i18n/index.ts`, imported once from `src/web/main.tsx`. When adding a new visible string, add the key to both `en.json` and `zh-CN.json` — `tests/web/i18n.test.tsx` enforces parity. Use `useTranslation()` + `t('group.key')` in components; use `<Trans i18nKey="…" components={[…]} />` when the copy embeds JSX (e.g., `<code>` elements). For interpolation values that are themselves user-visible text, use `{{name}}` inside the message and pass `{ name: value }` as the second argument. The SPA reads `config.language` via TanStack Query at mount and calls `i18n.changeLanguage()` from `src/web/App.tsx`; the Settings page's PUT mutation hot-applies via the same effect.
+
+Notes on stable keys: `nsSeparator: false` is set in the i18next init so colons inside keys (`prep.phase.prep:fetching-pr`) are treated as literal — needed because server-side `PREP_PHASES` values embed `:`.
 
 ### Commits
 

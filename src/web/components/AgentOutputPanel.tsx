@@ -1,5 +1,6 @@
 import type { SessionStatus } from '@shared/types'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ScrollPin } from '@/components/ui'
 
@@ -11,6 +12,7 @@ interface Props {
 const PIN_THRESHOLD_PX = 40
 
 export function AgentOutputPanel({ chunks, status }: Props) {
+  const { t } = useTranslation()
   const isRunning = status === 'running'
   const [open, setOpen] = useState<boolean>(isRunning)
   const [unpinned, setUnpinned] = useState(false)
@@ -48,17 +50,19 @@ export function AgentOutputPanel({ chunks, status }: Props) {
       className="group rounded-md border border-rule overflow-hidden bg-raised/40"
     >
       <summary className="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-        <span className="text-caps tracking-caps text-ink-muted uppercase">Agent output</span>
+        <span className="text-caps tracking-caps text-ink-muted uppercase">
+          {t('agentOutput.label')}
+        </span>
         {isRunning ? (
           <span
             className="inline-flex items-center gap-1.5 text-caps tracking-caps text-accent-running uppercase"
-            aria-label="streaming"
+            aria-label={t('agentOutput.streaming')}
           >
             <span
               className="inline-block size-1.5 rounded-full bg-accent-running animate-running-pulse"
               aria-hidden="true"
             />
-            streaming
+            {t('agentOutput.streaming')}
           </span>
         ) : null}
         <span className="ml-auto font-mono text-meta text-ink-secondary tabular-nums">
@@ -71,11 +75,11 @@ export function AgentOutputPanel({ chunks, status }: Props) {
           onScroll={onScroll}
           role="log"
           aria-live="polite"
-          aria-label="Agent output transcript"
+          aria-label={t('agentOutput.transcriptAria')}
           className="max-h-[420px] overflow-y-auto px-4 py-3 bg-sunken"
         >
           {chunks.length === 0 ? (
-            <div className="text-meta text-ink-muted italic">Waiting for the agent…</div>
+            <div className="text-meta text-ink-muted italic">{t('agentOutput.waiting')}</div>
           ) : (
             <pre className="font-mono text-code text-ink-primary whitespace-pre-wrap break-words">
               {chunks.join('\n')}

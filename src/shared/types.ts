@@ -12,6 +12,9 @@ export type SessionStatus =
 export const AGENT_KINDS = ['claude', 'codex'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]
 
+export const LANGUAGES = ['en', 'zh-CN'] as const
+export type Language = (typeof LANGUAGES)[number]
+
 // What kind of PR-head source tree the agent reads while reviewing:
 // - 'worktree': a git worktree of the user's pinned local clone, checked out at
 //   the PR head SHA. Full repo, full files-at-head fidelity.
@@ -116,6 +119,7 @@ export interface AppConfig {
   stallMinutes: number
   defaultAgent: AgentKind
   perPRGCDays: number
+  language: Language
 }
 
 export type SSEEvent =

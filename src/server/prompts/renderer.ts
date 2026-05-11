@@ -152,7 +152,9 @@ function applyPriorReview(template: string, prior: PriorReviewVars | undefined):
       .replaceAll('{{LAST_REVIEWED_SHA}}', prior.lastReviewedSha || '(unknown)')
       .replaceAll(
         '{{PRIOR_REVIEW_BODY}}',
-        prior.reviewBody.trim().length > 0 ? prior.reviewBody.trim() : '_(The prior review summary was empty.)_',
+        prior.reviewBody.trim().length > 0
+          ? prior.reviewBody.trim()
+          : '_(The prior review summary was empty.)_',
       )
       .replaceAll('{{PRIOR_REVIEW_INLINE}}', formatPriorInline(prior.inlineComments))
       .replaceAll('{{PRIOR_REVIEW_ISSUE}}', formatIssueComments(prior.issueComments))

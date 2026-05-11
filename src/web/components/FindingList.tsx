@@ -1,6 +1,7 @@
 import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { FindingCard } from '@/components/FindingCard'
 import { EmptyState } from '@/components/ui'
@@ -51,14 +52,15 @@ function groupByFile(findings: Finding[]): { fileGroups: FileGroup[]; prWide: Fi
 }
 
 export function FindingList({ findings, session, unifiedDiff }: Props) {
+  const { t } = useTranslation()
   const { fileGroups, prWide } = useMemo(() => groupByFile(findings), [findings])
 
   if (findings.length === 0) {
     return (
       <EmptyState
-        eyebrow="No findings"
-        title="Nothing to review"
-        body="Either the agent ran cleanly, or it had nothing to say. Rerun to give it another pass."
+        eyebrow={t('finding.list.emptyEyebrow')}
+        title={t('finding.list.emptyTitle')}
+        body={t('finding.list.emptyBody')}
       />
     )
   }
@@ -77,8 +79,10 @@ export function FindingList({ findings, session, unifiedDiff }: Props) {
       {prWide.length > 0 ? (
         <section role="listitem" className="border-t border-rule">
           <h2 className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm py-3 flex items-baseline gap-3">
-            <span className="text-caps tracking-caps text-ink-muted uppercase">PR-wide</span>
-            <span className="text-meta text-ink-secondary">added to review body on submit</span>
+            <span className="text-caps tracking-caps text-ink-muted uppercase">
+              {t('finding.list.prWide')}
+            </span>
+            <span className="text-meta text-ink-secondary">{t('finding.list.addedToBody')}</span>
             <span className="ml-auto font-mono text-meta text-ink-muted tabular-nums">
               {prWide.length}
             </span>

@@ -1,0 +1,379 @@
+{
+  "app": {
+    "loading": "加载中",
+    "loadingPage": "页面加载中",
+    "nav": {
+      "prompt": "提示词",
+      "settings": "设置",
+      "primary": "主导航"
+    },
+    "languageSwitcher": {
+      "buttonLabel": "切换语言",
+      "menuAriaLabel": "语言菜单"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "取消",
+    "close": "关闭",
+    "edit": "编辑",
+    "delete": "删除",
+    "discard": "撤销修改",
+    "back": "返回",
+    "next": "下一步",
+    "confirm": "确认",
+    "saved": "已保存",
+    "saveFailed": "保存失败"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "secondsAgo": "{{n}} 秒前",
+    "minutesAgo": "{{n}} 分钟前",
+    "hoursAgo": "{{n}} 小时前",
+    "daysAgo": "{{n}} 天前",
+    "minutes": "{{n}} 分钟",
+    "hoursAndMinutes": "{{h}} 小时 {{m}} 分",
+    "daysAndHours": "{{d}} 天 {{h}} 小时"
+  },
+  "home": {
+    "eyebrow": "better-review",
+    "title": "在本地评审 GitHub PR",
+    "subtitle": "贴入一个 PR 链接来开始评审。",
+    "prUrlPlaceholder": "https://github.com/owner/repo/pull/123",
+    "prAriaLabel": "PR 目标",
+    "startReview": "开始评审",
+    "starting": "启动中…",
+    "localRepoPlaceholder": "本地仓库（可选）—— 例如 ~/code/owner/repo，让 agent 看到源码",
+    "localRepoAriaLabel": "本地仓库路径",
+    "browse": "浏览",
+    "browseAriaLabel": "浏览本地仓库",
+    "browseTitle": "打开系统文件夹选择器",
+    "opening": "打开中…",
+    "clear": "清除",
+    "clearAriaLabel": "清除本地仓库路径",
+    "pickerError": "无法打开文件夹选择器",
+    "recentRepoMatch": "★ 与 PR 匹配 · ",
+    "recentRepoMeta": "上次使用 {{when}} · 共 {{count}} 次",
+    "autoFillHint": "ⓘ 已从历史记录自动填充 · 匹配 {{owner}}/{{repo}}",
+    "extra": {
+      "header": "本次评审的附加上下文",
+      "remove": "移除",
+      "removeAriaLabel": "移除附加上下文",
+      "ariaLabel": "附加上下文",
+      "placeholder": "贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次 review，不会改 review.md。",
+      "addLabel": "添加附加上下文（可选）",
+      "addAriaLabel": "添加附加上下文"
+    },
+    "agent": {
+      "legend": "评审 agent",
+      "label": "Agent",
+      "notFoundTitle": "PATH 中找不到 {{kind}} CLI",
+      "defaultSuffix": "（默认）"
+    },
+    "submitError": "启动评审失败",
+    "recent": {
+      "title": "最近",
+      "total": "共 {{count}} 个",
+      "emptyEyebrow": "暂无历史",
+      "emptyTitle": "还没有可回顾的会话",
+      "emptyBody": "在这里启动的会话会出现在侧边栏，刷新浏览器后仍然保留。",
+      "noTitle": "（未命名）"
+    },
+    "footer": {
+      "startReviewLabel": "开始评审",
+      "configureBefore": "在",
+      "configureLink": "设置"
+    }
+  },
+  "settings": {
+    "loadingAriaLabel": "设置加载中",
+    "eyebrow": "设置",
+    "title": "运行时",
+    "storedAt": "存储于",
+    "intro": "大多数改动即时生效；<0>port</0> 与 <1>maxConcurrentReviews</1> 需要重启 daemon。",
+    "validation": {
+      "intBetween": "必须是 {{min}} 到 {{max}} 之间的整数。"
+    },
+    "language": {
+      "label": "语言",
+      "hint": "控制界面语言，以及评审 agent 撰写 findings 时使用的语言。",
+      "options": {
+        "en": "English",
+        "zh-CN": "简体中文"
+      }
+    },
+    "defaultAgent": {
+      "label": "默认 agent",
+      "hint": "新建评审会话时未显式指定 agent 则使用此项。即使 agent 缺失也可保留选择，方便后续安装。",
+      "found": "已找到 {{kind}}",
+      "missing": "未找到 {{kind}}"
+    },
+    "stallMinutes": {
+      "label": "停滞分钟数",
+      "hint": "在这段分钟数内 agent 进程没有任何 stdout 输出时，看门狗会将其终止。"
+    },
+    "perPRGCDays": {
+      "label": "Per-PR GC 天数",
+      "hint": "每个 PR 的工作目录在这段天数后被 GC。0 表示禁用 GC。"
+    },
+    "maxConcurrentReviews": {
+      "label": "最大并发评审数",
+      "hint": "允许并行运行的 agent 进程数量。"
+    },
+    "port": {
+      "label": "端口",
+      "hint": "0 表示由操作系统挑选。否则填写 1 到 65535 之间的空闲端口。"
+    },
+    "restartRequired": "需要重启"
+  },
+  "prdetail": {
+    "status": {
+      "running": "运行中",
+      "pending": "准备中",
+      "ready": "就绪",
+      "failed": "失败",
+      "submitted": "已提交",
+      "archived": "已归档",
+      "cancelled": "已取消"
+    },
+    "loadingAriaLabel": "PR 详情加载中",
+    "roundLabel": "第 {{n}} 轮 · 已携带上次上下文",
+    "roundTitle": "本次 review 是这个 PR 上的第 N 次评审，agent 收到了上一轮 findings + 作者回复作为上下文。",
+    "agentLegend": "评审 agent",
+    "agentLabel": "Agent",
+    "openOnGithub": "在 GitHub 中打开 PR",
+    "github": "GitHub",
+    "localRepoLabel": "本地仓库：{{path}}",
+    "sourceWorktreeLabel": "源码：PR head 工作树",
+    "sourceWorktreeTitle": "此次评审基于 PR head 的 git worktree，agent 看到的源码与 diff 一致。",
+    "sourceSnapshotLabel": "源码：差异文件快照（部分）",
+    "sourceSnapshotTitle": "仅 diff 涉及的文件被快照到 PR head；callers 与相邻模块未包含。",
+    "newRunStarted": "已启动新一轮",
+    "submittedNote": "已提交到 GitHub。",
+    "cancelRunningAriaLabel": "取消正在进行的评审",
+    "cancelTitle": "取消正在进行的评审？",
+    "cancelDesc": "已收集的 findings 会被保留。",
+    "cancelConfirm": "取消运行",
+    "cancel": "取消",
+    "deleteAriaLabel": "删除会话",
+    "deleteTitle": "删除该会话？",
+    "deleteDescRunning": "正在运行的评审会被终止，所有 findings 会丢失。",
+    "deleteDescDefault": "所有 findings 都会被删除。此操作不可撤销。",
+    "delete": "删除",
+    "rerunRunningTitle": "评审仍在进行，确认重跑？",
+    "rerunRunningDesc": "当前运行会先被取消，然后启动新一轮。",
+    "rerunConfirm": "重跑",
+    "rerun": "重跑",
+    "submit": "提交",
+    "submitTitleZero": "至少选择一条 finding",
+    "agentReviewing": "{{agent}} 正在评审，findings 会随时流式出现在这里。",
+    "noIssuesEyebrow": "就绪",
+    "noIssuesTitle": "未发现问题",
+    "noIssuesBody": "可能 PR 本身就很干净，也可能是 prompt 漏掉了某些情况。重跑可以换一个角度再看一次。",
+    "rerunWith": "用 {{agent}} 重跑",
+    "selectedCount": "已选 {{count}} 条",
+    "sessionError": "会话错误",
+    "rerunFailed": "重跑失败",
+    "deleteFailed": "删除失败",
+    "cancelFailed": "取消失败",
+    "extraContext": {
+      "addAriaLabel": "为重跑添加附加上下文",
+      "addLabel": "为重跑添加附加上下文（可选）",
+      "editorHeader": "附加上下文（将作用于重跑）",
+      "cancel": "取消",
+      "save": "保存",
+      "ariaLabel": "附加上下文",
+      "placeholder": "贴需求文档片段、设计意图、对 agent 的额外判断指引……仅作用于本次重跑。",
+      "toggleAriaLabel": "展开/收起附加上下文",
+      "label": "附加上下文",
+      "editedTag": "已为重跑修改",
+      "editAriaLabel": "为重跑编辑附加上下文",
+      "edit": "编辑"
+    }
+  },
+  "prep": {
+    "label": "准备中",
+    "working": "进行中",
+    "ariaLabel": "评审准备进度",
+    "phase": {
+      "prep:fetching-pr": "获取 PR 元数据",
+      "prep:fetching-diff": "拉取 diff",
+      "prep:loading-prior-review": "检查上一轮 review 上下文",
+      "prep:preparing-source:worktree": "准备 PR head 工作树",
+      "prep:preparing-source:snapshot": "快照 PR head 源码",
+      "prep:rendering-prompt": "组装 prompt",
+      "prep:rendering-prompt:with-prior": "组装 prompt（含上轮上下文）",
+      "prep:starting": "启动 {{agent}}"
+    }
+  },
+  "finding": {
+    "wholePR": "（整个 PR）",
+    "unselectAriaLabel": "取消选中 finding {{id}}",
+    "selectAriaLabel": "选中 finding {{id}}",
+    "edited": "已编辑",
+    "openOnGithub": "在 GitHub 中打开",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleteTitle": "删除 finding {{id}}？",
+    "deleteDesc": "这会把它从当前评审会话中移除。",
+    "deleteConfirm": "删除",
+    "suggestion": "Suggestion",
+    "saveFailed": "保存失败",
+    "form": {
+      "title": "标题",
+      "titleAria": "标题",
+      "severity": "严重程度",
+      "body": "正文（Markdown）",
+      "bodyAria": "正文",
+      "preview": "预览",
+      "previewEmpty": "*（空）*",
+      "suggestion": "Suggestion（可选）",
+      "suggestionAria": "Suggestion"
+    },
+    "list": {
+      "emptyEyebrow": "暂无 findings",
+      "emptyTitle": "暂无内容可评审",
+      "emptyBody": "可能 agent 顺利通过了，也可能确实没有要说的。重跑可以再来一次。",
+      "prWide": "PR-wide",
+      "addedToBody": "提交时会追加到 review body"
+    }
+  },
+  "submit": {
+    "ariaLabel": "提交评审",
+    "eyebrow": "可以提交",
+    "title": "评审",
+    "closeAriaLabel": "关闭",
+    "event": {
+      "ariaLabel": "评审事件类型",
+      "label": "事件类型",
+      "COMMENT_desc": "只留下评论，不批准也不打回。",
+      "REQUEST_CHANGES_desc": "在问题解决前阻止合入。",
+      "APPROVE_desc": "标记为可以合入。"
+    },
+    "selectionSummary_one": "在 {{total}} 条中选中 {{count}} 条",
+    "selectionSummary_other": "在 {{total}} 条中选中 {{count}} 条",
+    "breakdown": "inline {{inline}} · body {{body}} · pr-wide {{prWide}}",
+    "severityCounts": "{{must}} must · {{should}} should · {{nit}} nit",
+    "inlineSection": "Inline · {{count}}",
+    "movedToBodySection": "已挪到 body · {{count}}",
+    "movedToBodyNote": "它们的 <0>file:line</0> 不在 PR 的 diff 范围内，GitHub 会拒绝把它们作为行内评论。",
+    "prWideSection": "PR-wide · {{count}}",
+    "prWideNote": "将追加到 review body",
+    "noSelection": "未选中任何 finding。",
+    "reviewBody": "评审正文（Markdown）",
+    "reviewBodyAria": "评审正文",
+    "autoFilled_one": "已从 1 条 PR-wide finding 自动填充。",
+    "autoFilled_other": "已从 {{count}} 条 PR-wide findings 自动填充。",
+    "diffNotLoaded": "Diff 尚未加载。提交时会再做一次行内位置校验。",
+    "submitted": "已提交",
+    "droppedToBody": "{{count}} 条 finding 已挪到 review body（行不在 diff 中）。",
+    "skippedDuplicates": "{{count}} 条与上一轮重复，已跳过未重复发送。",
+    "confirmation": "确认",
+    "confirmationLine_one": "{{count}} 条行内评论",
+    "confirmationLine_other": "{{count}} 条行内评论",
+    "confirmationMaybeMove_one": "{{count}} 条 finding 可能挪到 review body",
+    "confirmationMaybeMove_other": "{{count}} 条 findings 可能挪到 review body",
+    "confirmationReviewBody": "1 条 review body 评论",
+    "confirmationNote": "这会立即发布，没有“草稿”模式。",
+    "submitFailed": "提交失败",
+    "submitButton": "提交",
+    "submitting": "提交中…",
+    "closeButton": "关闭"
+  },
+  "agentOutput": {
+    "label": "Agent 输出",
+    "streaming": "流式中",
+    "transcriptAria": "Agent 输出实录",
+    "waiting": "等待 agent 输出…",
+    "followAria": "跟随到底部",
+    "follow": "跟随"
+  },
+  "sidebar": {
+    "newReviewAria": "新建评审（返回首页）",
+    "newReview": "新建评审",
+    "sessionsAria": "会话列表",
+    "resizeAria": "调整侧边栏宽度",
+    "emptyEyebrow": "暂无会话",
+    "emptyTitle": "贴一个 PR 开始",
+    "emptyBody": "Agent 在本地运行；这里列出所有进行中、已完成、过期的会话。",
+    "group": {
+      "active": "进行中",
+      "done": "已完成",
+      "stale": "过期"
+    },
+    "status": {
+      "running": "运行中",
+      "pending": "等待中",
+      "ready": "就绪",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "submitted": "已提交",
+      "archived": "已归档"
+    },
+    "noTitle": "（未命名）"
+  },
+  "daemon": {
+    "healthy": "Daemon 健康",
+    "warnings": "Daemon 有警告",
+    "blockers": "Daemon 存在阻塞问题",
+    "status": "Daemon 状态",
+    "upFor": "Daemon 已运行 {{uptime}}",
+    "popoverAria": "Daemon 状态",
+    "agents": "Agents",
+    "tools": "Tools",
+    "paths": "Paths",
+    "default": "默认",
+    "missing": "缺失",
+    "notAuthed": "未登录",
+    "authed": "已登录",
+    "notFound": "（未找到）",
+    "home": "home",
+    "log": "log"
+  },
+  "prompt": {
+    "tabs": {
+      "effective": "规则",
+      "framework": "框架",
+      "project": "项目",
+      "global": "全局"
+    },
+    "tabTitleEffective": "评审规则",
+    "tabTitleFallback": "提示词",
+    "loading": "Prompt 加载中…",
+    "source": "来源：",
+    "sourceLabel": {
+      "project": "项目级覆盖",
+      "global": "全局级覆盖",
+      "builtin": "内置规则（无覆盖）"
+    },
+    "applyToCurrent": "应用到当前会话",
+    "guidelinesAria": "评审规则",
+    "readOnlyCurrent": "只读。当前来源：{{source}}。",
+    "frameworkAria": "Framework",
+    "readOnlyFramework": "只读。Framework 内置于 better-review，无法覆盖。你的规则（Project / Global）会被注入到 <0>{{placeholder}}</0> 占位符处。",
+    "noOverride": "未配置 {{scope}} 覆盖。当前生效的是 {{source}}。",
+    "overrideAtScope": "在该层级新建覆盖",
+    "writableAria": "{{scope}} 规则",
+    "save": "保存到 {{scope}}",
+    "saving": "保存中…",
+    "resetTitle": "重置该层级的 prompt 覆盖？",
+    "resetDesc": "{{path}} 会被删除，下一层级的回退会生效。",
+    "resetConfirm": "重置",
+    "resetButton": "重置回退",
+    "saveFailed": "保存失败",
+    "resetFailed": "重置失败",
+    "applyModal": {
+      "ariaLabel": "把 prompt 应用到会话",
+      "title": "把 prompt 应用到会话",
+      "subtitle": "选中的会话会用刚保存的 prompt 重跑。",
+      "rerunFailed": "重跑失败",
+      "apply": "应用（{{count}}）",
+      "applying": "应用中…"
+    },
+    "tabState": {
+      "readOnly": "只读",
+      "empty": "空"
+    }
+  }
+}

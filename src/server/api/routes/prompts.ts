@@ -7,11 +7,12 @@ import type { AppDeps } from '../app'
 export function promptsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
   r.get('/prompts', (c) => {
-    const rules = resolveEffectiveRules({ cwd: deps.promptCwd, home: deps.promptHome })
+    const lang = deps.getConfig().language
+    const rules = resolveEffectiveRules({ cwd: deps.promptCwd, home: deps.promptHome, lang })
     const project = deps.promptStore.read('project')
     const global = deps.promptStore.read('global')
     return c.json({
-      framework: { content: getFramework() },
+      framework: { content: getFramework(lang) },
       rules: {
         effective: { source: rules.source, content: rules.content, path: rules.path },
         scopes: {

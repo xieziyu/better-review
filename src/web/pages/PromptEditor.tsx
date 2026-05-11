@@ -1,6 +1,7 @@
 import type { PRSession, RulesSource } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { Button, ConfirmAction, KbdTooltip, Tag } from '@/components/ui'
@@ -9,32 +10,12 @@ import { cn } from '@/lib/utils'
 
 type Tab = 'effective' | 'framework' | WritablePromptScope
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'effective', label: 'Guidelines' },
-  { id: 'framework', label: 'Framework' },
-  { id: 'project', label: 'Project' },
-  { id: 'global', label: 'Global' },
-]
-
-function tabTitle(tab: Tab): string {
-  if (tab === 'effective') return 'Review Guidelines'
-  return TABS.find((t) => t.id === tab)?.label ?? 'Prompt'
-}
+const TABS: Tab[] = ['effective', 'framework', 'project', 'global']
 
 const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed', 'cancelled'])
 
-function sourceLabel(source: RulesSource): string {
-  switch (source) {
-    case 'project':
-      return 'project override'
-    case 'global':
-      return 'global override'
-    case 'builtin':
-      return 'builtin rules (no overrides)'
-  }
-}
-
 export function PromptEditor() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const promptsQ = useQuery({ queryKey: queryKeys.prompts, queryFn: api.getPrompts })
@@ -94,11 +75,17 @@ export function PromptEditor() {
   )
 
   if (!data) {
-    return <div className="p-8 text-meta text-ink-muted">Loading prompt…</div>
+    return <div className="p-8 text-meta text-ink-muted">{t('prompt.loading')}</div>
   }
 
   const scopeState = isWritable ? data.rules.scopes[tab as WritablePromptScope] : null
   const writableValue = isWritable && draft !== null ? draft : (scopeState?.content ?? '')
+
+  const sourceLabel = (source: RulesSource): string => t(`prompt.sourceLabel.${source}`)
+  const tabTitle =
+    tab === 'effective'
+      ? t('prompt.tabTitleEffective')
+      : t(`prompt.tabs.${tab}`, t('prompt.tabTitleFallback'))
 
   return (
     <div className="flex h-full min-h-0">
@@ -107,35 +94,36 @@ export function PromptEditor() {
         role="tablist"
         aria-orientation="vertical"
       >
-        {TABS.map((t) => {
-          const isReadOnly = t.id === 'effective' || t.id === 'framework'
-          const exists =
-            t.id === 'project' || t.id === 'global' ? data.rules.scopes[t.id].exists : true
+        {TABS.map((id) => {
+          const isReadOnly = id === 'effective' || id === 'framework'
+          const exists = id === 'project' || id === 'global' ? data.rules.scopes[id].exists : true
           return (
             <button
-              key={t.id}
+              key={id}
               role="tab"
-              aria-selected={tab === t.id}
+              aria-selected={tab === id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(id)}
               className={cn(
                 'relative w-full px-5 py-3 text-left text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
-                tab === t.id ? 'text-ink-primary' : 'text-ink-muted hover:text-ink-primary',
+                tab === id ? 'text-ink-primary' : 'text-ink-muted hover:text-ink-primary',
               )}
             >
-              {tab === t.id ? (
+              {tab === id ? (
                 <span
                   aria-hidden="true"
                   className="absolute left-0 top-2 bottom-2 w-[2px] bg-brand"
                 />
               ) : null}
-              <span className="block">{t.label}</span>
+              <span className="block">{t(`prompt.tabs.${id}`)}</span>
               {isReadOnly ? (
                 <span className="block mt-1 text-[9px] tracking-caps text-ink-muted">
-                  read only
+                  {t('prompt.tabState.readOnly')}
                 </span>
               ) : !exists ? (
-                <span className="block mt-1 text-[9px] tracking-caps text-ink-muted">empty</span>
+                <span className="block mt-1 text-[9px] tracking-caps text-ink-muted">
+                  {t('prompt.tabState.empty')}
+                </span>
               ) : null}
             </button>
           )
@@ -145,18 +133,20 @@ export function PromptEditor() {
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         <header className="px-8 pt-7 pb-4 border-b border-rule flex items-baseline gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
-            <div className="text-caps tracking-caps text-ink-muted uppercase">Prompt</div>
-            <h1 className="text-h1 text-ink-primary mt-1">{tabTitle(tab)}</h1>
+            <div className="text-caps tracking-caps text-ink-muted uppercase">
+              {t('app.nav.prompt')}
+            </div>
+            <h1 className="text-h1 text-ink-primary mt-1">{tabTitle}</h1>
           </div>
           <div className="text-meta text-ink-secondary">
-            Source:{' '}
+            {t('prompt.source')}{' '}
             <strong data-testid="prompt-source" className="text-ink-primary font-semibold">
               {sourceLabel(data.rules.effective.source)}
             </strong>
           </div>
           {isWritable && eligibleSessions.length > 0 && draft === null ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowApplyModal(true)}>
-              Apply to current session
+              {t('prompt.applyToCurrent')}
             </Button>
           ) : null}
         </header>
@@ -165,13 +155,13 @@ export function PromptEditor() {
           {tab === 'effective' ? (
             <section className="space-y-2">
               <textarea
-                aria-label="Review guidelines"
+                aria-label={t('prompt.guidelinesAria')}
                 readOnly
                 value={data.rules.effective.content}
                 className="w-full h-[60vh] p-4 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary resize-y"
               />
               <p className="text-meta text-ink-muted">
-                Read-only. Current source: {sourceLabel(data.rules.effective.source)}.
+                {t('prompt.readOnlyCurrent', { source: sourceLabel(data.rules.effective.source) })}
                 {data.rules.effective.path ? (
                   <span className="ml-2 font-mono">{data.rules.effective.path}</span>
                 ) : null}
@@ -180,21 +170,26 @@ export function PromptEditor() {
           ) : tab === 'framework' ? (
             <section className="space-y-2">
               <textarea
-                aria-label="Framework"
+                aria-label={t('prompt.frameworkAria')}
                 readOnly
                 value={data.framework.content}
                 className="w-full h-[60vh] p-4 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary resize-y"
               />
               <p className="text-meta text-ink-muted">
-                Read-only. The framework is built into better-review and cannot be overridden. Your
-                rules (Project / Global) are injected at the{' '}
-                <code className="font-mono">{'{{RULES}}'}</code> placeholder.
+                <Trans
+                  i18nKey="prompt.readOnlyFramework"
+                  values={{ placeholder: '{{RULES}}' }}
+                  components={[<code key="ph" className="font-mono" />]}
+                />
               </p>
             </section>
           ) : !scopeState!.exists && draft === null ? (
             <section className="space-y-3 border border-rule rounded-md py-8 px-6 text-center">
               <p className="text-body text-ink-secondary">
-                No {tab} override exists. The {sourceLabel(data.rules.effective.source)} applies.
+                {t('prompt.noOverride', {
+                  scope: tab,
+                  source: sourceLabel(data.rules.effective.source),
+                })}
               </p>
               <p className="font-mono text-meta text-ink-muted">{scopeState!.path}</p>
               <Button
@@ -203,19 +198,19 @@ export function PromptEditor() {
                 size="sm"
                 onClick={() => setDraft(data.rules.effective.content)}
               >
-                Override at this scope
+                {t('prompt.overrideAtScope')}
               </Button>
             </section>
           ) : (
             <section className="space-y-3">
               <textarea
-                aria-label={`${tab} rules`}
+                aria-label={t('prompt.writableAria', { scope: tab })}
                 value={writableValue}
                 onChange={(e) => setDraft(e.target.value)}
                 className="w-full h-[60vh] p-4 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
               />
               <div className="flex items-center gap-3 flex-wrap">
-                <KbdTooltip keys={['⌘', 'S']} label="save">
+                <KbdTooltip keys={['⌘', 'S']} label={t('common.save')}>
                   <Button
                     type="button"
                     variant="ink"
@@ -223,14 +218,14 @@ export function PromptEditor() {
                     onClick={() => saveMut.mutate()}
                     disabled={draft === null || saveMut.isPending}
                   >
-                    {saveMut.isPending ? 'Saving…' : `Save to ${tab}`}
+                    {saveMut.isPending ? t('prompt.saving') : t('prompt.save', { scope: tab })}
                   </Button>
                 </KbdTooltip>
                 {scopeState!.exists ? (
                   <ConfirmAction
-                    title="Reset prompt override?"
-                    description={`${scopeState!.path} will be deleted. The next-level fallback will apply.`}
-                    confirmLabel="Reset"
+                    title={t('prompt.resetTitle')}
+                    description={t('prompt.resetDesc', { path: scopeState!.path })}
+                    confirmLabel={t('prompt.resetConfirm')}
                     onConfirm={() => resetMut.mutate()}
                     disabled={resetMut.isPending}
                   >
@@ -242,24 +237,28 @@ export function PromptEditor() {
                         onClick={requestConfirm}
                         disabled={resetMut.isPending}
                       >
-                        Reset to fallback
+                        {t('prompt.resetButton')}
                       </Button>
                     )}
                   </ConfirmAction>
                 ) : null}
-                {savedFlash ? <Tag tone="success">saved</Tag> : null}
+                {savedFlash ? <Tag tone="success">{t('common.saved')}</Tag> : null}
                 <span className="ml-auto font-mono text-meta text-ink-muted">
                   {scopeState!.path}
                 </span>
               </div>
               {saveMut.isError ? (
                 <div className="text-meta text-severity-must">
-                  {saveMut.error instanceof ApiError ? saveMut.error.message : 'Save failed'}
+                  {saveMut.error instanceof ApiError
+                    ? saveMut.error.message
+                    : t('prompt.saveFailed')}
                 </div>
               ) : null}
               {resetMut.isError ? (
                 <div className="text-meta text-severity-must">
-                  {resetMut.error instanceof ApiError ? resetMut.error.message : 'Reset failed'}
+                  {resetMut.error instanceof ApiError
+                    ? resetMut.error.message
+                    : t('prompt.resetFailed')}
                 </div>
               ) : null}
             </section>
@@ -291,6 +290,7 @@ function ApplyToSessionsModal({
   onClose: () => void
   onApplied: (firstId: string) => void
 }) {
+  const { t } = useTranslation()
   const sorted = useMemo(() => [...sessions].sort((a, b) => b.updatedAt - a.updatedAt), [sessions])
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
@@ -320,17 +320,15 @@ function ApplyToSessionsModal({
       className="fixed inset-0 bg-ink-primary/30 z-40 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Apply prompt to sessions"
+      aria-label={t('prompt.applyModal.ariaLabel')}
       onClick={onClose}
     >
       <div
         className="bg-canvas border border-rule p-6 w-full max-w-md space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-h1 text-ink-primary">Apply prompt to sessions</h2>
-        <p className="text-meta text-ink-secondary">
-          Selected sessions will be rerun with the saved prompt.
-        </p>
+        <h2 className="text-h1 text-ink-primary">{t('prompt.applyModal.title')}</h2>
+        <p className="text-meta text-ink-secondary">{t('prompt.applyModal.subtitle')}</p>
         <ul className="space-y-1 max-h-64 overflow-auto divide-y divide-rule">
           {sorted.map((s) => (
             <li key={s.id}>
@@ -346,7 +344,7 @@ function ApplyToSessionsModal({
                 </span>
                 <span className="text-meta text-ink-primary truncate">{s.title ?? ''}</span>
                 <span className="ml-auto text-caps tracking-caps text-ink-muted uppercase">
-                  {s.status}
+                  {t(`sidebar.status.${s.status}`)}
                 </span>
               </label>
             </li>
@@ -354,12 +352,14 @@ function ApplyToSessionsModal({
         </ul>
         {apply.isError ? (
           <div className="text-meta text-severity-must">
-            {apply.error instanceof ApiError ? apply.error.message : 'Rerun failed'}
+            {apply.error instanceof ApiError
+              ? apply.error.message
+              : t('prompt.applyModal.rerunFailed')}
           </div>
         ) : null}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-rule">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="button"
@@ -368,7 +368,9 @@ function ApplyToSessionsModal({
             onClick={() => apply.mutate()}
             disabled={checkedCount === 0 || apply.isPending}
           >
-            {apply.isPending ? 'Applying…' : `Apply (${checkedCount})`}
+            {apply.isPending
+              ? t('prompt.applyModal.applying')
+              : t('prompt.applyModal.apply', { count: checkedCount })}
           </Button>
         </div>
       </div>

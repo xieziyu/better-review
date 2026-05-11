@@ -7,7 +7,7 @@
   },
   "files": [
     "dist",
-    "prompts/builtin.md",
+    "prompts",
     "README.md"
   ],
   "type": "module",
@@ -35,12 +35,14 @@
     "commander": "^12.1.0",
     "execa": "^9.5.1",
     "hono": "^4.6.10",
+    "i18next": "^26.0.10",
     "lucide-react": "^0.453.0",
     "nanoid": "^5.0.9",
     "open": "^10.1.0",
     "react": "^18.3.1",
     "react-diff-view": "^3.2.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.7",
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.27.0",
     "rehype-highlight": "^7.0.0",

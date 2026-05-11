@@ -1,9 +1,11 @@
 import { AGENT_KINDS, type AgentKind, type HealthStatus } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Tag } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
+import { useUptime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 type Severity = 'ok' | 'warn' | 'block'
@@ -16,31 +18,14 @@ function severityFrom(h: HealthStatus): Severity {
   return 'ok'
 }
 
-function formatUptime(startedAt: number, now: number): string {
-  const ms = Math.max(0, now - startedAt)
-  const totalMin = Math.floor(ms / 60_000)
-  if (totalMin < 1) return 'just now'
-  if (totalMin < 60) return `${totalMin}m`
-  const totalHrs = Math.floor(totalMin / 60)
-  const remMin = totalMin % 60
-  if (totalHrs < 24) return `${totalHrs}h ${remMin}m`
-  const days = Math.floor(totalHrs / 24)
-  return `${days}d ${totalHrs % 24}h`
-}
-
 const dotByLevel: Record<Severity, string> = {
   ok: 'bg-accent-ready',
   warn: 'bg-severity-should',
   block: 'bg-severity-must',
 }
 
-const labelByLevel: Record<Severity, string> = {
-  ok: 'Daemon healthy',
-  warn: 'Daemon has warnings',
-  block: 'Daemon has blockers',
-}
-
 export function DaemonStatus() {
+  const { t } = useTranslation()
   const { data } = useQuery({
     queryKey: queryKeys.health,
     queryFn: api.health,
@@ -71,7 +56,12 @@ export function DaemonStatus() {
   }, [open])
 
   const sev: Severity = data ? severityFrom(data) : 'warn'
-  const buttonLabel = data ? labelByLevel[sev] : 'Daemon status'
+  const labelByLevel: Record<Severity, string> = {
+    ok: t('daemon.healthy'),
+    warn: t('daemon.warnings'),
+    block: t('daemon.blockers'),
+  }
+  const buttonLabel = data ? labelByLevel[sev] : t('daemon.status')
 
   return (
     <div ref={wrapRef} className="relative inline-flex items-center">
@@ -98,19 +88,21 @@ export function DaemonStatus() {
 }
 
 function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
+  const { t } = useTranslation()
+  const uptime = useUptime()
   const sev = severityFrom(data)
 
   return (
     <div
       role="dialog"
-      aria-label="Daemon status"
+      aria-label={t('daemon.popoverAria')}
       className="absolute right-0 top-[calc(100%+8px)] z-30 w-[22rem] rounded-md border border-rule bg-canvas text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
     >
       <header className="flex items-center gap-3 px-4 pt-4 pb-3">
         <span aria-hidden="true" className={cn('size-2.5 rounded-full', dotByLevel[sev])} />
         <div className="flex-1 min-w-0">
           <div className="text-h2 text-ink-primary leading-tight">
-            Daemon up {formatUptime(data.daemon.startedAt, now)}
+            {t('daemon.upFor', { uptime: uptime(data.daemon.startedAt, now) })}
           </div>
           <div className="text-meta text-ink-muted font-mono tabular-nums">
             pid {data.daemon.pid} · port {data.daemon.port}
@@ -118,7 +110,7 @@ function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
         </div>
       </header>
 
-      <Section label="Agents">
+      <Section label={t('daemon.agents')}>
         <ul className="space-y-1.5">
           {AGENT_KINDS.map((k) => (
             <AgentRow
@@ -132,27 +124,27 @@ function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
         </ul>
       </Section>
 
-      <Section label="Tools">
+      <Section label={t('daemon.tools')}>
         <div className="flex items-center gap-2 min-w-0">
           <PresenceMark ok={data.gh.found} />
           <span className="text-meta text-ink-secondary w-12 shrink-0">gh</span>
           <span className="font-mono text-code text-ink-secondary truncate flex-1">
-            {data.gh.path ?? '(not found)'}
+            {data.gh.path ?? t('daemon.notFound')}
           </span>
           <GhAuthTag found={data.gh.found} authed={data.gh.authed} />
         </div>
       </Section>
 
-      <Section label="Paths" last>
+      <Section label={t('daemon.paths')} last>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 min-w-0">
-          <dt className="text-meta text-ink-muted">home</dt>
+          <dt className="text-meta text-ink-muted">{t('daemon.home')}</dt>
           <dd
             className="font-mono text-code text-ink-secondary truncate min-w-0"
             title={data.daemon.home}
           >
             {data.daemon.home}
           </dd>
-          <dt className="text-meta text-ink-muted">log</dt>
+          <dt className="text-meta text-ink-muted">{t('daemon.log')}</dt>
           <dd
             className="font-mono text-code text-ink-secondary truncate min-w-0"
             title={data.daemon.logPath}
@@ -207,23 +199,25 @@ function AgentRow({
   found: boolean
   isDefault: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <li className="flex items-center gap-2 min-w-0">
       <PresenceMark ok={found} />
       <span className="text-meta text-ink-secondary w-12 shrink-0">{kind}</span>
       <span
         className="font-mono text-code text-ink-secondary truncate flex-1"
-        title={path ?? '(not found)'}
+        title={path ?? t('daemon.notFound')}
       >
-        {path ?? '(not found)'}
+        {path ?? t('daemon.notFound')}
       </span>
-      {isDefault ? <Tag tone="brand">default</Tag> : null}
+      {isDefault ? <Tag tone="brand">{t('daemon.default')}</Tag> : null}
     </li>
   )
 }
 
 function GhAuthTag({ found, authed }: { found: boolean; authed: boolean }) {
-  if (!found) return <Tag tone="danger">missing</Tag>
-  if (!authed) return <Tag tone="warning">not authed</Tag>
-  return <Tag tone="success">authed</Tag>
+  const { t } = useTranslation()
+  if (!found) return <Tag tone="danger">{t('daemon.missing')}</Tag>
+  if (!authed) return <Tag tone="warning">{t('daemon.notAuthed')}</Tag>
+  return <Tag tone="success">{t('daemon.authed')}</Tag>
 }

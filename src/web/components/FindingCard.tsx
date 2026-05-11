@@ -3,6 +3,7 @@ import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 
@@ -19,12 +20,6 @@ interface Props {
 
 const SEVERITY_LIST: Severity[] = ['must', 'should', 'nit']
 
-const SEVERITY_LABEL: Record<Severity, string> = {
-  must: 'must',
-  should: 'should',
-  nit: 'nit',
-}
-
 const SEVERITY_TEXT: Record<Severity, string> = {
   must: 'text-severity-must',
   should: 'text-severity-should',
@@ -38,8 +33,9 @@ function githubLineLink(session: PRSession, file: string, line: number | null): 
 }
 
 function FindingLocation({ file, line }: { file: string | null; line: number | null }) {
+  const { t } = useTranslation()
   if (!file) {
-    return <span className="font-mono text-meta text-ink-secondary">(whole PR)</span>
+    return <span className="font-mono text-meta text-ink-secondary">{t('finding.wholePR')}</span>
   }
 
   const slash = file.lastIndexOf('/')
@@ -61,6 +57,7 @@ function FindingLocation({ file, line }: { file: string | null; line: number | n
 }
 
 export function FindingCard({ finding, session, unifiedDiff }: Props) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const cardRef = useRef<HTMLElement | null>(null)
   const [editing, setEditing] = useState(false)
@@ -144,7 +141,10 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
           onClick={() => select.mutate()}
           disabled={select.isPending}
           aria-pressed={finding.selected}
-          aria-label={`${finding.selected ? 'Unselect' : 'Select'} finding ${finding.id}`}
+          aria-label={t(
+            finding.selected ? 'finding.unselectAriaLabel' : 'finding.selectAriaLabel',
+            { id: finding.id },
+          )}
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-md border transition-colors duration-180 ease-out-quart',
             finding.selected
@@ -180,39 +180,43 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                   target="_blank"
                   rel="noreferrer"
                   className="shrink-0 text-ink-muted hover:text-brand transition-colors duration-180 ease-out-quart"
-                  aria-label="Open on GitHub"
+                  aria-label={t('finding.openOnGithub')}
                 >
                   <ExternalLink size={12} aria-hidden="true" />
                 </a>
               ) : null}
             </span>
             {finding.edited ? (
-              <Pencil size={12} className="shrink-0 text-ink-muted" aria-label="Edited" />
+              <Pencil
+                size={12}
+                className="shrink-0 text-ink-muted"
+                aria-label={t('finding.edited')}
+              />
             ) : null}
           </div>
           {!editing ? (
             <div className="flex shrink-0 items-center gap-1">
-              <KbdTooltip keys={['e']} label="edit">
+              <KbdTooltip keys={['e']} label={t('finding.edit')}>
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  aria-label="Edit"
+                  aria-label={t('finding.edit')}
                   className="p-1 rounded-sm text-ink-muted hover:text-ink-primary hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <Pencil size={14} aria-hidden="true" />
                 </button>
               </KbdTooltip>
               <ConfirmAction
-                title={`Delete finding ${finding.id}?`}
-                description="This removes it from the current review session."
-                confirmLabel="Delete"
+                title={t('finding.deleteTitle', { id: finding.id })}
+                description={t('finding.deleteDesc')}
+                confirmLabel={t('finding.deleteConfirm')}
                 onConfirm={() => remove.mutate()}
               >
                 {(requestConfirm) => (
                   <button
                     type="button"
                     onClick={requestConfirm}
-                    aria-label="Delete"
+                    aria-label={t('finding.delete')}
                     className="p-1 rounded-sm text-ink-muted hover:text-severity-must hover:bg-raised transition-colors duration-180 ease-out-quart opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                   >
                     <Trash2 size={14} aria-hidden="true" />
@@ -242,7 +246,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             {finding.suggestion ? (
               <div className="border-t border-rule pt-3">
                 <div className="text-caps tracking-caps text-ink-muted uppercase mb-1.5">
-                  Suggestion
+                  {t('finding.suggestion')}
                 </div>
                 <pre className="font-mono text-code text-ink-primary bg-sunken border border-rule rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                   <code>{finding.suggestion}</code>
@@ -253,10 +257,12 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
         ) : (
           <div className="space-y-4">
             <label className="block">
-              <span className="text-caps tracking-caps text-ink-muted uppercase">Title</span>
+              <span className="text-caps tracking-caps text-ink-muted uppercase">
+                {t('finding.form.title')}
+              </span>
               <input
                 type="text"
-                aria-label="Title"
+                aria-label={t('finding.form.titleAria')}
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                 className="mt-1 w-full bg-transparent border-b border-rule py-1 text-h2 text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart"
@@ -265,7 +271,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
 
             <fieldset>
               <legend className="text-caps tracking-caps text-ink-muted uppercase mb-1.5">
-                Severity
+                {t('finding.form.severity')}
               </legend>
               <div role="radiogroup" className="inline-flex gap-1">
                 {SEVERITY_LIST.map((sev) => {
@@ -290,10 +296,10 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                         value={sev}
                         checked={active}
                         onChange={() => setDraft({ ...draft, severity: sev })}
-                        aria-label={SEVERITY_LABEL[sev]}
+                        aria-label={sev}
                         className="sr-only"
                       />
-                      {SEVERITY_LABEL[sev]}
+                      {sev}
                     </label>
                   )
                 })}
@@ -303,20 +309,22 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <label className="block">
                 <span className="text-caps tracking-caps text-ink-muted uppercase">
-                  Body (markdown)
+                  {t('finding.form.body')}
                 </span>
                 <textarea
-                  aria-label="Body"
+                  aria-label={t('finding.form.bodyAria')}
                   value={draft.body}
                   onChange={(e) => setDraft({ ...draft, body: e.target.value })}
                   className="mt-1 w-full h-48 p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
                 />
               </label>
               <div className="block">
-                <span className="text-caps tracking-caps text-ink-muted uppercase">Preview</span>
+                <span className="text-caps tracking-caps text-ink-muted uppercase">
+                  {t('finding.form.preview')}
+                </span>
                 <div className="mt-1 h-48 p-3 rounded-md bg-sunken border border-rule overflow-auto prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline">
                   <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-                    {draft.body || '*(empty)*'}
+                    {draft.body || t('finding.form.previewEmpty')}
                   </ReactMarkdown>
                 </div>
               </div>
@@ -324,10 +332,10 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
 
             <label className="block">
               <span className="text-caps tracking-caps text-ink-muted uppercase">
-                Suggestion (optional)
+                {t('finding.form.suggestion')}
               </span>
               <textarea
-                aria-label="Suggestion"
+                aria-label={t('finding.form.suggestionAria')}
                 value={draft.suggestion}
                 onChange={(e) => setDraft({ ...draft, suggestion: e.target.value })}
                 className="mt-1 w-full h-24 p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
@@ -335,7 +343,7 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
             </label>
 
             <div className="flex items-center gap-3">
-              <KbdTooltip keys={['⌘', '⏎']} label="save">
+              <KbdTooltip keys={['⌘', '⏎']} label={t('common.save')}>
                 <Button
                   type="button"
                   variant="ink"
@@ -343,17 +351,17 @@ export function FindingCard({ finding, session, unifiedDiff }: Props) {
                   onClick={() => save.mutate()}
                   disabled={save.isPending}
                 >
-                  {save.isPending ? 'Saving…' : 'Save'}
+                  {save.isPending ? t('common.saving') : t('common.save')}
                 </Button>
               </KbdTooltip>
-              <KbdTooltip keys={['Esc']} label="cancel">
+              <KbdTooltip keys={['Esc']} label={t('common.cancel')}>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </KbdTooltip>
               {save.isError ? (
                 <span className="text-caps tracking-caps text-severity-must uppercase">
-                  {save.error instanceof ApiError ? save.error.message : 'save failed'}
+                  {save.error instanceof ApiError ? save.error.message : t('finding.saveFailed')}
                 </span>
               ) : null}
             </div>

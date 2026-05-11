@@ -21,6 +21,7 @@ describe('config API', () => {
       stallMinutes: 1,
       defaultAgent: 'claude',
       perPRGCDays: 1,
+      language: 'en',
     })
     expect(j.file.endsWith('config.json')).toBe(true)
   })
@@ -36,6 +37,7 @@ describe('config API', () => {
       stallMinutes: 5,
       defaultAgent: 'codex',
       perPRGCDays: 14,
+      language: 'zh-CN' as const,
     }
     const res = await app.request('/api/config', {
       method: 'PUT',
@@ -107,5 +109,19 @@ describe('config API', () => {
       body: '{not json',
     })
     expect(res.status).toBe(400)
+  })
+
+  it('PUT /api/config rejects an unsupported language', async () => {
+    const d = makeTestDeps()
+    const app = createApp(d)
+    const before = { ...d.getConfig() }
+    const res = await app.request('/api/config', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...before, language: 'fr' }),
+    })
+    expect(res.status).toBe(400)
+    const e = (await res.json()) as { error: string }
+    expect(e.error).toMatch(/language/)
   })
 })
