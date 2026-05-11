@@ -44,8 +44,8 @@ const CLOSED_STATUSES: ReadonlySet<SessionStatus> = new Set(['submitted', 'archi
 
 const SIDEBAR_MIN = 256
 const SIDEBAR_MAX = 560
-const SIDEBAR_DEFAULT = 320
-const SIDEBAR_KEY = 'better-review:sidebar-width'
+const SIDEBAR_DEFAULT = 280
+const SIDEBAR_KEY = 'better-review:sidebar-width:v2'
 
 function readStoredWidth(): number {
   if (typeof window === 'undefined') return SIDEBAR_DEFAULT
@@ -100,62 +100,51 @@ function SessionRow({ session }: SessionRowProps) {
         )
       }
     >
-      {({ isActive }) => (
-        <>
-          <span
-            aria-hidden="true"
-            className={cn(
-              'absolute left-0 top-2 bottom-2',
-              isActive
-                ? 'w-[2px] bg-brand'
-                : session.status === 'running'
-                  ? 'w-px bg-accent-running animate-running-pulse'
-                  : 'w-px bg-transparent',
-            )}
-          />
-          <h3
-            className={cn(
-              'text-h2 line-clamp-2',
-              closed ? 'text-ink-secondary' : 'text-ink-primary',
-            )}
-          >
-            {session.title ?? t('sidebar.noTitle')}
-          </h3>
-          <div
-            className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
-            title={`${session.owner}/${session.repo}#${session.number}`}
-          >
-            {session.owner}/{session.repo}#{session.number}
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
-            <span
-              className={cn(
-                'text-caps tracking-caps uppercase shrink-0',
-                STATUS_TONE[session.status],
-              )}
-              data-status={session.status}
-            >
-              {t(`sidebar.status.${session.status}`)}
-            </span>
-            {session.author ? (
-              <>
-                <span aria-hidden="true" className="text-ink-muted shrink-0">
-                  ·
-                </span>
-                <span className="text-ink-muted shrink-0 truncate max-w-[12ch]">
-                  @{session.author}
-                </span>
-              </>
-            ) : null}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute left-0 top-2 bottom-2 w-px',
+          session.status === 'running'
+            ? 'bg-accent-running animate-running-pulse'
+            : 'bg-transparent',
+        )}
+      />
+      <h3 className={cn('text-h2 line-clamp-2', closed ? 'text-ink-secondary' : 'text-ink-primary')}>
+        {session.title ?? t('sidebar.noTitle')}
+      </h3>
+      <div
+        className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
+        title={`${session.owner}/${session.repo}#${session.number}`}
+      >
+        {session.owner}/{session.repo}#{session.number}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
+        <span
+          className={cn(
+            'text-caps tracking-caps uppercase shrink-0',
+            STATUS_TONE[session.status],
+          )}
+          data-status={session.status}
+        >
+          {t(`sidebar.status.${session.status}`)}
+        </span>
+        {session.author ? (
+          <>
             <span aria-hidden="true" className="text-ink-muted shrink-0">
               ·
             </span>
-            <span className="text-ink-muted shrink-0 tabular-nums">
-              {relativeTime(session.updatedAt)}
+            <span className="text-ink-muted shrink-0 truncate max-w-[12ch]">
+              @{session.author}
             </span>
-          </div>
-        </>
-      )}
+          </>
+        ) : null}
+        <span aria-hidden="true" className="text-ink-muted shrink-0">
+          ·
+        </span>
+        <span className="text-ink-muted shrink-0 tabular-nums">
+          {relativeTime(session.updatedAt)}
+        </span>
+      </div>
     </NavLink>
   )
 }

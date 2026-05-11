@@ -72,7 +72,7 @@ export function LanguageSwitcher() {
         <div
           role="menu"
           aria-label={t('app.languageSwitcher.menuAriaLabel')}
-          className="absolute right-0 top-[calc(100%+8px)] z-30 w-[10rem] rounded-md border border-rule bg-canvas py-1 text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
+          className="absolute left-[calc(100%+8px)] bottom-0 z-30 w-[10rem] rounded-md border border-rule bg-canvas py-1 text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
         >
           {LANGUAGES.map((lng) => {
             const selected = lng === current

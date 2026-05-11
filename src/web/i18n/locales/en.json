@@ -12,6 +12,22 @@
       "menuAriaLabel": "Language menu"
     }
   },
+  "activityBar": {
+    "aria": "Primary navigation",
+    "brand": "better-review (home)",
+    "sessions": "Sessions",
+    "prompt": "Prompt",
+    "settings": "Settings",
+    "themeLight": "Theme: light",
+    "themeDark": "Theme: dark",
+    "themeSystem": "Theme: system"
+  },
+  "inspector": {
+    "aria": "Finding inspector",
+    "emptyEyebrow": "Inspector",
+    "emptyTitle": "Select a finding to inspect",
+    "emptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here."
+  },
   "common": {
     "save": "Save",
     "saving": "Saving…",
