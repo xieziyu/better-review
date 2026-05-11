@@ -56,13 +56,10 @@ describe('AgentOutputPanel', () => {
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
-  it('opens by default while running and stays closed otherwise (with chunks)', () => {
+  it('renders as a full pane (no <details> collapsing wrapper)', () => {
     const running = render(<AgentOutputPanel chunks={['hi']} status="running" />)
-    expect(running.container.querySelector('details')!.open).toBe(true)
-    running.unmount()
-
-    const ready = render(<AgentOutputPanel chunks={['hi']} status="ready" />)
-    expect(ready.container.querySelector('details')!.open).toBe(false)
+    expect(running.container.querySelector('details')).toBeNull()
+    expect(running.getByRole('log')).toBeInTheDocument()
   })
 
   it('hides streaming chip once status is not running', () => {

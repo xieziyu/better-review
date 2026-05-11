@@ -17,6 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingList } from '@/components/FindingList'
+import { MainTabs } from '@/components/MainTabs'
 import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
@@ -581,8 +582,6 @@ export function PRDetail() {
 
         <PreparationPanel steps={prepSteps} status={session.status} />
 
-        <AgentOutputPanel chunks={agentChunks} status={session.status} />
-
         {session.error ? (
           <div className="border-l-[1px] border-severity-must pl-4 py-2">
             <div className="text-caps tracking-caps text-severity-must uppercase mb-1">
@@ -610,47 +609,57 @@ export function PRDetail() {
           </div>
         ) : null}
 
-        {session.status === 'running' && activeFindings.length === 0 ? (
-          <div className="border-t border-rule pt-6 flex items-center gap-3 text-ink-secondary">
-            <span
-              className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
-              aria-hidden="true"
-            />
-            <span className="text-body">
-              {t('prdetail.agentReviewing', { agent: session.agent })}
-            </span>
-          </div>
-        ) : null}
-
-        {session.status === 'ready' && activeFindings.length === 0 ? (
-          <EmptyState
-            eyebrow={t('prdetail.noIssuesEyebrow')}
-            title={t('prdetail.noIssuesTitle')}
-            body={t('prdetail.noIssuesBody')}
-            action={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => rerun.mutate(effectiveRerunAgent)}
-              >
-                {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
-              </Button>
-            }
-          />
-        ) : null}
-
-        {activeFindings.length > 0 ? (
-          <FindingList findings={activeFindings} session={session} />
-        ) : null}
-
-        {selectedCount > 0 ? (
-          <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase">
-            <span className="text-ink-secondary">
-              {t('prdetail.selectedCount', { count: selectedCount })}
-            </span>
-          </div>
-        ) : null}
+        <MainTabs
+          findingsCount={activeFindings.length}
+          transcriptStreaming={session.status === 'running'}
+          findings={
+            <>
+              {session.status === 'running' && activeFindings.length === 0 ? (
+                <div className="flex items-center gap-3 text-ink-secondary py-6">
+                  <span
+                    className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
+                    aria-hidden="true"
+                  />
+                  <span className="text-body">
+                    {t('prdetail.agentReviewing', { agent: session.agent })}
+                  </span>
+                </div>
+              ) : null}
+              {session.status === 'ready' && activeFindings.length === 0 ? (
+                <EmptyState
+                  eyebrow={t('prdetail.noIssuesEyebrow')}
+                  title={t('prdetail.noIssuesTitle')}
+                  body={t('prdetail.noIssuesBody')}
+                  action={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => rerun.mutate(effectiveRerunAgent)}
+                    >
+                      {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
+                    </Button>
+                  }
+                />
+              ) : null}
+              {activeFindings.length > 0 ? (
+                <FindingList findings={activeFindings} session={session} />
+              ) : null}
+              {selectedCount > 0 ? (
+                <div className="border-t border-rule pt-3 mt-3 text-caps tracking-caps text-ink-muted uppercase">
+                  <span className="text-ink-secondary">
+                    {t('prdetail.selectedCount', { count: selectedCount })}
+                  </span>
+                </div>
+              ) : null}
+            </>
+          }
+          transcript={
+            <div className="h-[min(60vh,640px)]">
+              <AgentOutputPanel chunks={agentChunks} status={session.status} />
+            </div>
+          }
+        />
 
         {submitDrawer.isOpen ? (
           <SubmitDrawer sessionId={id} onClose={submitDrawer.close} />

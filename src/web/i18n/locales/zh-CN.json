@@ -22,6 +22,11 @@
     "themeDark": "主题：深色",
     "themeSystem": "主题：跟随系统"
   },
+  "mainTabs": {
+    "ariaLabel": "评审面板",
+    "findings": "Findings",
+    "transcript": "Transcript"
+  },
   "inspector": {
     "aria": "Finding 详情",
     "emptyEyebrow": "详情",

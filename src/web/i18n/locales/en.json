@@ -22,6 +22,11 @@
     "themeDark": "Theme: dark",
     "themeSystem": "Theme: system"
   },
+  "mainTabs": {
+    "ariaLabel": "Review panels",
+    "findings": "Findings",
+    "transcript": "Transcript"
+  },
   "inspector": {
     "aria": "Finding inspector",
     "emptyEyebrow": "Inspector",

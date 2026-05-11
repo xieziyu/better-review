@@ -10,7 +10,12 @@ import { SelectionProvider } from '@/lib/selection'
 
 function withRoute(
   ui: React.ReactNode,
-  initial?: { session?: PRSession; findings?: Finding[]; diff?: string | null },
+  initial?: {
+    session?: PRSession
+    findings?: Finding[]
+    diff?: string | null
+    initialTab?: 'findings' | 'transcript'
+  },
 ) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -22,10 +27,11 @@ function withRoute(
     })
     qc.setQueryData(['session', initial.session.id, 'diff'], initial.diff ?? null)
   }
+  const tab = initial?.initialTab === 'transcript' ? '?tab=transcript' : ''
   return (
     <QueryClientProvider client={qc}>
       <SelectionProvider>
-        <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
+        <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}${tab}`]}>
           <Routes>
             <Route path="/pr/:id" element={ui} />
           </Routes>
@@ -189,7 +195,13 @@ describe('PRDetail', () => {
     it('renders agent-output chunks streamed over SSE', () => {
       install()
       const running: PRSession = { ...session, status: 'running' }
-      render(withRoute(<PRDetail />, { session: running, findings: [] }))
+      render(
+        withRoute(<PRDetail />, {
+          session: running,
+          findings: [],
+          initialTab: 'transcript',
+        }),
+      )
 
       expect(live).not.toBeNull()
       act(() => {
