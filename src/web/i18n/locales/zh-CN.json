@@ -82,8 +82,7 @@
     },
     "footer": {
       "startReviewLabel": "开始评审",
-      "configureBefore": "在",
-      "configureLink": "设置"
+      "configureLine": "在 <0>设置</0> 中配置默认 agent"
     }
   },
   "settings": {
@@ -268,7 +267,7 @@
     "diffNotLoaded": "Diff 尚未加载。提交时会再做一次行内位置校验。",
     "submitted": "已提交",
     "droppedToBody": "{{count}} 条 finding 已挪到 review body（行不在 diff 中）。",
-    "skippedDuplicates": "{{count}} 条与上一轮重复，已跳过未重复发送。",
+    "skippedDuplicates": "{{count}} 条与上一轮重复，已跳过。",
     "confirmation": "确认",
     "confirmationLine_one": "{{count}} 条行内评论",
     "confirmationLine_other": "{{count}} 条行内评论",

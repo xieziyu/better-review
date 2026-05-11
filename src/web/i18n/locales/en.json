@@ -82,8 +82,7 @@
     },
     "footer": {
       "startReviewLabel": "start review",
-      "configureBefore": "Configure default agent in",
-      "configureLink": "settings"
+      "configureLine": "Configure default agent in <0>settings</0>"
     }
   },
   "settings": {

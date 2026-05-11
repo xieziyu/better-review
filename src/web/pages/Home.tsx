@@ -3,7 +3,7 @@ import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, FileText, FolderGit2, FolderOpen, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
@@ -365,13 +365,18 @@ export function Home() {
       <footer className="mt-12 border-t border-rule pt-4 flex items-center gap-3 text-meta text-ink-muted">
         <KbdHint keys={['⏎']} label={t('home.footer.startReviewLabel')} />
         <span>·</span>
-        <span>{t('home.footer.configureBefore')}</span>
-        <Link
-          to="/settings"
-          className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
-        >
-          {t('home.footer.configureLink')}
-        </Link>
+        <span>
+          <Trans
+            i18nKey="home.footer.configureLine"
+            components={[
+              <Link
+                key="settings"
+                to="/settings"
+                className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
+              />,
+            ]}
+          />
+        </span>
       </footer>
     </div>
   )
