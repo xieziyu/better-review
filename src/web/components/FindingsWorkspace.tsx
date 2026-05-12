@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { FindingDetailDrawer } from '@/components/FindingDetailDrawer'
 import { FindingDetailPanel } from '@/components/FindingDetailPanel'
 import { FindingList } from '@/components/FindingList'
-import { EmptyState } from '@/components/ui'
 import { api } from '@/lib/api'
 import { useSelectedFinding } from '@/lib/selection'
 import { useResizable } from '@/lib/use-resizable'
@@ -44,17 +43,17 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
     return () => mql.removeEventListener('change', onChange)
   }, [])
 
-  const { data: diffFallback } = useQuery({
-    queryKey: ['session', session.id, 'diff'] as const,
-    queryFn: () => api.getSessionDiff(session.id),
-    enabled: !unifiedDiff,
-    retry: false,
-  })
-  const diff = unifiedDiff ?? diffFallback ?? null
-
   const finding = selectedFindingDbId
     ? findings.find((f) => f.dbId === selectedFindingDbId && !f.archived)
     : undefined
+
+  const { data: diffFallback } = useQuery({
+    queryKey: ['session', session.id, 'diff'] as const,
+    queryFn: () => api.getSessionDiff(session.id),
+    enabled: Boolean(finding) && !unifiedDiff,
+    retry: false,
+  })
+  const diff = unifiedDiff ?? diffFallback ?? null
 
   const {
     size: width,
@@ -69,6 +68,8 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
     ariaLabel: t('findingsWorkspace.resizeAria'),
   })
 
+  if (findings.length === 0) return null
+
   if (!wide) {
     return (
       <div className="flex flex-col min-h-0 flex-1">
@@ -81,6 +82,14 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
             onClose={() => setSelectedFindingDbId(null)}
           />
         ) : null}
+      </div>
+    )
+  }
+
+  if (!finding) {
+    return (
+      <div className="flex min-h-0 flex-1">
+        <ListColumn findings={findings} session={session} selectedCount={selectedCount} />
       </div>
     )
   }
@@ -102,17 +111,7 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
         />
       </div>
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-        {finding ? (
-          <FindingDetailPanel finding={finding} session={session} unifiedDiff={diff} />
-        ) : (
-          <div className="px-6 py-10">
-            <EmptyState
-              eyebrow={t('findingsWorkspace.detailEmptyEyebrow')}
-              title={t('findingsWorkspace.detailEmptyTitle')}
-              body={t('findingsWorkspace.detailEmptyBody')}
-            />
-          </div>
-        )}
+        <FindingDetailPanel finding={finding} session={session} unifiedDiff={diff} />
       </div>
     </div>
   )

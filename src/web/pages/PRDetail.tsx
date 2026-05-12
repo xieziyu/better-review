@@ -558,15 +558,7 @@ export function PRDetail() {
     : 1
 
   const findingsBody =
-    session.status === 'running' && activeFindings.length === 0 ? (
-      <div className="flex items-center gap-3 text-ink-secondary px-8 py-6">
-        <span
-          className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
-          aria-hidden="true"
-        />
-        <span className="text-body">{t('prdetail.agentReviewing', { agent: session.agent })}</span>
-      </div>
-    ) : session.status === 'ready' && activeFindings.length === 0 ? (
+    session.status === 'ready' && activeFindings.length === 0 ? (
       <div className="px-8 py-10">
         <EmptyState
           eyebrow={t('prdetail.noIssuesEyebrow')}

@@ -62,9 +62,6 @@
   },
   "findingsWorkspace": {
     "resizeAria": "Resize findings list",
-    "detailEmptyEyebrow": "Inspector",
-    "detailEmptyTitle": "Select a finding to inspect",
-    "detailEmptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here.",
     "drawerCloseAria": "Close finding detail",
     "drawerAria": "Finding detail",
     "openDetailAria": "Open finding detail"
@@ -223,7 +220,6 @@
     "rerun": "Rerun",
     "submit": "Submit",
     "submitTitleZero": "Select at least one finding",
-    "agentReviewing": "{{agent}} is reviewing. Findings will stream in here as they're produced.",
     "noIssuesEyebrow": "Ready",
     "noIssuesTitle": "No issues found",
     "noIssuesBody": "Either the PR is clean, or the prompt missed something. Rerun to get a different angle.",

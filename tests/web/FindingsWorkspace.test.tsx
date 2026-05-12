@@ -161,25 +161,39 @@ beforeEach(() => {
 })
 
 describe('FindingsWorkspace', () => {
-  it('wide mode shows the empty inspector message when nothing is selected', () => {
+  it('returns null when there are no findings (RunStrip carries the signal)', () => {
     installMatchMedia(true)
-    render(wrapped(<Harness findings={[mkFinding()]} />))
-    expect(screen.getByText(/Select a finding to inspect/i)).toBeInTheDocument()
+    const { container } = render(wrapped(<Harness findings={[]} />))
+    expect(container).toBeEmptyDOMElement()
   })
 
-  it('wide mode renders the resize separator with min/max/value', () => {
+  it('wide mode without selection renders only the list (no separator, no detail pane)', () => {
     installMatchMedia(true)
     render(wrapped(<Harness findings={[mkFinding()]} />))
-    const handle = screen.getByRole('separator', { name: /resize findings list/i })
+    expect(
+      screen.queryByRole('separator', { name: /resize findings list/i }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Select a finding to inspect/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/选中一个 finding/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Race condition somewhere very specific/)).toBeInTheDocument()
+  })
+
+  it('wide mode with selection renders the resize separator with min/max/value', async () => {
+    installMatchMedia(true)
+    render(wrapped(<Harness findings={[mkFinding()]} selectFirst />))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const handle = await screen.findByRole('separator', { name: /resize findings list/i })
     expect(handle).toHaveAttribute('aria-valuemin', '320')
     expect(handle).toHaveAttribute('aria-valuemax', '560')
     expect(handle).toHaveAttribute('aria-valuenow', '380')
   })
 
-  it('keyboard arrow on separator persists new width', () => {
+  it('keyboard arrow on separator persists new width', async () => {
     installMatchMedia(true)
-    render(wrapped(<Harness findings={[mkFinding()]} />))
-    const handle = screen.getByRole('separator', { name: /resize findings list/i })
+    render(wrapped(<Harness findings={[mkFinding()]} selectFirst />))
+    const handle = await screen.findByRole('separator', { name: /resize findings list/i })
     act(() => {
       fireEvent.keyDown(handle, { key: 'ArrowRight' })
     })
@@ -196,10 +210,12 @@ describe('FindingsWorkspace', () => {
     expect(screen.queryByRole('dialog', { name: /finding detail/i })).not.toBeInTheDocument()
   })
 
-  it('switches between wide and narrow on media-query change', () => {
+  it('separator disappears when wide → narrow media-query change', async () => {
     const state = installMatchMedia(true)
-    render(wrapped(<Harness findings={[mkFinding()]} />))
-    expect(screen.getByRole('separator', { name: /resize findings list/i })).toBeInTheDocument()
+    render(wrapped(<Harness findings={[mkFinding()]} selectFirst />))
+    expect(
+      await screen.findByRole('separator', { name: /resize findings list/i }),
+    ).toBeInTheDocument()
     act(() => mqChange(state, false))
     expect(
       screen.queryByRole('separator', { name: /resize findings list/i }),
@@ -216,15 +232,33 @@ describe('FindingsWorkspace', () => {
     expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
   })
 
-  it('persists list width separately from the sidebar key', () => {
+  it('persists list width separately from the sidebar key', async () => {
     installMatchMedia(true)
     window.localStorage.setItem('better-review:findings-list-width:v1', '480')
-    render(wrapped(<Harness findings={[mkFinding()]} />))
-    const handle = screen.getByRole('separator', { name: /resize findings list/i })
+    render(wrapped(<Harness findings={[mkFinding()]} selectFirst />))
+    const handle = await screen.findByRole('separator', { name: /resize findings list/i })
     expect(handle).toHaveAttribute('aria-valuenow', '480')
   })
 
-  it('queries the diff fallback endpoint when no diff is passed in', () => {
+  it('queries the diff fallback endpoint when a finding is selected and no diff is passed in', async () => {
+    installMatchMedia(true)
+    const spy = vi.spyOn(window, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ diff: '' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    render(wrapped(<Harness findings={[mkFinding()]} diff={null} selectFirst />))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    await vi.waitFor(() => {
+      expect(spy).toHaveBeenCalledWith('/api/sessions/s1/diff')
+    })
+    spy.mockRestore()
+  })
+
+  it('does NOT query the diff fallback endpoint when no finding is selected', async () => {
     installMatchMedia(true)
     const spy = vi.spyOn(window, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ diff: '' }), {
@@ -233,7 +267,10 @@ describe('FindingsWorkspace', () => {
       }),
     )
     render(wrapped(<Harness findings={[mkFinding()]} diff={null} />))
-    expect(spy).toHaveBeenCalledWith('/api/sessions/s1/diff')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
   })
 })
