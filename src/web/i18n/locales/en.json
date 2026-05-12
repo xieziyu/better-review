@@ -28,10 +28,6 @@
     "transcript": "Transcript"
   },
   "inspector": {
-    "aria": "Finding inspector",
-    "emptyEyebrow": "Inspector",
-    "emptyTitle": "Select a finding to inspect",
-    "emptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here.",
     "section": {
       "category": "Category",
       "target": "Target",
@@ -45,6 +41,15 @@
       "edit": "Edit",
       "discard": "Discard"
     }
+  },
+  "findingsWorkspace": {
+    "resizeAria": "Resize findings list",
+    "detailEmptyEyebrow": "Inspector",
+    "detailEmptyTitle": "Select a finding to inspect",
+    "detailEmptyBody": "Pick a finding from the list. Its claim, suggestion, source, and submission controls land here.",
+    "drawerCloseAria": "Close finding detail",
+    "drawerAria": "Finding detail",
+    "openDetailAria": "Open finding detail"
   },
   "common": {
     "save": "Save",

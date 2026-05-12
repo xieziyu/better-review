@@ -34,11 +34,11 @@ export function MainTabs({ findings, transcript, findingsCount, transcriptStream
   }
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col min-h-0 h-full">
       <div
         role="tablist"
         aria-label={t('mainTabs.ariaLabel')}
-        className="flex items-center gap-1 border-b border-rule"
+        className="flex items-center gap-1 border-b border-rule px-8 shrink-0"
       >
         {TAB_KEYS.map((key) => {
           const selected = active === key
@@ -53,9 +53,7 @@ export function MainTabs({ findings, transcript, findingsCount, transcriptStream
               onClick={() => setActive(key)}
               className={cn(
                 'relative inline-flex items-center gap-1.5 px-3 h-10 text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
-                selected
-                  ? 'text-ink-primary'
-                  : 'text-ink-muted hover:text-ink-secondary',
+                selected ? 'text-ink-primary' : 'text-ink-muted hover:text-ink-secondary',
               )}
             >
               <span>{t(`mainTabs.${key}`)}</span>
@@ -85,7 +83,7 @@ export function MainTabs({ findings, transcript, findingsCount, transcriptStream
         id={`tabpanel-${active}`}
         role="tabpanel"
         aria-labelledby={`tab-${active}`}
-        className="flex-1 min-h-0 pt-4"
+        className="flex-1 min-h-0 flex flex-col"
       >
         {active === 'findings' ? findings : transcript}
       </div>

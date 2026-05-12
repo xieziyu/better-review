@@ -11,12 +11,12 @@ import {
   Square,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { AgentOutputPanel } from '@/components/AgentOutputPanel'
-import { FindingList } from '@/components/FindingList'
+import { FindingsWorkspace } from '@/components/FindingsWorkspace'
 import { MainTabs } from '@/components/MainTabs'
 import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
@@ -419,6 +419,7 @@ export function PRDetail() {
   const qc = useQueryClient()
   const submitDrawer = useSubmitDrawer()
   const { setSelectedFindingDbId } = useSelectedFinding()
+  const topStackRef = useRef<HTMLDivElement | null>(null)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
@@ -464,7 +465,7 @@ export function PRDetail() {
   }, [id, data?.session.agent])
 
   useEffect(() => {
-    document.querySelector('main')?.scrollTo({ top: 0 })
+    topStackRef.current?.scrollTo?.({ top: 0 })
     submitDrawer.close()
     setSelectedFindingDbId(null)
     setAgentChunks([])
@@ -512,7 +513,7 @@ export function PRDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="px-8 py-10 max-w-3xl space-y-4">
+      <div className="px-8 py-10 max-w-3xl space-y-4" aria-label={t('prdetail.loadingAriaLabel')}>
         <div className="text-caps tracking-caps text-ink-muted uppercase">{t('app.loading')}</div>
         <div className="h-8 w-2/3 bg-raised rounded" />
         <div className="h-px w-full bg-rule" />
@@ -541,9 +542,45 @@ export function PRDetail() {
       ).length
     : 1
 
+  const findingsBody =
+    session.status === 'running' && activeFindings.length === 0 ? (
+      <div className="flex items-center gap-3 text-ink-secondary px-8 py-6">
+        <span
+          className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
+          aria-hidden="true"
+        />
+        <span className="text-body">{t('prdetail.agentReviewing', { agent: session.agent })}</span>
+      </div>
+    ) : session.status === 'ready' && activeFindings.length === 0 ? (
+      <div className="px-8 py-10">
+        <EmptyState
+          eyebrow={t('prdetail.noIssuesEyebrow')}
+          title={t('prdetail.noIssuesTitle')}
+          body={t('prdetail.noIssuesBody')}
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => rerun.mutate(effectiveRerunAgent)}
+            >
+              {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
+            </Button>
+          }
+        />
+      </div>
+    ) : (
+      <FindingsWorkspace
+        findings={activeFindings}
+        session={session}
+        unifiedDiff={data.diff ?? null}
+        selectedCount={selectedCount}
+      />
+    )
+
   return (
-    <div className="px-8 py-8 mx-auto" style={{ width: 'clamp(720px, 84vw, 980px)' }}>
-      <div className="space-y-8">
+    <div className="h-full flex flex-col min-h-0">
+      <div ref={topStackRef} className="shrink-0 px-8 pt-8 pb-6 space-y-6 border-b border-rule">
         <PRHeader
           session={session}
           selectedCount={selectedCount}
@@ -608,63 +645,22 @@ export function PRDetail() {
             {cancel.error instanceof ApiError ? cancel.error.message : t('prdetail.cancelFailed')}
           </div>
         ) : null}
+      </div>
 
+      <div className="flex-1 min-h-0 flex flex-col">
         <MainTabs
           findingsCount={activeFindings.length}
           transcriptStreaming={session.status === 'running'}
-          findings={
-            <>
-              {session.status === 'running' && activeFindings.length === 0 ? (
-                <div className="flex items-center gap-3 text-ink-secondary py-6">
-                  <span
-                    className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
-                    aria-hidden="true"
-                  />
-                  <span className="text-body">
-                    {t('prdetail.agentReviewing', { agent: session.agent })}
-                  </span>
-                </div>
-              ) : null}
-              {session.status === 'ready' && activeFindings.length === 0 ? (
-                <EmptyState
-                  eyebrow={t('prdetail.noIssuesEyebrow')}
-                  title={t('prdetail.noIssuesTitle')}
-                  body={t('prdetail.noIssuesBody')}
-                  action={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => rerun.mutate(effectiveRerunAgent)}
-                    >
-                      {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
-                    </Button>
-                  }
-                />
-              ) : null}
-              {activeFindings.length > 0 ? (
-                <FindingList findings={activeFindings} session={session} />
-              ) : null}
-              {selectedCount > 0 ? (
-                <div className="border-t border-rule pt-3 mt-3 text-caps tracking-caps text-ink-muted uppercase">
-                  <span className="text-ink-secondary">
-                    {t('prdetail.selectedCount', { count: selectedCount })}
-                  </span>
-                </div>
-              ) : null}
-            </>
-          }
+          findings={findingsBody}
           transcript={
-            <div className="h-[min(60vh,640px)]">
+            <div className="flex-1 min-h-0 px-8 py-4">
               <AgentOutputPanel chunks={agentChunks} status={session.status} />
             </div>
           }
         />
-
-        {submitDrawer.isOpen ? (
-          <SubmitDrawer sessionId={id} onClose={submitDrawer.close} />
-        ) : null}
       </div>
+
+      {submitDrawer.isOpen ? <SubmitDrawer sessionId={id} onClose={submitDrawer.close} /> : null}
     </div>
   )
 }

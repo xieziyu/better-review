@@ -74,9 +74,19 @@ export default {
           '0%, 100%': { opacity: '0.5' },
           '50%': { opacity: '1' },
         },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'slide-in-right': {
+          from: { transform: 'translateX(100%)' },
+          to: { transform: 'translateX(0)' },
+        },
       },
       animation: {
         'running-pulse': 'running-pulse 2.4s ease-in-out infinite',
+        'fade-in': 'fade-in 180ms cubic-bezier(0.25, 1, 0.5, 1)',
+        'slide-in-right': 'slide-in-right 180ms cubic-bezier(0.25, 1, 0.5, 1)',
       },
     },
   },

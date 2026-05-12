@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Routes, Route } from 'react-router-dom'
 
 import { ActivityBar } from '@/components/ActivityBar'
-import { InspectorDock } from '@/components/InspectorDock'
 import { Sidebar } from '@/components/Sidebar'
 import { api, queryKeys } from '@/lib/api'
 import { SelectionProvider } from '@/lib/selection'
@@ -58,7 +57,6 @@ export function App() {
             </Routes>
           </Suspense>
         </main>
-        <InspectorDock />
       </div>
     </SelectionProvider>
   )

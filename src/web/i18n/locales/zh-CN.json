@@ -28,10 +28,6 @@
     "transcript": "Transcript"
   },
   "inspector": {
-    "aria": "Finding 详情",
-    "emptyEyebrow": "详情",
-    "emptyTitle": "选中一个 finding",
-    "emptyBody": "从列表里选一个 finding，它的 claim、suggestion、source 与提交动作会出现在这里。",
     "section": {
       "category": "Category",
       "target": "Target",
@@ -45,6 +41,15 @@
       "edit": "编辑",
       "discard": "丢弃"
     }
+  },
+  "findingsWorkspace": {
+    "resizeAria": "调整 findings 列宽度",
+    "detailEmptyEyebrow": "详情",
+    "detailEmptyTitle": "选中一个 finding",
+    "detailEmptyBody": "从列表里选一个 finding，它的 claim、suggestion、source 与提交动作会出现在这里。",
+    "drawerCloseAria": "关闭详情",
+    "drawerAria": "Finding 详情",
+    "openDetailAria": "展开详情面板"
   },
   "common": {
     "save": "保存",
