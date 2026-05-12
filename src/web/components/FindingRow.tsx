@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { SeverityLabel, Tag } from '@/components/ui'
+import { SeverityLabel } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
 import { useSelectedFinding } from '@/lib/selection'
 import { cn } from '@/lib/utils'
@@ -16,9 +16,7 @@ interface Props {
 function LocationLabel({ file, line }: { file: string | null; line: number | null }) {
   const { t } = useTranslation()
   if (!file) {
-    return (
-      <span className="font-mono text-meta text-ink-muted shrink-0">{t('finding.wholePR')}</span>
-    )
+    return <span className="font-mono text-meta text-ink-muted">{t('finding.wholePR')}</span>
   }
   const slash = file.lastIndexOf('/')
   const dirname = slash >= 0 ? file.slice(0, slash + 1) : ''
@@ -56,7 +54,8 @@ export function FindingRow({ finding, sessionId }: Props) {
       data-finding-id={finding.dbId}
       data-active={active || undefined}
       className={cn(
-        'relative group flex items-baseline gap-3 py-2.5 pl-5 pr-4 cursor-pointer transition-colors duration-180 ease-out-quart',
+        'relative group grid cursor-pointer py-2.5 pl-5 pr-4 transition-colors duration-180 ease-out-quart',
+        'grid-cols-[16px_1fr] gap-x-3 gap-y-1',
         active ? 'bg-canvas' : 'hover:bg-canvas/60',
       )}
       onClick={() => setSelectedFindingDbId(finding.dbId)}
@@ -88,33 +87,35 @@ export function FindingRow({ finding, sessionId }: Props) {
           id: finding.id,
         })}
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors duration-180 ease-out-quart self-center',
+          'row-span-2 mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-180 ease-out-quart',
           finding.selected
             ? 'border-brand bg-brand text-brand-ink'
             : 'border-rule bg-transparent text-transparent hover:border-ink-muted',
         )}
       >
-        <Check size={12} strokeWidth={3} aria-hidden="true" />
+        <Check size={11} strokeWidth={3} aria-hidden="true" />
       </button>
-      <span className="shrink-0 self-center">
+      <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
         <SeverityLabel level={finding.severity} />
-      </span>
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-body',
-          active ? 'text-ink-primary' : 'text-ink-primary',
-        )}
-        title={finding.title}
-      >
-        {finding.title}
-      </span>
-      <LocationLabel file={finding.file} line={finding.line} />
-      <Tag tone="neutral" className="shrink-0">
-        {finding.category}
-      </Tag>
-      {finding.edited ? (
-        <Pencil size={12} className="shrink-0 text-ink-muted self-center" aria-label={t('finding.edited')} />
-      ) : null}
+        <span className="text-body text-ink-primary leading-snug" title={finding.title}>
+          {finding.title}
+        </span>
+      </div>
+      <div className="min-w-0 flex items-baseline gap-2 flex-wrap text-meta">
+        <LocationLabel file={finding.file} line={finding.line} />
+        <span aria-hidden="true" className="text-ink-muted">
+          ·
+        </span>
+        <span className="text-caps tracking-caps uppercase text-ink-muted">{finding.category}</span>
+        {finding.edited ? (
+          <>
+            <span aria-hidden="true" className="text-ink-muted">
+              ·
+            </span>
+            <Pencil size={11} className="text-ink-muted" aria-label={t('finding.edited')} />
+          </>
+        ) : null}
+      </div>
     </div>
   )
 }

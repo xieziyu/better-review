@@ -28,9 +28,7 @@ function githubLineLink(session: PRSession, file: string, line: number | null): 
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-caps tracking-caps text-ink-muted uppercase">{children}</div>
-  )
+  return <div className="text-caps tracking-caps text-ink-muted uppercase">{children}</div>
 }
 
 export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
@@ -239,7 +237,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
           <section className="space-y-2">
             <SectionHeader>{t('inspector.section.claim')}</SectionHeader>
             {!editing ? (
-              <div className="prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
+              <div className="prose prose-sm max-w-[72ch] prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{finding.body}</ReactMarkdown>
               </div>
             ) : (
