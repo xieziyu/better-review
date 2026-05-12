@@ -1,3 +1,34 @@
+/* Pin diff text color to a theme token so it adapts to light/dark
+ * instead of using the library default (`initial`, which inherits to
+ * near-white in dark mode and ends up unreadable on pastel rows). */
+:root {
+  --diff-text-color: var(--ink-primary);
+}
+
+/* Re-tint the diff row backgrounds for dark mode. The upstream defaults
+ * are light pastels designed for white pages — illegible behind our
+ * light-ink-on-dark-canvas body color. We layer translucent accents on
+ * top of the canvas so the rows read as faintly green/red on the dark
+ * surface, mirroring how GitHub's dark theme treats diffs. */
+[data-theme='dark'] {
+  --diff-gutter-insert-background-color: color-mix(in oklch, var(--accent-ready) 22%, transparent);
+  --diff-gutter-delete-background-color: color-mix(in oklch, var(--severity-must) 22%, transparent);
+  --diff-gutter-selected-background-color: color-mix(in oklch, var(--anchor) 30%, transparent);
+  --diff-code-insert-background-color: color-mix(in oklch, var(--accent-ready) 12%, transparent);
+  --diff-code-delete-background-color: color-mix(in oklch, var(--severity-must) 12%, transparent);
+  --diff-code-insert-edit-background-color: color-mix(
+    in oklch,
+    var(--accent-ready) 35%,
+    transparent
+  );
+  --diff-code-delete-edit-background-color: color-mix(
+    in oklch,
+    var(--severity-must) 35%,
+    transparent
+  );
+  --diff-code-selected-background-color: color-mix(in oklch, var(--anchor) 14%, transparent);
+}
+
 .diff-code-selected {
   background-color: color-mix(in oklch, var(--anchor) 14%, transparent) !important;
   box-shadow: inset 2px 0 0 var(--anchor);

@@ -3,7 +3,7 @@ import type { Finding, PRSession } from '@shared/types'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { FindingCard } from '@/components/FindingCard'
+import { FindingRow } from '@/components/FindingRow'
 import { EmptyState } from '@/components/ui'
 
 const SEVERITY_ORDER: Record<Severity, number> = { must: 0, should: 1, nit: 2 }
@@ -11,49 +11,30 @@ const SEVERITY_ORDER: Record<Severity, number> = { must: 0, should: 1, nit: 2 }
 interface Props {
   findings: Finding[]
   session: PRSession
-  unifiedDiff: string | null
 }
 
-interface FileGroup {
-  file: string
-  items: Finding[]
+function sortByPriority(a: Finding, b: Finding): number {
+  const sevDiff = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+  if (sevDiff !== 0) return sevDiff
+  const fileA = a.file ?? ''
+  const fileB = b.file ?? ''
+  if (fileA !== fileB) return fileA.localeCompare(fileB)
+  return a.ord - b.ord
 }
 
-function groupByFile(findings: Finding[]): { fileGroups: FileGroup[]; prWide: Finding[] } {
-  const fileMap = new Map<string, Finding[]>()
-  const prWide: Finding[] = []
-  for (const f of findings) {
-    if (f.file === null) {
-      prWide.push(f)
-    } else {
-      const arr = fileMap.get(f.file) ?? []
-      arr.push(f)
-      fileMap.set(f.file, arr)
-    }
-  }
-  for (const arr of fileMap.values()) {
-    arr.sort(
-      (a, b) =>
-        (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99) || a.ord - b.ord,
-    )
-  }
-  prWide.sort(
-    (a, b) =>
-      (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99) || a.ord - b.ord,
-  )
-  const fileGroups: FileGroup[] = [...fileMap.entries()]
-    .map(([file, items]) => ({ file, items }))
-    .sort(
-      (a, b) =>
-        (SEVERITY_ORDER[a.items[0]!.severity] ?? 99) -
-          (SEVERITY_ORDER[b.items[0]!.severity] ?? 99) || a.file.localeCompare(b.file),
-    )
-  return { fileGroups, prWide }
-}
-
-export function FindingList({ findings, session, unifiedDiff }: Props) {
+export function FindingList({ findings, session }: Props) {
   const { t } = useTranslation()
-  const { fileGroups, prWide } = useMemo(() => groupByFile(findings), [findings])
+  const { fileScoped, prWide } = useMemo(() => {
+    const scoped: Finding[] = []
+    const wide: Finding[] = []
+    for (const f of findings) {
+      if (f.file === null) wide.push(f)
+      else scoped.push(f)
+    }
+    scoped.sort(sortByPriority)
+    wide.sort(sortByPriority)
+    return { fileScoped: scoped, prWide: wide }
+  }, [findings])
 
   if (findings.length === 0) {
     return (
@@ -68,17 +49,13 @@ export function FindingList({ findings, session, unifiedDiff }: Props) {
   return (
     <div role="list" className="border-t border-rule">
       <div className="divide-y divide-rule">
-        {fileGroups.flatMap((g) =>
-          g.items.map((f) => (
-            <section key={f.dbId} role="listitem">
-              <FindingCard finding={f} session={session} unifiedDiff={unifiedDiff} />
-            </section>
-          )),
-        )}
+        {fileScoped.map((f) => (
+          <FindingRow key={f.dbId} finding={f} sessionId={session.id} />
+        ))}
       </div>
       {prWide.length > 0 ? (
-        <section role="listitem" className="border-t border-rule">
-          <h2 className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm py-3 flex items-baseline gap-3">
+        <section className="border-t border-rule mt-2">
+          <h2 className="flex items-baseline gap-3 pl-5 pr-4 py-2">
             <span className="text-caps tracking-caps text-ink-muted uppercase">
               {t('finding.list.prWide')}
             </span>
@@ -87,9 +64,9 @@ export function FindingList({ findings, session, unifiedDiff }: Props) {
               {prWide.length}
             </span>
           </h2>
-          <div className="divide-y divide-rule">
+          <div className="divide-y divide-rule border-t border-rule">
             {prWide.map((f) => (
-              <FindingCard key={f.dbId} finding={f} session={session} unifiedDiff={unifiedDiff} />
+              <FindingRow key={f.dbId} finding={f} sessionId={session.id} />
             ))}
           </div>
         </section>

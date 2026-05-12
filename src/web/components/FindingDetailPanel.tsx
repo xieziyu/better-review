@@ -1,0 +1,374 @@
+import type { Severity } from '@shared/findings-schema'
+import type { Finding, PRSession } from '@shared/types'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ExternalLink, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import ReactMarkdown from 'react-markdown'
+import rehypeHighlight from 'rehype-highlight'
+
+import { DiffViewer } from '@/components/DiffViewer'
+import { Button, ConfirmAction, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
+import { api, queryKeys, ApiError } from '@/lib/api'
+import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
+import { cn } from '@/lib/utils'
+
+interface Props {
+  finding: Finding
+  session: PRSession
+  unifiedDiff: string | null
+}
+
+const SEVERITY_LIST: Severity[] = ['must', 'should', 'nit']
+
+function githubLineLink(session: PRSession, file: string, line: number | null): string {
+  const base = session.url ? `${session.url}/files` : '#'
+  const anchor = line ? `R${line}` : ''
+  return `${base}#diff-${encodeURIComponent(file)}${anchor}`
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return <div className="text-caps tracking-caps text-ink-muted uppercase">{children}</div>
+}
+
+export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { setSelectedFindingDbId } = useSelectedFinding()
+  const submitDrawer = useSubmitDrawer()
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({
+    title: finding.title,
+    body: finding.body,
+    severity: finding.severity,
+    suggestion: finding.suggestion ?? '',
+  })
+
+  useEffect(() => {
+    if (editing) return
+    setDraft({
+      title: finding.title,
+      body: finding.body,
+      severity: finding.severity,
+      suggestion: finding.suggestion ?? '',
+    })
+  }, [editing, finding])
+
+  // When the user selects a different finding from the list while editing,
+  // exit edit mode so the form re-syncs to the new finding's content.
+  useEffect(() => {
+    setEditing(false)
+  }, [finding.dbId])
+
+  const invalidate = (): void => {
+    void qc.invalidateQueries({ queryKey: queryKeys.session(session.id) })
+  }
+
+  const select = useMutation({
+    mutationFn: (next: boolean) => api.selectFinding(finding.dbId, { selected: next }),
+    onSuccess: invalidate,
+  })
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.updateFinding(finding.dbId, {
+        title: draft.title,
+        body: draft.body,
+        severity: draft.severity,
+        suggestion: draft.suggestion ? draft.suggestion : null,
+      }),
+    onSuccess: () => {
+      invalidate()
+      setEditing(false)
+    },
+  })
+
+  const remove = useMutation({
+    mutationFn: () => api.deleteFinding(finding.dbId),
+    onSuccess: () => {
+      invalidate()
+      setSelectedFindingDbId(null)
+    },
+  })
+
+  const onSubmitClick = () => {
+    if (!finding.selected) {
+      select.mutate(true, {
+        onSuccess: () => {
+          invalidate()
+          submitDrawer.open()
+        },
+      })
+      return
+    }
+    submitDrawer.open()
+  }
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (editing) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setEditing(false)
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        save.mutate()
+      }
+      return
+    }
+    if (e.key === 'e' && e.target === containerRef.current) {
+      e.preventDefault()
+      setEditing(true)
+    }
+  }
+
+  const githubHref = finding.file ? githubLineLink(session, finding.file, finding.line) : null
+
+  return (
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      data-finding-id={finding.dbId}
+      className="flex flex-col h-full outline-none"
+    >
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="px-6 py-5 space-y-5">
+          <header className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <SeverityLabel level={finding.severity} />
+              <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+            </div>
+            {!editing ? (
+              <h2 className="text-h1 text-ink-primary">{finding.title}</h2>
+            ) : (
+              <input
+                type="text"
+                aria-label={t('finding.form.titleAria')}
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                className="w-full bg-transparent border-b border-rule py-1 text-h1 text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart"
+              />
+            )}
+          </header>
+
+          <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-meta">
+            <dt className="text-caps tracking-caps text-ink-muted uppercase">
+              {t('inspector.section.category')}
+            </dt>
+            <dd>
+              <Tag tone="neutral">{finding.category}</Tag>
+              {finding.edited ? (
+                <Tag tone="neutral" className="ml-2 normal-case">
+                  {t('finding.edited')}
+                </Tag>
+              ) : null}
+            </dd>
+            <dt className="text-caps tracking-caps text-ink-muted uppercase">
+              {t('inspector.section.target')}
+            </dt>
+            <dd className="min-w-0">
+              {finding.file ? (
+                <span className="inline-flex items-baseline gap-1.5 min-w-0">
+                  <span
+                    className="font-mono text-code text-ink-secondary truncate"
+                    title={`${finding.file}${finding.line ? `:${finding.line}` : ''}`}
+                  >
+                    {finding.file}
+                    {finding.line ? <span className="text-ink-muted">:{finding.line}</span> : null}
+                  </span>
+                  {githubHref ? (
+                    <a
+                      href={githubHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t('finding.openOnGithub')}
+                      className="text-ink-muted hover:text-brand transition-colors duration-180 ease-out-quart"
+                    >
+                      <ExternalLink size={12} aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="font-mono text-meta text-ink-muted">{t('finding.wholePR')}</span>
+              )}
+            </dd>
+          </dl>
+
+          {editing ? (
+            <fieldset>
+              <legend className="text-caps tracking-caps text-ink-muted uppercase mb-1.5">
+                {t('finding.form.severity')}
+              </legend>
+              <div role="radiogroup" className="inline-flex gap-1">
+                {SEVERITY_LIST.map((sev) => {
+                  const activeSev = draft.severity === sev
+                  return (
+                    <label
+                      key={sev}
+                      className={cn(
+                        'px-2.5 py-1 rounded-sm cursor-pointer text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
+                        activeSev
+                          ? sev === 'must'
+                            ? 'bg-severity-must/15 text-severity-must'
+                            : sev === 'should'
+                              ? 'bg-severity-should/15 text-severity-should'
+                              : 'bg-severity-nit/15 text-severity-nit'
+                          : 'text-ink-muted hover:text-ink-primary hover:bg-raised',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={`severity-${finding.dbId}`}
+                        value={sev}
+                        checked={activeSev}
+                        onChange={() => setDraft({ ...draft, severity: sev })}
+                        aria-label={sev}
+                        className="sr-only"
+                      />
+                      {sev}
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
+          ) : null}
+
+          <section className="space-y-2">
+            <SectionHeader>{t('inspector.section.claim')}</SectionHeader>
+            {!editing ? (
+              <div className="prose prose-sm max-w-[72ch] prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
+                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{finding.body}</ReactMarkdown>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  aria-label={t('finding.form.bodyAria')}
+                  value={draft.body}
+                  onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                  className="w-full min-h-[10rem] p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+                />
+                <details className="text-meta">
+                  <summary className="cursor-pointer text-caps tracking-caps text-ink-muted uppercase">
+                    {t('finding.form.preview')}
+                  </summary>
+                  <div className="mt-2 p-3 rounded-md bg-sunken border border-rule prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary">
+                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                      {draft.body || t('finding.form.previewEmpty')}
+                    </ReactMarkdown>
+                  </div>
+                </details>
+              </>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <SectionHeader>{t('inspector.section.suggestion')}</SectionHeader>
+            {!editing ? (
+              finding.suggestion ? (
+                <pre className="font-mono text-code text-ink-primary bg-sunken border border-rule rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
+                  <code>{finding.suggestion}</code>
+                </pre>
+              ) : (
+                <p className="text-meta text-ink-muted">{t('inspector.section.suggestionEmpty')}</p>
+              )
+            ) : (
+              <textarea
+                aria-label={t('finding.form.suggestionAria')}
+                value={draft.suggestion}
+                onChange={(e) => setDraft({ ...draft, suggestion: e.target.value })}
+                className="w-full min-h-[6rem] p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+              />
+            )}
+          </section>
+
+          {!editing && finding.file && finding.line !== null ? (
+            <section className="space-y-2">
+              <SectionHeader>{t('inspector.section.source')}</SectionHeader>
+              <DiffViewer
+                unifiedDiff={unifiedDiff}
+                file={finding.file}
+                line={finding.line}
+                findingId={finding.id}
+              />
+            </section>
+          ) : null}
+
+          {save.isError ? (
+            <div className="text-meta text-severity-must">
+              {save.error instanceof ApiError ? save.error.message : t('finding.saveFailed')}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <footer className="sticky bottom-0 shrink-0 border-t border-rule bg-raised px-6 py-3">
+        {!editing ? (
+          <div className="flex items-center gap-2 justify-between">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onSubmitClick}
+              disabled={select.isPending}
+            >
+              {t('inspector.cta.submit')}
+            </Button>
+            <div className="flex items-center gap-1">
+              <KbdTooltip keys={['e']} label={t('inspector.cta.edit')}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                  aria-label={t('inspector.cta.edit')}
+                >
+                  <Pencil size={12} aria-hidden="true" />
+                  {t('inspector.cta.edit')}
+                </Button>
+              </KbdTooltip>
+              <ConfirmAction
+                title={t('finding.deleteTitle', { id: finding.id })}
+                description={t('finding.deleteDesc')}
+                confirmLabel={t('finding.deleteConfirm')}
+                onConfirm={() => remove.mutate()}
+              >
+                {(requestConfirm) => (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={requestConfirm}
+                    aria-label={t('inspector.cta.discard')}
+                  >
+                    <Trash2 size={12} aria-hidden="true" />
+                    {t('inspector.cta.discard')}
+                  </Button>
+                )}
+              </ConfirmAction>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 justify-end">
+            <KbdTooltip keys={['Esc']} label={t('common.cancel')}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                {t('common.cancel')}
+              </Button>
+            </KbdTooltip>
+            <KbdTooltip keys={['⌘', '⏎']} label={t('common.save')}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => save.mutate()}
+                disabled={save.isPending}
+              >
+                {save.isPending ? t('common.saving') : t('common.save')}
+              </Button>
+            </KbdTooltip>
+          </div>
+        )}
+      </footer>
+    </div>
+  )
+}

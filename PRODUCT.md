@@ -44,6 +44,7 @@ product
 - **SaaS hero-metric template**：大数字 + 小标签 + 渐变 accent，强 banned。
 - **AI workflow tool 通用模板**：白底 / 浅紫 accent / 圆角卡片 + dot-grid 背景，避免。
 - **Cursor / Warp 那种「重设计的终端」**：他们做的是 IDE / 终端本身；我们是 _围绕_ PR review 的窄工具，不该撞他们的形。
+- **VS Code Dark+ 的一比一复刻**：Workbench 布局借鉴 IDE 的层级语言，但视觉表达必须有差异化——我们的字体（Inter + Noto Sans SC，不是 Segoe UI / Cascadia）、字阶、按钮（B4 Dual 描边而非 azure CTA）、severity 表达（`→ CAPS` 而非半透左 stripe）都不应混入 VS Code 的皮肤。
 
 ## Design Principles
 

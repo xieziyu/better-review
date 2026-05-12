@@ -24,13 +24,14 @@ export function SeverityLabel({ level, className }: Props) {
     <span
       data-level={level}
       className={cn(
-        'inline-block w-16 shrink-0 text-caps font-bold tracking-caps-wide opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-180 ease-out-quart',
+        'inline-flex items-center gap-1 text-caps font-bold tracking-caps uppercase',
         COLOR[level],
         className,
       )}
       aria-label={`severity: ${LABEL[level].toLowerCase()}`}
     >
-      {LABEL[level]}
+      <span aria-hidden="true">→</span>
+      <span>{LABEL[level]}</span>
     </span>
   )
 }

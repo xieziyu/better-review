@@ -437,7 +437,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
               {step < 2 ? (
                 <Button
                   type="button"
-                  variant="ink"
+                  variant="primary"
                   size="md"
                   onClick={() => setStep((s) => (s + 1) as Step)}
                   disabled={step === 1 && selected.length === 0}

@@ -277,18 +277,20 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
       if (fx.kind === 'claude') {
         expect(cwd).toBe(realLocalRepo)
       } else {
-        // codex stays rooted in the staging dir for findings IO, but the CLI
-        // flags reposition its workspace and sandbox. We always pass
-        // --skip-git-repo-check because the source dir lives under our
-        // managed `~/.better-review/sessions/...` tree, which codex won't
-        // auto-trust even when it is a git worktree.
+        // codex stays rooted in the staging dir so apply_patch's project-root
+        // boundary lines up with the workdir where findings.json lives.
+        // sourcePath is exposed via --add-dir for reads only (in practice
+        // also writable under workspace-write, but the prompt forbids
+        // mutations and the source tree is a disposable session worktree).
+        // We always pass --skip-git-repo-check because the source dir lives
+        // under our managed `~/.better-review/sessions/...` tree, which
+        // codex won't auto-trust even when it is a git worktree.
         expect(cwd).toBe(realWorkdir)
-        expect(argv).toContain('-C')
-        expect(argv[argv.indexOf('-C') + 1]).toBe(localRepo)
+        expect(argv).not.toContain('-C')
         expect(argv).toContain('--sandbox')
-        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('read-only')
+        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('workspace-write')
         expect(argv).toContain('--add-dir')
-        expect(argv[argv.indexOf('--add-dir') + 1]).toBe(workdir)
+        expect(argv[argv.indexOf('--add-dir') + 1]).toBe(localRepo)
         expect(argv).toContain('--skip-git-repo-check')
       }
     } finally {

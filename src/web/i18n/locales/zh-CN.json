@@ -12,6 +12,60 @@
       "menuAriaLabel": "语言菜单"
     }
   },
+  "activityBar": {
+    "aria": "主导航",
+    "brand": "better-review（首页）",
+    "sessions": "会话",
+    "prompt": "提示词",
+    "settings": "设置",
+    "themeLight": "主题：浅色",
+    "themeDark": "主题：深色",
+    "themeSystem": "主题：跟随系统"
+  },
+  "runStrip": {
+    "ariaLabel": "评审运行进度",
+    "phase": {
+      "prep": "PREP",
+      "reviewing": "REVIEWING"
+    },
+    "runningDetail": "{{agent}} · {{count}} events",
+    "startingUp": "正在启动…",
+    "transcript": "Transcript",
+    "transcriptToggleAria": "切换 transcript 抽屉"
+  },
+  "transcriptDrawer": {
+    "handleLabel": "Transcript",
+    "streaming": "streaming",
+    "linesLabel": "{{count}} 行",
+    "transcriptAria": "Agent transcript",
+    "resizeAria": "调整 transcript 抽屉高度",
+    "waiting": "等待 agent 输出…",
+    "follow": "跟随",
+    "followAria": "跟随到底部",
+    "openAria": "展开 transcript 抽屉",
+    "closeAria": "收起 transcript 抽屉"
+  },
+  "inspector": {
+    "section": {
+      "category": "Category",
+      "target": "Target",
+      "claim": "Claim",
+      "suggestion": "Suggestion",
+      "suggestionEmpty": "未提供 suggestion。",
+      "source": "Source"
+    },
+    "cta": {
+      "submit": "提交评审",
+      "edit": "编辑",
+      "discard": "丢弃"
+    }
+  },
+  "findingsWorkspace": {
+    "resizeAria": "调整 findings 列宽度",
+    "drawerCloseAria": "关闭详情",
+    "drawerAria": "Finding 详情",
+    "openDetailAria": "展开详情面板"
+  },
   "common": {
     "save": "保存",
     "saving": "保存中…",
@@ -166,7 +220,6 @@
     "rerun": "重跑",
     "submit": "提交",
     "submitTitleZero": "至少选择一条 finding",
-    "agentReviewing": "{{agent}} 正在评审，findings 会随时流式出现在这里。",
     "noIssuesEyebrow": "就绪",
     "noIssuesTitle": "未发现问题",
     "noIssuesBody": "可能 PR 本身就很干净，也可能是 prompt 漏掉了某些情况。重跑可以换一个角度再看一次。",
@@ -192,9 +245,6 @@
     }
   },
   "prep": {
-    "label": "准备中",
-    "working": "进行中",
-    "ariaLabel": "评审准备进度",
     "phase": {
       "prep:fetching-pr": "获取 PR 元数据",
       "prep:fetching-diff": "拉取 diff",
@@ -279,14 +329,6 @@
     "submitButton": "提交",
     "submitting": "提交中…",
     "closeButton": "关闭"
-  },
-  "agentOutput": {
-    "label": "Agent 输出",
-    "streaming": "流式中",
-    "transcriptAria": "Agent 输出实录",
-    "waiting": "等待 agent 输出…",
-    "followAria": "跟随到底部",
-    "follow": "跟随"
   },
   "sidebar": {
     "newReviewAria": "新建评审（返回首页）",

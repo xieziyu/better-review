@@ -5,11 +5,16 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
+import { SelectionProvider } from '@/lib/selection'
 import { PRDetail } from '@/pages/PRDetail'
 
 function withRoute(
   ui: React.ReactNode,
-  initial?: { session?: PRSession; findings?: Finding[]; diff?: string | null },
+  initial?: {
+    session?: PRSession
+    findings?: Finding[]
+    diff?: string | null
+  },
 ) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -23,11 +28,13 @@ function withRoute(
   }
   return (
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
-        <Routes>
-          <Route path="/pr/:id" element={ui} />
-        </Routes>
-      </MemoryRouter>
+      <SelectionProvider>
+        <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
+          <Routes>
+            <Route path="/pr/:id" element={ui} />
+          </Routes>
+        </MemoryRouter>
+      </SelectionProvider>
     </QueryClientProvider>
   )
 }
@@ -183,10 +190,18 @@ describe('PRDetail', () => {
       live = null
     })
 
-    it('renders agent-output chunks streamed over SSE', () => {
+    it('renders agent-output chunks streamed over SSE into the transcript drawer', () => {
       install()
+      // The transcript drawer is collapsed by default; open it before mount so
+      // the drawer body (and its <log> region) is in the DOM for this test.
+      window.localStorage.setItem('better-review:transcript-drawer:open:v1', '1')
       const running: PRSession = { ...session, status: 'running' }
-      render(withRoute(<PRDetail />, { session: running, findings: [] }))
+      render(
+        withRoute(<PRDetail />, {
+          session: running,
+          findings: [],
+        }),
+      )
 
       expect(live).not.toBeNull()
       act(() => {
@@ -206,6 +221,21 @@ describe('PRDetail', () => {
 
       expect(screen.getByRole('log')).toHaveTextContent('system: init (model=claude-opus-4-7)')
       expect(screen.getByRole('log')).toHaveTextContent('Reading the diff…')
+      window.localStorage.removeItem('better-review:transcript-drawer:open:v1')
+    })
+
+    it('shows RunStrip while running with elapsed clock and transcript toggle', () => {
+      const running: PRSession = { ...session, status: 'running' }
+      render(withRoute(<PRDetail />, { session: running, findings: [] }))
+      const strip = screen.getByRole('status', { name: /Review run progress/i })
+      expect(strip).toBeInTheDocument()
+      expect(within(strip).getByText('Reviewing')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Toggle transcript drawer/i })).toBeInTheDocument()
+    })
+
+    it('does not render RunStrip once the session has settled', () => {
+      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      expect(screen.queryByRole('status', { name: /Review run progress/i })).not.toBeInTheDocument()
     })
   })
 

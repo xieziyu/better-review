@@ -1,4 +1,4 @@
-import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
+import type { AgentKind, HealthStatus, PrepStep, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -11,16 +11,17 @@ import {
   Square,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { AgentOutputPanel } from '@/components/AgentOutputPanel'
-import { FindingList } from '@/components/FindingList'
-import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
+import { FindingsWorkspace } from '@/components/FindingsWorkspace'
+import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
+import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
+import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
 import { useSSE } from '@/lib/sse'
 import { cn } from '@/lib/utils'
 
@@ -269,7 +270,7 @@ function PRHeader({
           )}
           <Button
             type="button"
-            variant="ink"
+            variant="primary"
             size="md"
             onClick={onSubmit}
             disabled={selectedCount === 0}
@@ -415,7 +416,10 @@ export function PRDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
-  const [submitOpen, setSubmitOpen] = useState(false)
+  const submitDrawer = useSubmitDrawer()
+  const transcriptDrawer = useTranscriptDrawer()
+  const { setSelectedFindingDbId } = useSelectedFinding()
+  const topStackRef = useRef<HTMLDivElement | null>(null)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
@@ -440,13 +444,6 @@ export function PRDetail() {
     queryFn: api.listSessions,
   })
 
-  const { data: diffFromEndpoint } = useQuery({
-    queryKey: ['session', id, 'diff'],
-    queryFn: () => api.getSessionDiff(id),
-    enabled: !!id,
-    retry: false,
-  })
-
   useSSE(`/api/sessions/${id}/events`, (e) => {
     if (e.type === 'agent-output') {
       setAgentChunks((prev) => [...prev, e.chunk])
@@ -468,8 +465,9 @@ export function PRDetail() {
   }, [id, data?.session.agent])
 
   useEffect(() => {
-    document.querySelector('main')?.scrollTo({ top: 0 })
-    setSubmitOpen(false)
+    topStackRef.current?.scrollTo?.({ top: 0 })
+    submitDrawer.close()
+    setSelectedFindingDbId(null)
     setAgentChunks([])
     setPrepSteps([])
     setExtraDraft(null)
@@ -482,6 +480,21 @@ export function PRDetail() {
     const tmr = setTimeout(() => setJustSwitched(false), 2500)
     return () => clearTimeout(tmr)
   }, [justSwitched])
+
+  // Global ⌘J / Ctrl+J toggles the transcript drawer. preventDefault is needed
+  // on Chrome to suppress the built-in downloads page on Ctrl+J. On Mac, ⌘J
+  // has no native browser binding so preventDefault is harmless.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key !== 'j' && e.key !== 'J') return
+      if (e.shiftKey || e.altKey) return
+      e.preventDefault()
+      transcriptDrawer.toggle()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [transcriptDrawer.toggle])
 
   const rerun = useMutation({
     mutationFn: (kind: AgentKind) => {
@@ -515,7 +528,7 @@ export function PRDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="px-8 py-10 max-w-3xl space-y-4">
+      <div className="px-8 py-10 max-w-3xl space-y-4" aria-label={t('prdetail.loadingAriaLabel')}>
         <div className="text-caps tracking-caps text-ink-muted uppercase">{t('app.loading')}</div>
         <div className="h-8 w-2/3 bg-raised rounded" />
         <div className="h-px w-full bg-rule" />
@@ -526,7 +539,6 @@ export function PRDetail() {
   }
 
   const { session, findings } = data
-  const inlineDiff = data.diff ?? diffFromEndpoint ?? null
   const activeFindings = findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -545,15 +557,43 @@ export function PRDetail() {
       ).length
     : 1
 
+  const findingsBody =
+    session.status === 'ready' && activeFindings.length === 0 ? (
+      <div className="px-8 py-10">
+        <EmptyState
+          eyebrow={t('prdetail.noIssuesEyebrow')}
+          title={t('prdetail.noIssuesTitle')}
+          body={t('prdetail.noIssuesBody')}
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => rerun.mutate(effectiveRerunAgent)}
+            >
+              {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
+            </Button>
+          }
+        />
+      </div>
+    ) : (
+      <FindingsWorkspace
+        findings={activeFindings}
+        session={session}
+        unifiedDiff={data.diff ?? null}
+        selectedCount={selectedCount}
+      />
+    )
+
   return (
-    <div className="px-8 py-8 mx-auto" style={{ width: 'clamp(720px, 84vw, 980px)' }}>
-      <div className="space-y-8">
+    <div className="h-full flex flex-col min-h-0">
+      <div ref={topStackRef} className="shrink-0 px-8 pt-8 pb-6 space-y-6 border-b border-rule">
         <PRHeader
           session={session}
           selectedCount={selectedCount}
           roundNumber={roundNumber}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
-          onSubmit={() => setSubmitOpen(true)}
+          onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
           onCancel={() => cancel.mutate()}
           rerunPending={rerun.isPending}
@@ -584,10 +624,6 @@ export function PRDetail() {
           onChange={(v) => setExtraDraft(v)}
         />
 
-        <PreparationPanel steps={prepSteps} status={session.status} />
-
-        <AgentOutputPanel chunks={agentChunks} status={session.status} />
-
         {session.error ? (
           <div className="border-l-[1px] border-severity-must pl-4 py-2">
             <div className="text-caps tracking-caps text-severity-must uppercase mb-1">
@@ -614,51 +650,27 @@ export function PRDetail() {
             {cancel.error instanceof ApiError ? cancel.error.message : t('prdetail.cancelFailed')}
           </div>
         ) : null}
-
-        {session.status === 'running' && activeFindings.length === 0 ? (
-          <div className="border-t border-rule pt-6 flex items-center gap-3 text-ink-secondary">
-            <span
-              className="size-1.5 rounded-full bg-accent-running animate-running-pulse"
-              aria-hidden="true"
-            />
-            <span className="text-body">
-              {t('prdetail.agentReviewing', { agent: session.agent })}
-            </span>
-          </div>
-        ) : null}
-
-        {session.status === 'ready' && activeFindings.length === 0 ? (
-          <EmptyState
-            eyebrow={t('prdetail.noIssuesEyebrow')}
-            title={t('prdetail.noIssuesTitle')}
-            body={t('prdetail.noIssuesBody')}
-            action={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => rerun.mutate(effectiveRerunAgent)}
-              >
-                {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
-              </Button>
-            }
-          />
-        ) : null}
-
-        {activeFindings.length > 0 ? (
-          <FindingList findings={activeFindings} session={session} unifiedDiff={inlineDiff} />
-        ) : null}
-
-        {selectedCount > 0 ? (
-          <div className="border-t border-rule pt-3 text-caps tracking-caps text-ink-muted uppercase">
-            <span className="text-ink-secondary">
-              {t('prdetail.selectedCount', { count: selectedCount })}
-            </span>
-          </div>
-        ) : null}
-
-        {submitOpen ? <SubmitDrawer sessionId={id} onClose={() => setSubmitOpen(false)} /> : null}
       </div>
+
+      <RunStrip
+        session={session}
+        prepSteps={prepSteps}
+        agentEventCount={agentChunks.length}
+        transcriptOpen={transcriptDrawer.open}
+        onToggleTranscript={transcriptDrawer.toggle}
+      />
+
+      <div className="flex-1 min-h-0 flex flex-col">{findingsBody}</div>
+
+      <TranscriptDrawer
+        chunks={agentChunks}
+        status={session.status}
+        open={transcriptDrawer.open}
+        onToggle={transcriptDrawer.toggle}
+        onClose={() => transcriptDrawer.setOpen(false)}
+      />
+
+      {submitDrawer.isOpen ? <SubmitDrawer sessionId={id} onClose={submitDrawer.close} /> : null}
     </div>
   )
 }

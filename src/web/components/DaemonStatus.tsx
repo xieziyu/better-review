@@ -96,7 +96,7 @@ function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
     <div
       role="dialog"
       aria-label={t('daemon.popoverAria')}
-      className="absolute right-0 top-[calc(100%+8px)] z-30 w-[22rem] rounded-md border border-rule bg-canvas text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
+      className="absolute left-[calc(100%+8px)] bottom-0 z-30 w-[22rem] rounded-md border border-rule bg-canvas text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
     >
       <header className="flex items-center gap-3 px-4 pt-4 pb-3">
         <span aria-hidden="true" className={cn('size-2.5 rounded-full', dotByLevel[sev])} />

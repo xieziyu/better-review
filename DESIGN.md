@@ -1,61 +1,70 @@
 ---
 name: better-review
-description: 本地 PR review 工具：dev-tool 美学，editorial 排版，朱红 commitment
+description: 本地 PR review 工具：Workbench 布局，冷板岩中性色，typography-as-signal
 colors:
-  bg-canvas-light: 'oklch(0.98 0.006 70)'
-  bg-canvas-dark: 'oklch(0.18 0.012 25)'
-  bg-raised-light: 'oklch(0.96 0.008 70)'
-  bg-raised-dark: 'oklch(0.22 0.014 25)'
-  bg-sunken-light: 'oklch(0.94 0.010 70)'
-  bg-sunken-dark: 'oklch(0.15 0.010 25)'
-  ink-primary-light: 'oklch(0.22 0.012 25)'
-  ink-primary-dark: 'oklch(0.95 0.005 25)'
-  ink-secondary-light: 'oklch(0.45 0.010 25)'
-  ink-secondary-dark: 'oklch(0.70 0.008 25)'
-  ink-muted-light: 'oklch(0.62 0.008 25)'
-  ink-muted-dark: 'oklch(0.50 0.008 25)'
-  rule-light: 'oklch(0.88 0.008 25)'
-  rule-dark: 'oklch(0.30 0.010 25)'
-  brand-light: 'oklch(0.58 0.20 28)'
-  brand-dark: 'oklch(0.66 0.19 30)'
+  bg-canvas-light: 'oklch(0.97 0.005 240)'
+  bg-canvas-dark: 'oklch(0.20 0.012 240)'
+  bg-main-light: 'oklch(0.985 0.003 240)'
+  bg-main-dark: 'oklch(0.16 0.010 240)'
+  bg-raised-light: 'oklch(0.955 0.006 240)'
+  bg-raised-dark: 'oklch(0.22 0.012 240)'
+  bg-sunken-light: 'oklch(0.94 0.008 240)'
+  bg-sunken-dark: 'oklch(0.18 0.011 240)'
+  ink-primary-light: 'oklch(0.22 0.010 240)'
+  ink-primary-dark: 'oklch(0.92 0.005 240)'
+  ink-secondary-light: 'oklch(0.45 0.008 240)'
+  ink-secondary-dark: 'oklch(0.70 0.007 240)'
+  ink-muted-light: 'oklch(0.62 0.006 240)'
+  ink-muted-dark: 'oklch(0.50 0.006 240)'
+  rule-light: 'oklch(0.88 0.006 240)'
+  rule-dark: 'oklch(0.30 0.008 240)'
+  brand-light: 'oklch(0.52 0.13 245)'
+  brand-dark: 'oklch(0.72 0.14 245)'
+  btn-primary-bg-light: 'oklch(0.92 0.06 245)'
+  btn-primary-bg-dark: 'oklch(0.32 0.07 245)'
+  btn-primary-border: 'oklch(0.55 0.13 245)'
+  btn-primary-ink-light: 'oklch(0.22 0.010 240)'
+  btn-primary-ink-dark: 'oklch(0.96 0.005 240)'
   severity-must-light: 'oklch(0.55 0.18 25)'
   severity-must-dark: 'oklch(0.68 0.18 25)'
   severity-should-light: 'oklch(0.62 0.13 75)'
   severity-should-dark: 'oklch(0.74 0.14 80)'
   severity-nit-light: 'oklch(0.55 0.10 200)'
   severity-nit-dark: 'oklch(0.70 0.09 200)'
-  accent-running-light: 'oklch(0.70 0.16 140)'
+  accent-ready-light: 'oklch(0.54 0.13 155)'
+  accent-ready-dark: 'oklch(0.72 0.13 155)'
+  accent-running-light: 'oklch(0.60 0.16 140)'
   accent-running-dark: 'oklch(0.78 0.17 140)'
 typography:
   display:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '32px'
     fontWeight: 800
     lineHeight: '36px'
     letterSpacing: '-0.02em'
   h1:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '22px'
     fontWeight: 700
     lineHeight: '28px'
     letterSpacing: '-0.01em'
   h2:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '16px'
     fontWeight: 600
     lineHeight: '22px'
   body:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '14px'
     fontWeight: 400
     lineHeight: '22px'
   meta:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '12px'
     fontWeight: 500
     lineHeight: '16px'
   caps:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, Noto Sans SC, ui-sans-serif, system-ui, sans-serif'
     fontSize: '11px'
     fontWeight: 700
     lineHeight: '14px'
@@ -81,20 +90,21 @@ spacing:
   xxl: '48px'
 components:
   button-primary:
-    backgroundColor: '{colors.brand-light}'
-    textColor: '{colors.bg-canvas-light}'
-    rounded: '{rounded.md}'
-    padding: '8px 14px'
-    typography: '{typography.body}'
-  button-ink:
-    backgroundColor: '{colors.ink-primary-light}'
-    textColor: '{colors.bg-canvas-light}'
+    backgroundColor: '{colors.btn-primary-bg-light}'
+    borderColor: '{colors.btn-primary-border}'
+    textColor: '{colors.btn-primary-ink-light}'
     rounded: '{rounded.md}'
     padding: '8px 14px'
     typography: '{typography.body}'
   button-ghost:
     backgroundColor: 'transparent'
     textColor: '{colors.ink-primary-light}'
+    rounded: '{rounded.md}'
+    padding: '6px 10px'
+    typography: '{typography.body}'
+  button-danger:
+    backgroundColor: 'transparent'
+    textColor: '{colors.severity-must-light}'
     rounded: '{rounded.md}'
     padding: '6px 10px'
     typography: '{typography.body}'
@@ -110,17 +120,9 @@ components:
     rounded: '{rounded.sm}'
     padding: '2px 6px'
     typography: '{typography.caps}'
-  severity-label-must:
+  severity-label:
     backgroundColor: 'transparent'
-    textColor: '{colors.severity-must-light}'
-    typography: '{typography.caps}'
-  severity-label-should:
-    backgroundColor: 'transparent'
-    textColor: '{colors.severity-should-light}'
-    typography: '{typography.caps}'
-  severity-label-nit:
-    backgroundColor: 'transparent'
-    textColor: '{colors.severity-nit-light}'
+    layout: 'inline → CAPS'
     typography: '{typography.caps}'
   input-flat:
     backgroundColor: 'transparent'
@@ -134,146 +136,211 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "Editor's Margin Notebook"**
+**Creative North Star: "Workbench / IDE-native"**
 
-`better-review` 的 UI 是一本被排版过的批注本：左侧 sidebar 像桌面上摊开的 PR 索引卡，主区域像作家在咖啡桌上修改稿件时随手写下的旁注。findings 不是「卡片」，是被认真排版的边注；severity 不是「色块」，是被加粗的 caps 词头。整个系统的视觉记忆点在**排版**而不在**色彩**——只有当语义需要颜色时（提交动作、运行状态、严重度提示、品牌时刻），饱和的朱红才出现。
+`better-review` 的 UI 是一台只为评审 PR 而存在的小型 IDE：极窄的 ActivityBar 承担一级导航，Sidebar 列出所有 review session，主区是 editor canvas，右侧 Inspector 抽屉式呈现选中 finding 的详情。整套布局 在 VS Code / JetBrains 旁边并排打开时不应显得「外来」——它继承同一族层级语言，但不复刻其皮肤。
 
-色彩策略是 **Committed**：单一品牌色（warm vermilion，朱红 hue 25–30）承担识别工作，但不靠它铺满 30–60% 的表面；表面通过深墨（dark）/ 暖象牙（light）的中性主导，把朱红留在按钮、active 下划线、运行脉冲、强提交时刻这些「值得被看见」的瞬间。这是为了避开 chartreuse-on-black 这一已被工业过度饱和的二阶反射。
+色彩策略是 **Quiet by default, considered when not**：中性色全部贴 cool slate（hue 240）一线，深浅两套都几乎无饱和；主品牌色 `--brand` 用 hue 245 的板岩蓝，与中性同家族但拉高 chroma，作为「值得被看见」的瞬间标记——primary 按钮的描边、active nav 的 2px 强调、focus ring、SubmitDrawer 顶部的 brand 线。`--brand` 不铺底，不染大面积。
 
-明确拒绝的样子：Vercel-style chartreuse 加速感、shadcn 浅蓝白卡片、GitHub 行政化的灰，以及任何 SaaS hero-metric template。我们是单用户的本地工具，没有义务取悦每一种审美。
+明确拒绝的样子：Vercel / Linear 那种 chartreuse-on-black、shadcn 默认皮肤、GitHub 行政化的灰、SaaS hero metric template、AI workflow tool 通用模板（白底浅紫圆角卡片+dot grid）、Cursor / Warp 那种「重设计的终端」。同时 **不一比一复刻 VS Code Dark+**：Workbench 是 IDE-native，但不是 VS Code 的 reskin。
 
 **Key Characteristics:**
 
-- Bold register（committed color strategy），但 commitment 落在排版而非铺色。
-- 双 theme 同等精修，跟随系统 `prefers-color-scheme`，dark 默认偏深墨而非纯黑，light 默认偏暖 bone 而非冷白。
-- Severity 用 caps wordmark + 字重对比传达，色彩降为辅助信号。
-- 无 nested cards，无 step-indicator 圆圈，无渐变文字，无装饰性 glassmorphism。
-- 键盘 affordance 显式可见：高频快捷键（`e` 编辑、`⌘S` 保存、`⌘⏎` 提交、`/` 过滤）都通过 `<KbdHint>` 露出。
+- 四栏 Workbench 布局（ActivityBar / Sidebar / Main / Inspector），不是单页 hero。
+- 双 theme 同等精修：light 是「冷纸 Cool Paper」（hue 240），dark 是「暮光 Dusk」（hue 240，L 0.16–0.22）。dark 默认 0.20 canvas，main 区最深 0.16，raised 上抬到 0.22；light 镜像反过来（main 0.985 最亮、raised 0.955 略压暗）。
+- Severity 用 inline `→ CAPS` 词组传达（替代旧的 64px 垂直 wordmark），色彩降为辅助信号。
+- Findings 是表格行，不是卡片；详情迁到 Inspector，按文件分组的卡片堆叠是被显式删除的反模式。
+- 键盘 affordance 显式可见：高频快捷键（`e` 编辑、`⌘S` 保存、`⌘⏎` 提交）都通过 `<KbdHint>` / `<KbdTooltip>` 露出。
 
-## 2. Colors: The Vermilion-on-Bone Palette
+## 2. Colors: The Slate-on-Cool-Paper Palette
 
-中性色家族全部往朱红 hue（25 / 70）微偏，避免 #fff / #000 的工业冷感。Severity 三色调离 SaaS 默认（red/amber/emerald），改为 vermilion / honey / cool steel，让 amber 与 emerald 的 SaaS 反射味退场。
+中性色全部对齐 hue 240（cool slate），低 chroma（≤0.012），避开 #fff/#000 的工业感和旧版的暖朱红识别。Severity 三色仍由语义驱动，保留原先 hue 25 / 75 / 200，但在新的冷底上对比关系被重新核对过。
 
 ### Primary
 
-- **Warm Vermilion** (`oklch(0.58 0.20 28)` light / `oklch(0.66 0.19 30)` dark)：品牌主色。落在 primary 按钮、active nav 下划线（2px）、focus ring、提交时刻的横线分隔、health banner 反色背景。约占可视面积 5–10%，绝不铺地。
+- **Slate Blue** (`oklch(0.52 0.13 245)` light / `oklch(0.72 0.14 245)` dark)：品牌主色。落在 active nav 边框（2px）、focus ring、Submit drawer 的 brand 顶横线、Tag `tone="brand"` 的填充。约占可视面积 5–10%，绝不铺地。
 
-### Secondary
+### Primary Button (B4 Dual)
 
-- **Pulse Mint** (`oklch(0.70 0.16 140)` light / `oklch(0.78 0.17 140)` dark)：仅用于 sidebar 上 _正在运行_ 的 session 项左缘 1px 脉冲线。这是整个 UI 中唯一的非交互动画，作为「有事在跑」的环境信号，不在其他地方复用。
+primary 按钮单独用一组 token，与 `--brand` **解耦**——理由是按钮要是「被构造的开关」而不是「营销 CTA」。
 
-### Tertiary（severity 三色，仅在 caps wordmark 上用）
+- `--btn-primary-bg` (`oklch(0.92 0.06 245)` light / `oklch(0.32 0.07 245)` dark)：低 chroma 的板岩底，亮度贴近 chrome。
+- `--btn-primary-border` (`oklch(0.55 0.13 245)`，两 theme 共用)：响亮的 1px 描边，是按钮真正的视觉锚点。
+- `--btn-primary-ink` (`oklch(0.22 0.010 240)` light / `oklch(0.96 0.005 240)` dark)：浅墨字。
+- hover 时通过 `color-mix(in oklch, var(--btn-primary-bg) 85%, var(--btn-primary-border))` 让底色微微往描边色拉。
 
-- **Severity Must** (`oklch(0.55 0.18 25)` / `oklch(0.68 0.18 25)`)：MUST 标签文色，与 brand 同 hue 但提高 chroma，hover/focus 时不透明，静态时 0.7 alpha。
-- **Severity Should** (`oklch(0.62 0.13 75)` / `oklch(0.74 0.14 80)`)：SHOULD 标签文色，honey/ochre。刻意离开 amber（hue 60）一档，避开 SaaS 反射。
-- **Severity Nit** (`oklch(0.55 0.10 200)` / `oklch(0.70 0.09 200)`)：NIT 标签文色，cool steel。刻意离开 emerald（hue 145），避开 SaaS 反射。
+### Secondary（语义动态）
+
+- **Pulse Mint** (`oklch(0.60 0.16 140)` light / `oklch(0.78 0.17 140)` dark)：sidebar 上 _正在运行_ 的 session 左缘 1px 脉冲线 + MainTabs 的 Transcript tab streaming 圆点。UI 中唯二的非交互动画来源。
+- **Ready** (`oklch(0.54 0.13 155)` / `oklch(0.72 0.13 155)`)：daemon 健康灯、Tag `tone="success"`。
+
+### Tertiary（severity 三色，仅用于 `→ CAPS` 文色）
+
+- **Severity Must** (`oklch(0.55 0.18 25)` / `oklch(0.68 0.18 25)`)：MUST 文色。仍是 vermilion-family 红，刻意与 brand（240/245 蓝调）保持 hue 距离，强化「红 = must」的语义切片。
+- **Severity Should** (`oklch(0.62 0.13 75)` / `oklch(0.74 0.14 80)`)：SHOULD 文色，honey/ochre。离开 amber（hue 60）一档，避开 SaaS 反射。
+- **Severity Nit** (`oklch(0.55 0.10 200)` / `oklch(0.70 0.09 200)`)：NIT 文色，cool steel。
 
 ### Neutral
 
-- **Bone Canvas** (`oklch(0.98 0.006 70)` light) / **Deep Ink Canvas** (`oklch(0.18 0.012 25)` dark)：主画布。
-- **Raised Surface** (`oklch(0.96 0.008 70)` / `oklch(0.22 0.014 25)`)：上层（sidebar 列、drawer、card 极少时刻）。差值 ≤2% 亮度，避免明显「卡片堆叠感」。
-- **Sunken Surface** (`oklch(0.94 0.010 70)` / `oklch(0.15 0.010 25)`)：凹陷（input 底、code block 底）。
-- **Ink Primary** (`oklch(0.22 0.012 25)` / `oklch(0.95 0.005 25)`)：正文。
-- **Ink Secondary** (`oklch(0.45 0.010 25)` / `oklch(0.70 0.008 25)`)：meta、label、文件路径辅助。
-- **Ink Muted** (`oklch(0.62 0.008 25)` / `oklch(0.50 0.008 25)`)：placeholder、已读状态、关闭项。
-- **Rule** (`oklch(0.88 0.008 25)` / `oklch(0.30 0.010 25)`)：1px 分隔线 / finding 之间的水平规则。
+| 角色              | Light                    | Dark                    | 说明                                                        |
+| ----------------- | ------------------------ | ----------------------- | ----------------------------------------------------------- |
+| `--bg-canvas`     | `oklch(0.97 0.005 240)`  | `oklch(0.20 0.012 240)` | 默认 shell（活动栏 / 侧栏背后的画布层）                     |
+| `--bg-main`       | `oklch(0.985 0.003 240)` | `oklch(0.16 0.010 240)` | 主区，editor 类比中的「纸面」。深色下是整套配色里最深的层。 |
+| `--bg-raised`     | `oklch(0.955 0.006 240)` | `oklch(0.22 0.012 240)` | ActivityBar、Sidebar、Inspector、drawer 这些 chrome 表面。  |
+| `--bg-sunken`     | `oklch(0.94 0.008 240)`  | `oklch(0.18 0.011 240)` | 压陷（textarea 底、code block 底）。                        |
+| `--ink-primary`   | `oklch(0.22 0.010 240)`  | `oklch(0.92 0.005 240)` | 正文。                                                      |
+| `--ink-secondary` | `oklch(0.45 0.008 240)`  | `oklch(0.70 0.007 240)` | meta、label、文件路径。                                     |
+| `--ink-muted`     | `oklch(0.62 0.006 240)`  | `oklch(0.50 0.006 240)` | placeholder、关闭项。                                       |
+| `--rule`          | `oklch(0.88 0.006 240)`  | `oklch(0.30 0.008 240)` | 1px 分隔线。                                                |
 
 ## 3. Typography
 
-排版承担一半的视觉体量。display 字阶 ≥1.45 ratio，display→h1 用 weight 拉开，h1→h2 用 size + weight 双轴拉开。**不引入 serif**，避免 editorial 误读，保 dev tool 体感。
+排版承担一半的视觉体量。display 字阶 ≥1.45 ratio，display→h1 用 weight 拉开，h1→h2 用 size + weight 双轴拉开。**不引入 serif**，避免 editorial 误读，保 IDE 体感。
 
 - **Display (32px / 800 / -0.02em)**：页面顶部 wordmark、PR 标题、Home 主标语、Settings 顶 `runtime`。
-- **H1 (22px / 700 / -0.01em)**：章节标题，配合 SectionHeader 的 eyebrow caps 使用。
-- **H2 (16px / 600)**：子标题、finding title。
+- **H1 (22px / 700 / -0.01em)**：章节标题，配合 SectionHeader 的 eyebrow caps 使用，也是 Inspector 内 finding title。
+- **H2 (16px / 600)**：子标题。
 - **Body (14px / 400)**：finding body、settings 的 dd 值、review body 编辑器。
 - **Meta (12px / 500)**：session meta 行、PR meta 行、status bar。
-- **Caps (11px / 700 / 0.06em uppercase)**：severity wordmark、section eyebrow、status tag、kbd hint。
+- **Caps (11px / 700 / 0.06em uppercase)**：severity wordmark、section eyebrow、status tag、kbd hint、ActivityBar tooltip。
 - **Code (JetBrains Mono 13px / 450, `tnum` + `ss01`)**：file:line、PR number `#218`、agent transcript、diff 行号。
 
-字体加载：项目继续使用本地 Inter + JetBrains Mono（不新增 web font request），display 体效果通过 `font-weight: 800` 与 `font-feature-settings: "ss01" 1, "cv11" 1` 实现，而不是引入 Inter Display 单独子家族。
+字体加载：本地自托管 `@fontsource/inter` + `@fontsource/jetbrains-mono` + `@fontsource/noto-sans-sc`。`Noto Sans SC` 用作中文兜底，按需子集化由 Vite 处理。运行时不发起 web font 网络请求。
 
 ## 4. Elevation
 
-整个系统是**几乎平的**。没有阴影 token，没有 box-shadow（focus ring 除外）。层级关系靠：
+整个系统是**几乎平的**。没有阴影 token，没有 box-shadow（focus ring + drawer 投影除外）。层级关系靠：
 
-1. **背景亮度差**（canvas → raised → sunken，差 2–4% 亮度），不靠投影。
-2. **1px rule 线**（`--rule`）。findings 之间、sidebar section 之间、settings 的 dl 行之间用水平规则线分组。
-3. **brand 1px 顶横线**作为「重要时刻」的标记 —— SubmitDrawer 顶部、sidebar running 项左缘脉冲；DaemonStatus 在 default agent 缺失时以 `--severity-must` 圆点 + `animate-pulse` 替代 brand 高亮，提示这是阻塞而非促销。
+1. **背景亮度差**（main → canvas → raised，差 2–4% 亮度）。Light 模式下 `main` 最亮（`0.985`），dark 模式下 `main` 最深（`0.16`）——两套都用「main = editor 的纸面，chrome = 抬高的工具栏」这个隐喻，只是物理方向相反。
+2. **1px rule 线**（`--rule`）。findings 表格行之间、Inspector section 之间、Settings 的 dl 行之间、MainTabs 的 tab strip 底缘。
+3. **brand 2px 强调线**作为「重要时刻」的标记 —— ActivityBar / MainTabs 选中项的左/下沿 2px brand strip、SubmitDrawer 顶部 1px brand 横线、DaemonStatus 在 default agent 缺失时以 `--severity-must` 圆点 + `animate-pulse` 替代 brand 高亮，提示阻塞而非促销。
 
-唯一允许的 box-shadow 是 focus ring：`outline: 1.5px solid var(--brand)` + `outline-offset: 2px`，不要 box-shadow blur。
-
-理由：扁平不是为了极简风格，而是因为这是 dev tool；阴影会让 UI 在 1.5x DPR 监视器上显得「廉价」，rule 线则在任意 DPR 下都干净。
+唯一允许的 box-shadow：focus ring（`outline: 1.5px solid var(--brand)` + `outline-offset: 2px`）+ 浮层（DaemonStatus / LanguageSwitcher popover、SubmitDrawer 抽屉）的 elevation 阴影 `0 8px 30px -12px color-mix(...)`。其它任意位置一律不要 box-shadow blur。
 
 ## 5. Components
 
-### Button (`button-primary` / `button-ink` / `button-ghost` / `button-danger`)
+### ActivityBar
 
-四种变体，统一 6px 圆角，padding 按尺寸两档（`8px 14px` 默认，`6px 10px` ghost）。
+56px 竖向条：品牌 mark → 路由图标（Sessions `/` / Prompt `/prompt` / Settings `/settings`）→ flex spacer → ThemeToggle / LanguageSwitcher / DaemonStatus。每个 nav 图标在选中时左缘出现 2px brand strip + `bg-canvas` 高亮（VS Code 同款 affordance），未选中时透明。整体 `bg-raised`，与 Sidebar 在同一 chrome 层。
 
-- **primary**：`bg-brand` + `text-brand-ink`，用于「主提交动作」（Submit Review、Save Prompt）。
-- **ink**：`bg-ink-primary` + `text-bg-canvas`，强黑底白字，用于 brand-moments 的强按钮（Home 上的 Submit、SubmitDrawer 提交按钮）—— 与 primary 形成「色 vs 重」的双轴对比。
-- **ghost**：透明底 + `ink-primary` 文字 + hover 时 `bg-raised`，用于次级 action（rerun、open in github、cancel）。
-- **danger**：透明底 + `severity-must` 文字 + hover 时 `bg-sunken`，用于破坏性 action（delete finding）。
+底部三个工具按钮的浮层（语言菜单、daemon 状态）**统一锚点到自身右侧** —— `absolute left-[calc(100%+8px)] bottom-0`，避免在屏幕左下角向下/向左展开时被裁切。
+
+### Sidebar
+
+280px 默认宽度（可 256–560 拖拽，localStorage key `better-review:sidebar-width:v2`）。顶部一行 `+ 新会话` 链接（NavLink → `/`），下方按 `active / done / stale` 三段分组的 session 列表。
+
+**反模式更新**：原本的 active 行 2px brand 左边框被显式删除——选中态只用 `bg-canvas` 表示。运行中的会话仍保留左缘 1px `accent-running` 脉冲线（这是「有事在跑」的环境信号，不可删）。
+
+### Main + MainTabs
+
+`main` 元素铺满 `bg-main`，是整个 UI 中唯一与 chrome 不同色的表面。`PRDetail` 在 main 内 mount `<MainTabs>`：顶部 `[Findings] [Transcript]` 二选一切换，下沿 1px rule 分隔。
+
+- 选中 tab：`text-ink-primary` + 2px brand 下沿。
+- Findings tab：渲染 `<FindingList>`（扁平表格行）+ PR-wide 段落分隔。
+- Transcript tab：渲染 `<AgentOutputPanel>`（full-pane，**不再**用 `<details>` 折叠）。Streaming 时 Transcript tab 标签旁出现 `accent-running` 1.5px 脉冲圆点。
+
+tab 选中态用 URL search param 持久化（`?tab=transcript`），方便分享与刷新。
+
+### Inspector + InspectorDock
+
+360px 右侧栏，`bg-raised`。`<InspectorDock>` 用 `matchMedia('(min-width: 1280px)')` 判断：
+
+- ≥1280px：常驻为右侧第四列。
+- <1280px：当前先不渲染（后续 phase 可补 drawer 模式）。
+
+未选中 finding 时显示 `EmptyState`。选中后渲染 `<FindingDetailPanel>`，它通过 TanStack Query 共享 PRDetail 的 session/diff 缓存。结构：
+
+```
+severity tag · finding.id
+H1 title
+<dl>: Category / Target (file:line + GitHub link)
+[severity radio group ── 仅 edit 模式]
+SECTION Claim         (markdown 渲染)
+SECTION Suggestion    (code block 或 "No suggestion provided.")
+SECTION Source        (DiffViewer，仅当 line 已知)
+─────────────────────────
+sticky footer:
+  [Submit review]    [Edit]  [Discard]
+  (edit 模式) [Cancel] [Save]
+```
+
+### FindingRow
+
+扁平行：`[checkbox] · → SEVERITY · title · path:line · category` + 可选 `edited` 图标。点击行体（非 checkbox）通过 `SelectionContext` 设置 `selectedFindingDbId`；checkbox 独立 stopPropagation，专门用于 select/unselect。
+
+active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edit/delete 按钮 —— 这些动作只在 Inspector CTA 区域出现，行本身保持一致的稠密性。
+
+### Button (`primary` / `ghost` / `danger`)
+
+三种变体（`ink` 变体已经被 primary 吸收并删除）。
+
+- **primary**：B4 Dual treatment（见上）。`bg-[--btn-primary-bg]` + `border-[--btn-primary-border]` + `text-[--btn-primary-ink]`，hover 时底色向 border 微移。整体效果是「被构造的开关」，描边响亮 + 底色安静。
+- **ghost**：透明底 + `ink-primary` 文字 + hover `bg-raised`。
+- **danger**：透明底 + `severity-must` 文字 + hover `bg-sunken` + `border-severity-must/50`。
 
 不允许：`rounded-full` 胶囊按钮、渐变背景按钮、icon-only 按钮（必须有 aria-label，且至少有 `<KbdHint>` 暴露键盘等价）。
 
-### Tag (`tag-neutral` / `tag-brand` / `tag-success` / `tag-warning` / `tag-danger`)
+### Tag (`neutral` / `brand` / `success` / `warning` / `danger`)
 
-12px / 700 / 0.06em uppercase，4px 圆角，`2px 6px` padding，无 dot 图标。仅用文字 + 色彩传达 tone。
-应用：session 状态徽章（RUNNING / READY / FAILED）、category pill、PromptEditor 的 READ ONLY 标签、Settings 的 MISSING 标签。
+12px / 700 / 0.06em uppercase，4px 圆角，`2px 6px` padding，无 dot 图标。仅用文字 + 色彩传达 tone。应用：session 状态徽章、category pill、PromptEditor 的 READ ONLY、Settings 的 MISSING、Submit drawer 的 INLINE / MOVED / PR-WIDE。
 
-### SeverityLabel (`severity-label-must` / `should` / `nit`)
+### SeverityLabel
 
-垂直 caps wordmark，等宽 64px 列固定占位（无论文字长短）。
+`inline-flex` 的 `→ CAPS` 词组，替代旧的 64px 垂直 wordmark：
 
-- 静态：`color: var(--severity-{level})` + `opacity: 0.7`。
-- Hover/focus（FindingCard 容器级）：`opacity: 1`。
-- letter-spacing `0.08em`，font-weight 700。
-- 不带任何 background、border、icon。
+```html
+<span
+  data-level="must"
+  aria-label="severity: must"
+  class="inline-flex items-center gap-1 text-caps tracking-caps uppercase text-severity-must"
+>
+  <span aria-hidden="true">→</span>
+  <span>MUST</span>
+</span>
+```
 
-### SectionHeader
+色彩、字重、aria-label 都按 severity 切换；右箭头是 caps 词组的视觉锚，强调「指向某事」的语义。
 
-eyebrow（caps 11px）+ title（h1 22px / 700）+ 可选 actions 槽位。统一所有页面的节标题（findings 列表头、Home 的 recent 列表头、sidebar Active/Done/Stale 三段头、Settings 三组头）。
+### SectionHeader / EmptyState / KbdHint / ScrollPin / ConfirmAction
 
-### KbdHint
+保留原有定义。`ScrollPin` 仍在 `AgentOutputPanel` 内浮于右下角，处理 unpin/follow 切换。`ConfirmAction` 给 Inspector 的 Discard 提供模态确认。
 
-由 `<kbd>` 元素组成的小型提示，每个 key 渲染为 `<kbd>` 元素，11px / 600 / 边框 1px `--rule` / 4px 圆角。多 key 之间用 `+` 连接。可选 label 在右侧用 ink-muted 11px 显示。
+### Input flat
 
-### EmptyState
-
-eyebrow + display 标题 + 一行 body + 可选 cta 按钮。统一 sidebar 空、findings 空、Home 无 recent 的状态语气。
-
-### ScrollPin
-
-显式控件，替换 AgentOutputPanel 内的隐式 pin 逻辑。当用户向上滚动后展示「PINNED 12 lines below」+ 一个 `[unpin] / [follow]` 切换；用户在底部时收起。
-
-### Input flat (`input-flat`)
-
-无外框输入框：透明底，仅底部 1px `--rule` 线，focus 时 line 变 brand 色（`--brand`），placeholder 用 `--ink-muted`。应用于 Sidebar 的命令式 PR URL 输入、SubmitDrawer 的 review body 编辑器、PromptEditor 的搜索框（如有）。
+无外框输入框：透明底，仅底部 1px `--rule` 线，focus 时 line 变 brand。用于 Inspector 内的标题编辑、SubmitDrawer 的 review body 编辑器。
 
 ## 6. Do's and Don'ts
 
 ### ✅ Do
 
 - 用排版传达层级：display → h1 → h2 → body → meta → caps，每一步都有可识别的 size 或 weight 跳跃。
-- 用 1px rule 线（`--rule`）做分组：finding 之间、section 之间、Settings 的 dl 行之间。
-- 用 caps wordmark 表达「类别 / 状态 / severity」：RUNNING、READY、MUST、SHOULD、NIT、READ ONLY、MISSING、INLINE、PR-WIDE。
-- 让品牌色 `--brand` 出现在「值得被看见」的瞬间：primary 按钮、active nav 下划线、focus ring、SubmitDrawer 顶横线、DaemonStatus 浮层里 default agent 的标签。
-- 显式露出键盘 affordance：finding 的 `e`、PromptEditor 的 `⌘S`、SubmitDrawer 的 `⌘⏎`、计划中的 `/` 过滤，都用 `<KbdHint>`。
-- 在 dark 默认深墨偏暖红（不要纯黑），light 默认 bone 暖象牙（不要纯白）。所有中性色都微偏 hue 25 或 70。
-- 遵守 `prefers-reduced-motion`：sidebar pulse、drawer transition、hover transition 在 reduce 下退化为 instant。
+- 用 1px rule 线（`--rule`）做分组：finding 行之间、Inspector section 之间、MainTabs 底缘、Settings dl 行之间。
+- 用 `→ CAPS` 表达 severity，让色彩降为辅助信号。
+- 让 `--brand` 出现在「值得被看见」的瞬间：ActivityBar/Sidebar 选中态、MainTabs 选中下沿、focus ring、SubmitDrawer 顶横线、Tag `tone="brand"`。
+- primary 按钮用 B4 token 而非 `--brand` 铺底 —— 描边响亮 + 底色安静，避免 SaaS CTA 反射。
+- 显式露出键盘 affordance：`<KbdHint>`、`<KbdTooltip>`、Inspector 的 `e` / `⌘⏎` / `Esc`。
+- light 默认冷纸（不要纯白），dark 默认 dusk 0.20 / main 0.16（不要纯黑）。所有中性色 chroma ≥ 0.003。
+- 遵守 `prefers-reduced-motion`：sidebar pulse、Transcript tab 脉冲、drawer transition 在 reduce 下退化为 instant。
 
 ### ❌ Don't
 
-- **不要** `border-left` / `border-right` 大于 1px 作色 stripe。FindingCard 当前的 4px 左侧 stripe 是被明确删除的反模式。
-- **不要** `background-clip: text` 渐变文字。任何场景。
-- **不要** 装饰性 glassmorphism / backdrop-blur。除非是真实的物理隐喻（比如 modal 背景下层模糊），否则不出现。
+- **不要** Vercel / Linear chartreuse-on-black 的高 chroma 加速感；我们刻意走低 chroma 板岩蓝来反向定位。
+- **不要** shadcn 默认皮肤（zinc + sky + everything-is-a-card）。
+- **不要** 一比一复刻 VS Code Dark+。Workbench 是 IDE-native 不等于 IDE 复刻；我们的字体、字阶、按钮、severity 表达都不同。
 - **不要** SaaS hero-metric template：大数字 + 小标签 + 渐变 accent + 三栏统计。
-- **不要** identical card grids：同尺寸卡片排成 3 列网格 + 图标头 + 标题 + 描述，banned。
-- **不要** step-indicator 数字圆圈：SubmitDrawer 原来的「1 → 2」圈圈是反模式，必须删除并用排版叙事替代。
+- **不要** identical card grids、step-indicator 圆圈、`background-clip: text` 渐变文字、装饰性 glassmorphism。
+- **不要** `border-left` / `border-right` 大于 2px 作色 stripe。原来 FindingCard 4px 左侧 stripe 已显式删除。
 - **不要** em dash（`—` 或 `--`）出现在任何用户可见文案。用逗号、冒号、分号、句号、括号代替。
-- **不要** 在 UI 文案中堆砌 emoji 装饰。仅在用户配置的 finding markdown 中允许（agent 输出尊重原样）。
+- **不要** 在 UI 文案中堆砌 emoji。仅在用户配置的 finding markdown 中允许（agent 输出尊重原样）。
 - **不要** rounded-full 胶囊按钮、status badge 圆点、渐变 icon。
-- **不要** 在 light theme 用 `#ffffff`，在 dark theme 用 `#000000`。所有中性色必须有 chroma ≥ 0.005。
-- **不要** 用颜色作为 severity 的 _唯一_ 信号。caps wordmark 文字始终是首要载体；颜色是辅助。
-- **不要** nested cards。一层 card 已经是最后手段，第二层永远错。
+- **不要** 在 light 用 `#ffffff`，在 dark 用 `#000000`。
+- **不要** 用颜色作为 severity 的 _唯一_ 信号。`→ CAPS` 文字始终是首要载体；颜色是辅助。
+- **不要** nested cards 或按文件分组的卡片堆叠 —— findings 已扁平化为表格行，详情在 Inspector。
+
+## 7. Accessibility & Inclusion
+
+- 目标 WCAG AA。light / dark 两套 token 中，正文（`--ink-primary`）对画布（`--bg-canvas`、`--bg-main`）保证 ≥ 4.5:1，meta 文（`--ink-secondary`）保证 ≥ 3:1。
+- Severity 颜色只是 _额外信号_；首要载体是 `→ CAPS` 文字，色弱用户不会丢失信息。
+- 所有动效遵守 `prefers-reduced-motion`：sidebar running pulse、Transcript tab 脉冲、drawer transition、hover transition 都在 `@media (prefers-reduced-motion: reduce)` 下退化为 instant。
+- 键盘可达：所有交互（编辑 finding、切换 tab、提交 review、关闭 drawer、resize sidebar）都有键盘路径；focus ring 用 `--brand` 1.5px outline-offset 2px。
+- 不依赖 hover 才能发现的功能：Inspector 的 CTA strip 默认显示；finding 行不再藏 hover affordance。
