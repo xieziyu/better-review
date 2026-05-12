@@ -285,8 +285,11 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
         expect(cwd).toBe(realWorkdir)
         expect(argv).toContain('-C')
         expect(argv[argv.indexOf('-C') + 1]).toBe(localRepo)
+        // Sandbox must stay workspace-write here: codex's --add-dir is a
+        // no-op for writability under read-only, so a read-only run would
+        // block the findings.json write that lands in workdir.
         expect(argv).toContain('--sandbox')
-        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('read-only')
+        expect(argv[argv.indexOf('--sandbox') + 1]).toBe('workspace-write')
         expect(argv).toContain('--add-dir')
         expect(argv[argv.indexOf('--add-dir') + 1]).toBe(workdir)
         expect(argv).toContain('--skip-git-repo-check')

@@ -35,10 +35,15 @@ export class CodexAgent implements ReviewAgent {
     // - No sourcePath (diff-only): cwd=workdir + workspace-write so the
     //   agent can write findings.json there.
     // - With sourcePath (worktree at PR head, or per-session source snapshot):
-    //   keep cwd=workdir, but tell codex its working root is the source dir
-    //   via -C, lock the sandbox to read-only so it can read source freely
-    //   without mutating it, and whitelist workdir via --add-dir so
-    //   findings.json writes still succeed.
+    //   keep cwd=workdir, point codex's working root at the source dir via
+    //   -C (so its relative-path shell commands resolve against the source
+    //   tree), and whitelist workdir via --add-dir so findings.json writes
+    //   still succeed. Sandbox stays workspace-write because --add-dir is a
+    //   no-op for writability under --sandbox read-only — codex's read-only
+    //   mode blocks ALL writes, "alongside the primary workspace" or not.
+    //   The source tree being writable in theory is fine: it is a disposable
+    //   session-owned worktree under ~/.better-review/sessions/<id>/, and
+    //   the prompt instructs the agent not to modify it.
     // `--skip-git-repo-check` is required in BOTH modes: the diff-only
     // workdir is not a git repo at all, and the source dir (whether snapshot
     // or worktree) lives under our managed `~/.better-review/sessions/...`
@@ -50,7 +55,7 @@ export class CodexAgent implements ReviewAgent {
           '-C',
           sourcePath,
           '--sandbox',
-          'read-only',
+          'workspace-write',
           '--add-dir',
           workdir,
           '--skip-git-repo-check',
