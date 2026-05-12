@@ -22,10 +22,28 @@
     "themeDark": "Theme: dark",
     "themeSystem": "Theme: system"
   },
-  "mainTabs": {
-    "ariaLabel": "Review panels",
-    "findings": "Findings",
-    "transcript": "Transcript"
+  "runStrip": {
+    "ariaLabel": "Review run progress",
+    "phase": {
+      "prep": "Prep",
+      "reviewing": "Reviewing"
+    },
+    "runningDetail": "{{agent}} · {{count}} events",
+    "startingUp": "Starting up…",
+    "transcript": "Transcript",
+    "transcriptToggleAria": "Toggle transcript drawer"
+  },
+  "transcriptDrawer": {
+    "handleLabel": "Transcript",
+    "streaming": "streaming",
+    "linesLabel": "{{count}} lines",
+    "transcriptAria": "Agent transcript",
+    "resizeAria": "Resize transcript drawer height",
+    "waiting": "Waiting for agent output…",
+    "follow": "follow",
+    "followAria": "follow stream to bottom",
+    "openAria": "Open transcript drawer",
+    "closeAria": "Close transcript drawer"
   },
   "inspector": {
     "section": {
@@ -231,9 +249,6 @@
     }
   },
   "prep": {
-    "label": "Preparing",
-    "working": "working",
-    "ariaLabel": "Review preparation progress",
     "phase": {
       "prep:fetching-pr": "Fetching PR metadata",
       "prep:fetching-diff": "Fetching diff",
@@ -318,14 +333,6 @@
     "submitButton": "Submit",
     "submitting": "Submitting…",
     "closeButton": "Close"
-  },
-  "agentOutput": {
-    "label": "Agent output",
-    "streaming": "streaming",
-    "transcriptAria": "Agent output transcript",
-    "waiting": "Waiting for the agent…",
-    "followAria": "follow stream to bottom",
-    "follow": "follow"
   },
   "sidebar": {
     "newReviewAria": "New review (back to home)",

@@ -11,7 +11,12 @@ interface Props {
 
 const PIN_THRESHOLD_PX = 40
 
-export function AgentOutputPanel({ chunks, status }: Props) {
+/**
+ * Body-only transcript view: scrollable pre with auto-scroll-to-bottom and a
+ * floating ScrollPin when the user scrolls away. No outer chrome — the chrome
+ * is owned by the surrounding TranscriptDrawer.
+ */
+export function TranscriptStream({ chunks, status }: Props) {
   const { t } = useTranslation()
   const isRunning = status === 'running'
   const [unpinned, setUnpinned] = useState(false)
@@ -22,8 +27,6 @@ export function AgentOutputPanel({ chunks, status }: Props) {
     if (!el || unpinned) return
     el.scrollTop = el.scrollHeight
   }, [chunks, unpinned])
-
-  if (!isRunning && chunks.length === 0) return null
 
   const onScroll = () => {
     const el = bodyRef.current
@@ -39,37 +42,19 @@ export function AgentOutputPanel({ chunks, status }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col min-h-0 h-full bg-sunken border border-rule rounded-md overflow-hidden">
-      <header className="flex items-center gap-3 px-4 py-2 border-b border-rule bg-raised/40 shrink-0">
-        <span className="text-caps tracking-caps text-ink-muted uppercase">
-          {t('agentOutput.label')}
-        </span>
-        {isRunning ? (
-          <span
-            className="inline-flex items-center gap-1.5 text-caps tracking-caps text-accent-running uppercase"
-            aria-label={t('agentOutput.streaming')}
-          >
-            <span
-              className="inline-block size-1.5 rounded-full bg-accent-running animate-running-pulse"
-              aria-hidden="true"
-            />
-            {t('agentOutput.streaming')}
-          </span>
-        ) : null}
-        <span className="ml-auto font-mono text-meta text-ink-secondary tabular-nums">
-          {chunks.length}
-        </span>
-      </header>
+    <div className="relative flex flex-col min-h-0 h-full">
       <div
         ref={bodyRef}
         onScroll={onScroll}
         role="log"
         aria-live="polite"
-        aria-label={t('agentOutput.transcriptAria')}
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-3"
+        aria-label={t('transcriptDrawer.transcriptAria')}
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-3 bg-sunken"
       >
         {chunks.length === 0 ? (
-          <div className="text-meta text-ink-muted italic">{t('agentOutput.waiting')}</div>
+          <div className="text-meta text-ink-muted italic">
+            {isRunning ? t('transcriptDrawer.waiting') : null}
+          </div>
         ) : (
           <pre className="font-mono text-code text-ink-primary whitespace-pre-wrap break-words">
             {chunks.join('\n')}

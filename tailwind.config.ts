@@ -82,11 +82,16 @@ export default {
           from: { transform: 'translateX(100%)' },
           to: { transform: 'translateX(0)' },
         },
+        'progress-indeterminate': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        },
       },
       animation: {
         'running-pulse': 'running-pulse 2.4s ease-in-out infinite',
         'fade-in': 'fade-in 180ms cubic-bezier(0.25, 1, 0.5, 1)',
         'slide-in-right': 'slide-in-right 180ms cubic-bezier(0.25, 1, 0.5, 1)',
+        'progress-indeterminate': 'progress-indeterminate 1.6s ease-in-out infinite',
       },
     },
   },

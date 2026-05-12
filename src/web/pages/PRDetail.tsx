@@ -1,4 +1,4 @@
-import type { AgentKind, HealthStatus, PRSession, SessionStatus } from '@shared/types'
+import type { AgentKind, HealthStatus, PrepStep, PRSession, SessionStatus } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -15,11 +15,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { AgentOutputPanel } from '@/components/AgentOutputPanel'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
-import { MainTabs } from '@/components/MainTabs'
-import { PreparationPanel, type PrepStep } from '@/components/PreparationPanel'
+import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
+import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
@@ -418,6 +417,7 @@ export function PRDetail() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const submitDrawer = useSubmitDrawer()
+  const transcriptDrawer = useTranscriptDrawer()
   const { setSelectedFindingDbId } = useSelectedFinding()
   const topStackRef = useRef<HTMLDivElement | null>(null)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
@@ -480,6 +480,21 @@ export function PRDetail() {
     const tmr = setTimeout(() => setJustSwitched(false), 2500)
     return () => clearTimeout(tmr)
   }, [justSwitched])
+
+  // Global ⌘J / Ctrl+J toggles the transcript drawer. preventDefault is needed
+  // on Chrome to suppress the built-in downloads page on Ctrl+J. On Mac, ⌘J
+  // has no native browser binding so preventDefault is harmless.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key !== 'j' && e.key !== 'J') return
+      if (e.shiftKey || e.altKey) return
+      e.preventDefault()
+      transcriptDrawer.toggle()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [transcriptDrawer.toggle])
 
   const rerun = useMutation({
     mutationFn: (kind: AgentKind) => {
@@ -617,8 +632,6 @@ export function PRDetail() {
           onChange={(v) => setExtraDraft(v)}
         />
 
-        <PreparationPanel steps={prepSteps} status={session.status} />
-
         {session.error ? (
           <div className="border-l-[1px] border-severity-must pl-4 py-2">
             <div className="text-caps tracking-caps text-severity-must uppercase mb-1">
@@ -647,18 +660,23 @@ export function PRDetail() {
         ) : null}
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        <MainTabs
-          findingsCount={activeFindings.length}
-          transcriptStreaming={session.status === 'running'}
-          findings={findingsBody}
-          transcript={
-            <div className="flex-1 min-h-0 px-8 py-4">
-              <AgentOutputPanel chunks={agentChunks} status={session.status} />
-            </div>
-          }
-        />
-      </div>
+      <RunStrip
+        session={session}
+        prepSteps={prepSteps}
+        agentEventCount={agentChunks.length}
+        transcriptOpen={transcriptDrawer.open}
+        onToggleTranscript={transcriptDrawer.toggle}
+      />
+
+      <div className="flex-1 min-h-0 flex flex-col">{findingsBody}</div>
+
+      <TranscriptDrawer
+        chunks={agentChunks}
+        status={session.status}
+        open={transcriptDrawer.open}
+        onToggle={transcriptDrawer.toggle}
+        onClose={() => transcriptDrawer.setOpen(false)}
+      />
 
       {submitDrawer.isOpen ? <SubmitDrawer sessionId={id} onClose={submitDrawer.close} /> : null}
     </div>

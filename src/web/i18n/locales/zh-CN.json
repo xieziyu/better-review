@@ -22,10 +22,28 @@
     "themeDark": "主题：深色",
     "themeSystem": "主题：跟随系统"
   },
-  "mainTabs": {
-    "ariaLabel": "评审面板",
-    "findings": "Findings",
-    "transcript": "Transcript"
+  "runStrip": {
+    "ariaLabel": "评审运行进度",
+    "phase": {
+      "prep": "PREP",
+      "reviewing": "REVIEWING"
+    },
+    "runningDetail": "{{agent}} · {{count}} events",
+    "startingUp": "正在启动…",
+    "transcript": "Transcript",
+    "transcriptToggleAria": "切换 transcript 抽屉"
+  },
+  "transcriptDrawer": {
+    "handleLabel": "Transcript",
+    "streaming": "streaming",
+    "linesLabel": "{{count}} 行",
+    "transcriptAria": "Agent transcript",
+    "resizeAria": "调整 transcript 抽屉高度",
+    "waiting": "等待 agent 输出…",
+    "follow": "跟随",
+    "followAria": "跟随到底部",
+    "openAria": "展开 transcript 抽屉",
+    "closeAria": "收起 transcript 抽屉"
   },
   "inspector": {
     "section": {
@@ -231,9 +249,6 @@
     }
   },
   "prep": {
-    "label": "准备中",
-    "working": "进行中",
-    "ariaLabel": "评审准备进度",
     "phase": {
       "prep:fetching-pr": "获取 PR 元数据",
       "prep:fetching-diff": "拉取 diff",
@@ -318,14 +333,6 @@
     "submitButton": "提交",
     "submitting": "提交中…",
     "closeButton": "关闭"
-  },
-  "agentOutput": {
-    "label": "Agent 输出",
-    "streaming": "流式中",
-    "transcriptAria": "Agent 输出实录",
-    "waiting": "等待 agent 输出…",
-    "followAria": "跟随到底部",
-    "follow": "跟随"
   },
   "sidebar": {
     "newReviewAria": "新建评审（返回首页）",

@@ -1,23 +1,23 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { useResizable } from '@/lib/use-resizable'
+import { useResizable, type ResizableEdge } from '@/lib/use-resizable'
 
-const KEY = 'better-review:test:width'
+const KEY = 'better-review:test:size'
 
 function Harness({
-  edge = 'right' as 'right' | 'left',
-  defaultWidth = 280,
+  edge = 'right',
+  defaultSize = 280,
   min = 256,
   max = 560,
 }: {
-  edge?: 'right' | 'left'
-  defaultWidth?: number
+  edge?: ResizableEdge
+  defaultSize?: number
   min?: number
   max?: number
 }) {
-  const { width, isDragging, separatorProps } = useResizable({
-    defaultWidth,
+  const { size, isDragging, separatorProps } = useResizable({
+    defaultSize,
     min,
     max,
     storageKey: KEY,
@@ -26,7 +26,7 @@ function Harness({
   })
   return (
     <div>
-      <div data-testid="value">{width}</div>
+      <div data-testid="value">{size}</div>
       <div data-testid="dragging">{String(isDragging)}</div>
       <div data-testid="handle" {...separatorProps} />
     </div>
@@ -38,8 +38,8 @@ beforeEach(() => {
 })
 
 describe('useResizable', () => {
-  it('starts at defaultWidth when storage is empty', () => {
-    render(<Harness defaultWidth={320} />)
+  it('starts at defaultSize when storage is empty', () => {
+    render(<Harness defaultSize={320} />)
     expect(screen.getByTestId('value').textContent).toBe('320')
   })
 
@@ -54,8 +54,8 @@ describe('useResizable', () => {
     unmount()
   })
 
-  it('exposes ARIA + tabIndex on the separator', () => {
-    render(<Harness defaultWidth={300} min={200} max={500} />)
+  it('exposes ARIA + tabIndex on the separator (horizontal axis → vertical orientation)', () => {
+    render(<Harness defaultSize={300} min={200} max={500} />)
     const handle = screen.getByTestId('handle')
     expect(handle).toHaveAttribute('role', 'separator')
     expect(handle).toHaveAttribute('aria-orientation', 'vertical')
@@ -67,7 +67,7 @@ describe('useResizable', () => {
   })
 
   it('grows on ArrowRight for edge=right, persists to storage', () => {
-    render(<Harness edge="right" defaultWidth={280} />)
+    render(<Harness edge="right" defaultSize={280} />)
     const handle = screen.getByTestId('handle')
     act(() => {
       fireEvent.keyDown(handle, { key: 'ArrowRight' })
@@ -82,7 +82,7 @@ describe('useResizable', () => {
   })
 
   it('inverts arrow keys for edge=left', () => {
-    render(<Harness edge="left" defaultWidth={300} />)
+    render(<Harness edge="left" defaultSize={300} />)
     const handle = screen.getByTestId('handle')
     act(() => {
       fireEvent.keyDown(handle, { key: 'ArrowLeft' })
@@ -95,7 +95,7 @@ describe('useResizable', () => {
   })
 
   it('clamps at min and max', () => {
-    render(<Harness defaultWidth={260} min={256} max={300} />)
+    render(<Harness defaultSize={260} min={256} max={300} />)
     const handle = screen.getByTestId('handle')
     act(() => {
       for (let i = 0; i < 10; i++) fireEvent.keyDown(handle, { key: 'ArrowLeft' })
@@ -108,12 +108,46 @@ describe('useResizable', () => {
   })
 
   it('ignores non-arrow keys', () => {
-    render(<Harness defaultWidth={280} />)
+    render(<Harness defaultSize={280} />)
     const handle = screen.getByTestId('handle')
     act(() => {
       fireEvent.keyDown(handle, { key: 'a' })
       fireEvent.keyDown(handle, { key: 'Enter' })
     })
     expect(screen.getByTestId('value').textContent).toBe('280')
+  })
+
+  it('vertical axis: edge=top reports horizontal orientation and uses Up/Down keys', () => {
+    render(<Harness edge="top" defaultSize={240} min={120} max={480} />)
+    const handle = screen.getByTestId('handle')
+    expect(handle).toHaveAttribute('aria-orientation', 'horizontal')
+    // edge=top: dragging up grows → ArrowUp grows.
+    act(() => {
+      fireEvent.keyDown(handle, { key: 'ArrowUp' })
+    })
+    expect(screen.getByTestId('value').textContent).toBe('248')
+    act(() => {
+      fireEvent.keyDown(handle, { key: 'ArrowDown' })
+    })
+    expect(screen.getByTestId('value').textContent).toBe('240')
+    // Left/Right are ignored on a vertical axis.
+    act(() => {
+      fireEvent.keyDown(handle, { key: 'ArrowLeft' })
+      fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    })
+    expect(screen.getByTestId('value').textContent).toBe('240')
+  })
+
+  it('vertical axis: edge=bottom inverts so ArrowDown grows', () => {
+    render(<Harness edge="bottom" defaultSize={240} min={120} max={480} />)
+    const handle = screen.getByTestId('handle')
+    act(() => {
+      fireEvent.keyDown(handle, { key: 'ArrowDown' })
+    })
+    expect(screen.getByTestId('value').textContent).toBe('248')
+    act(() => {
+      fireEvent.keyDown(handle, { key: 'ArrowUp' })
+    })
+    expect(screen.getByTestId('value').textContent).toBe('240')
   })
 })

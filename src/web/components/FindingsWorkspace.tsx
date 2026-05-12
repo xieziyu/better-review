@@ -56,8 +56,12 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
     ? findings.find((f) => f.dbId === selectedFindingDbId && !f.archived)
     : undefined
 
-  const { width, isDragging, separatorProps } = useResizable({
-    defaultWidth: LIST_DEFAULT,
+  const {
+    size: width,
+    isDragging,
+    separatorProps,
+  } = useResizable({
+    defaultSize: LIST_DEFAULT,
     min: LIST_MIN,
     max: LIST_MAX,
     storageKey: LIST_KEY,

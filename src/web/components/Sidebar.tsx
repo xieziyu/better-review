@@ -156,8 +156,12 @@ export function Sidebar() {
   }
   for (const arr of grouped.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
 
-  const { width, isDragging, separatorProps } = useResizable({
-    defaultWidth: SIDEBAR_DEFAULT,
+  const {
+    size: width,
+    isDragging,
+    separatorProps,
+  } = useResizable({
+    defaultSize: SIDEBAR_DEFAULT,
     min: SIDEBAR_MIN,
     max: SIDEBAR_MAX,
     storageKey: SIDEBAR_KEY,

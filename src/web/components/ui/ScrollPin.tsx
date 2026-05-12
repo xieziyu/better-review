@@ -20,12 +20,12 @@ export function ScrollPin({ pinnedLines, onFollow, className }: Props) {
         'inline-flex items-center gap-1.5 rounded-md bg-ink-primary text-canvas px-2.5 py-1 text-caps uppercase tracking-caps shadow-[0_0_0_1px_var(--rule)] hover:[background-color:color-mix(in_oklch,var(--ink-primary)_85%,var(--brand))] transition-colors duration-180 ease-out-quart',
         className,
       )}
-      aria-label={t('agentOutput.followAria')}
+      aria-label={t('transcriptDrawer.followAria')}
     >
       <ArrowDown size={12} aria-hidden="true" />
       <span>{pinnedLines}</span>
       <span className="text-ink-muted/60">·</span>
-      <span>{t('agentOutput.follow')}</span>
+      <span>{t('transcriptDrawer.follow')}</span>
     </button>
   )
 }

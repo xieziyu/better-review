@@ -6,18 +6,21 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 
+export type ResizableEdge = 'right' | 'left' | 'top' | 'bottom'
+
 export interface UseResizableOptions {
-  defaultWidth: number
+  /** Initial size along the resize axis (width for horizontal, height for vertical). */
+  defaultSize: number
   min: number
   max: number
   storageKey: string
-  edge: 'right' | 'left'
+  edge: ResizableEdge
   ariaLabel: string
 }
 
 export interface ResizableSeparatorProps {
   role: 'separator'
-  'aria-orientation': 'vertical'
+  'aria-orientation': 'vertical' | 'horizontal'
   'aria-label': string
   'aria-valuenow': number
   'aria-valuemin': number
@@ -31,7 +34,8 @@ export interface ResizableSeparatorProps {
 }
 
 export interface UseResizableResult {
-  width: number
+  /** Current size along the axis (width or height in px). */
+  size: number
   isDragging: boolean
   separatorProps: ResizableSeparatorProps
 }
@@ -48,36 +52,45 @@ function readStored(storageKey: string, fallback: number, min: number, max: numb
   return clamp(n, min, max)
 }
 
-function persist(storageKey: string, width: number): void {
+function persist(storageKey: string, size: number): void {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(storageKey, String(width))
+  window.localStorage.setItem(storageKey, String(size))
 }
 
 export function useResizable(opts: UseResizableOptions): UseResizableResult {
-  const { defaultWidth, min, max, storageKey, edge, ariaLabel } = opts
-  const [width, setWidth] = useState<number>(() => readStored(storageKey, defaultWidth, min, max))
+  const { defaultSize, min, max, storageKey, edge, ariaLabel } = opts
+  const axis: 'x' | 'y' = edge === 'top' || edge === 'bottom' ? 'y' : 'x'
+  // The separator is perpendicular to the resize axis: horizontal axis → vertical
+  // separator (a vertical divider that slides left/right); vertical axis → horizontal
+  // separator (a horizontal divider that slides up/down).
+  const ariaOrientation: 'vertical' | 'horizontal' = axis === 'x' ? 'vertical' : 'horizontal'
+
+  const [size, setSize] = useState<number>(() => readStored(storageKey, defaultSize, min, max))
   const [isDragging, setIsDragging] = useState(false)
-  const dragRef = useRef<{ startX: number; startW: number } | null>(null)
+  const dragRef = useRef<{ start: number; startSize: number } | null>(null)
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       e.preventDefault()
       e.currentTarget.setPointerCapture(e.pointerId)
-      dragRef.current = { startX: e.clientX, startW: width }
+      const start = axis === 'x' ? e.clientX : e.clientY
+      dragRef.current = { start, startSize: size }
       setIsDragging(true)
     },
-    [width],
+    [axis, size],
   )
 
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current
       if (!drag) return
-      const dx = e.clientX - drag.startX
-      const direction = edge === 'right' ? 1 : -1
-      setWidth(clamp(drag.startW + direction * dx, min, max))
+      const current = axis === 'x' ? e.clientX : e.clientY
+      const delta = current - drag.start
+      // edge === 'right' or 'bottom' → drag away from origin grows the panel.
+      const direction = edge === 'right' || edge === 'bottom' ? 1 : -1
+      setSize(clamp(drag.startSize + direction * delta, min, max))
     },
-    [edge, min, max],
+    [axis, edge, min, max],
   )
 
   const onPointerUp = useCallback(
@@ -90,7 +103,7 @@ export function useResizable(opts: UseResizableOptions): UseResizableResult {
       }
       dragRef.current = null
       setIsDragging(false)
-      setWidth((current) => {
+      setSize((current) => {
         persist(storageKey, current)
         return current
       })
@@ -100,27 +113,32 @@ export function useResizable(opts: UseResizableOptions): UseResizableResult {
 
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      const horizontal = axis === 'x'
+      const minus = horizontal ? 'ArrowLeft' : 'ArrowUp'
+      const plus = horizontal ? 'ArrowRight' : 'ArrowDown'
+      if (e.key !== minus && e.key !== plus) return
       e.preventDefault()
       const step = e.shiftKey ? 32 : 8
-      const grow = edge === 'right' ? e.key === 'ArrowRight' : e.key === 'ArrowLeft'
-      setWidth((w) => {
-        const next = clamp(w + (grow ? step : -step), min, max)
+      // For 'right' or 'bottom' edges, ArrowRight/ArrowDown grows; otherwise it shrinks.
+      const positiveGrows = edge === 'right' || edge === 'bottom'
+      const grow = positiveGrows ? e.key === plus : e.key === minus
+      setSize((s) => {
+        const next = clamp(s + (grow ? step : -step), min, max)
         persist(storageKey, next)
         return next
       })
     },
-    [edge, min, max, storageKey],
+    [axis, edge, min, max, storageKey],
   )
 
   return {
-    width,
+    size,
     isDragging,
     separatorProps: {
       role: 'separator',
-      'aria-orientation': 'vertical',
+      'aria-orientation': ariaOrientation,
       'aria-label': ariaLabel,
-      'aria-valuenow': width,
+      'aria-valuenow': size,
       'aria-valuemin': min,
       'aria-valuemax': max,
       tabIndex: 0,

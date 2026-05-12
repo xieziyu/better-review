@@ -132,6 +132,17 @@ export type SSEEvent =
   | { type: 'done'; sessionId: string }
   | { type: 'shutting-down' }
 
+/**
+ * One observed `prep:*` progress event, buffered client-side and replayed by
+ * the run-progress UI. `ts` is the client-side Date.now() at receive time,
+ * not the server emit time — used purely for stable React keys.
+ */
+export interface PrepStep {
+  phase: string
+  detail?: string
+  ts: number
+}
+
 export interface CreateSessionRequest {
   prInput: string
   agent?: AgentKind
