@@ -35,15 +35,20 @@ export class CodexAgent implements ReviewAgent {
     // - No sourcePath (diff-only): cwd=workdir + workspace-write so the
     //   agent can write findings.json there.
     // - With sourcePath (worktree at PR head, or per-session source snapshot):
-    //   keep cwd=workdir, point codex's working root at the source dir via
-    //   -C (so its relative-path shell commands resolve against the source
-    //   tree), and whitelist workdir via --add-dir so findings.json writes
-    //   still succeed. Sandbox stays workspace-write because --add-dir is a
-    //   no-op for writability under --sandbox read-only — codex's read-only
-    //   mode blocks ALL writes, "alongside the primary workspace" or not.
-    //   The source tree being writable in theory is fine: it is a disposable
-    //   session-owned worktree under ~/.better-review/sessions/<id>/, and
-    //   the prompt instructs the agent not to modify it.
+    //   keep cwd=workdir, do NOT pass -C, and expose the source tree via
+    //   --add-dir sourcePath. Codex enforces TWO independent boundaries on
+    //   writes: the OS sandbox (controlled by --sandbox + --add-dir) and
+    //   apply_patch's "project root" check (anchored at -C, defaulting to
+    //   cwd). Earlier we tried -C sourcePath + --add-dir workdir, which
+    //   made workdir a writable OS-sandbox root but apply_patch still
+    //   rejected findings.json with "writing outside of the project"
+    //   because workdir was the parent of the project root. Rooting
+    //   codex at workdir (no -C) clears both checks for findings writes.
+    //   The agent must use absolute paths or `cd` to navigate sourcePath;
+    //   the prompt already provides its absolute path. The source tree
+    //   being writable in theory is fine: it is a disposable session-owned
+    //   worktree under ~/.better-review/sessions/<id>/, and the prompt
+    //   instructs the agent not to modify it.
     // `--skip-git-repo-check` is required in BOTH modes: the diff-only
     // workdir is not a git repo at all, and the source dir (whether snapshot
     // or worktree) lives under our managed `~/.better-review/sessions/...`
@@ -52,12 +57,10 @@ export class CodexAgent implements ReviewAgent {
     const codexArgs = sourcePath
       ? [
           'exec',
-          '-C',
-          sourcePath,
           '--sandbox',
           'workspace-write',
           '--add-dir',
-          workdir,
+          sourcePath,
           '--skip-git-repo-check',
           '--color',
           'never',
