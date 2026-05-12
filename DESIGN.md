@@ -182,16 +182,16 @@ primary 按钮单独用一组 token，与 `--brand` **解耦**——理由是按
 
 ### Neutral
 
-| 角色 | Light | Dark | 说明 |
-|---|---|---|---|
-| `--bg-canvas` | `oklch(0.97 0.005 240)` | `oklch(0.20 0.012 240)` | 默认 shell（活动栏 / 侧栏背后的画布层） |
-| `--bg-main` | `oklch(0.985 0.003 240)` | `oklch(0.16 0.010 240)` | 主区，editor 类比中的「纸面」。深色下是整套配色里最深的层。 |
-| `--bg-raised` | `oklch(0.955 0.006 240)` | `oklch(0.22 0.012 240)` | ActivityBar、Sidebar、Inspector、drawer 这些 chrome 表面。 |
-| `--bg-sunken` | `oklch(0.94 0.008 240)` | `oklch(0.18 0.011 240)` | 压陷（textarea 底、code block 底）。 |
-| `--ink-primary` | `oklch(0.22 0.010 240)` | `oklch(0.92 0.005 240)` | 正文。 |
-| `--ink-secondary` | `oklch(0.45 0.008 240)` | `oklch(0.70 0.007 240)` | meta、label、文件路径。 |
-| `--ink-muted` | `oklch(0.62 0.006 240)` | `oklch(0.50 0.006 240)` | placeholder、关闭项。 |
-| `--rule` | `oklch(0.88 0.006 240)` | `oklch(0.30 0.008 240)` | 1px 分隔线。 |
+| 角色              | Light                    | Dark                    | 说明                                                        |
+| ----------------- | ------------------------ | ----------------------- | ----------------------------------------------------------- |
+| `--bg-canvas`     | `oklch(0.97 0.005 240)`  | `oklch(0.20 0.012 240)` | 默认 shell（活动栏 / 侧栏背后的画布层）                     |
+| `--bg-main`       | `oklch(0.985 0.003 240)` | `oklch(0.16 0.010 240)` | 主区，editor 类比中的「纸面」。深色下是整套配色里最深的层。 |
+| `--bg-raised`     | `oklch(0.955 0.006 240)` | `oklch(0.22 0.012 240)` | ActivityBar、Sidebar、Inspector、drawer 这些 chrome 表面。  |
+| `--bg-sunken`     | `oklch(0.94 0.008 240)`  | `oklch(0.18 0.011 240)` | 压陷（textarea 底、code block 底）。                        |
+| `--ink-primary`   | `oklch(0.22 0.010 240)`  | `oklch(0.92 0.005 240)` | 正文。                                                      |
+| `--ink-secondary` | `oklch(0.45 0.008 240)`  | `oklch(0.70 0.007 240)` | meta、label、文件路径。                                     |
+| `--ink-muted`     | `oklch(0.62 0.006 240)`  | `oklch(0.50 0.006 240)` | placeholder、关闭项。                                       |
+| `--rule`          | `oklch(0.88 0.006 240)`  | `oklch(0.30 0.008 240)` | 1px 分隔线。                                                |
 
 ## 3. Typography
 
@@ -289,8 +289,11 @@ active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edi
 `inline-flex` 的 `→ CAPS` 词组，替代旧的 64px 垂直 wordmark：
 
 ```html
-<span data-level="must" aria-label="severity: must"
-      class="inline-flex items-center gap-1 text-caps tracking-caps uppercase text-severity-must">
+<span
+  data-level="must"
+  aria-label="severity: must"
+  class="inline-flex items-center gap-1 text-caps tracking-caps uppercase text-severity-must"
+>
   <span aria-hidden="true">→</span>
   <span>MUST</span>
 </span>

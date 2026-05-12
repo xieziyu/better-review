@@ -11,16 +11,8 @@
  * top of the canvas so the rows read as faintly green/red on the dark
  * surface, mirroring how GitHub's dark theme treats diffs. */
 [data-theme='dark'] {
-  --diff-gutter-insert-background-color: color-mix(
-    in oklch,
-    var(--accent-ready) 22%,
-    transparent
-  );
-  --diff-gutter-delete-background-color: color-mix(
-    in oklch,
-    var(--severity-must) 22%,
-    transparent
-  );
+  --diff-gutter-insert-background-color: color-mix(in oklch, var(--accent-ready) 22%, transparent);
+  --diff-gutter-delete-background-color: color-mix(in oklch, var(--severity-must) 22%, transparent);
   --diff-gutter-selected-background-color: color-mix(in oklch, var(--anchor) 30%, transparent);
   --diff-code-insert-background-color: color-mix(in oklch, var(--accent-ready) 12%, transparent);
   --diff-code-delete-background-color: color-mix(in oklch, var(--severity-must) 12%, transparent);

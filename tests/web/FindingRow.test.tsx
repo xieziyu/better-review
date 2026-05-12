@@ -74,9 +74,7 @@ describe('FindingRow', () => {
         </>,
       ),
     )
-    await user.click(
-      screen.getByRole('button', { name: /unselect finding R1/i }),
-    )
+    await user.click(screen.getByRole('button', { name: /unselect finding R1/i }))
     expect(screen.getByTestId('probe').textContent).toBe('none')
   })
 

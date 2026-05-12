@@ -86,7 +86,12 @@ export function ConfirmAction({
               ref={popupRef}
               role="dialog"
               aria-label={title}
-              style={{ position: 'fixed', top: position.top, left: position.left, width: POPUP_WIDTH }}
+              style={{
+                position: 'fixed',
+                top: position.top,
+                left: position.left,
+                width: POPUP_WIDTH,
+              }}
               className="z-50 rounded-md border border-rule bg-canvas p-3 text-left shadow-lg"
             >
               <span className="block text-caps tracking-caps text-severity-must uppercase">

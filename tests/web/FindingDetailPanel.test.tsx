@@ -63,9 +63,7 @@ const finding: Finding = {
 describe('FindingDetailPanel', () => {
   it('renders the finding title, severity, body, and suggestion in read mode', () => {
     render(
-      withProviders(
-        <FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />,
-      ),
+      withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
     expect(
       screen.getByRole('heading', { level: 2, name: /Verify JWT signature/ }),
@@ -77,9 +75,7 @@ describe('FindingDetailPanel', () => {
 
   it('renders Edit, Discard, and Submit CTAs at the bottom', () => {
     render(
-      withProviders(
-        <FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />,
-      ),
+      withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
     expect(screen.getByRole('button', { name: /submit review/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
@@ -89,9 +85,7 @@ describe('FindingDetailPanel', () => {
   it('switches to edit mode when Edit is clicked', async () => {
     const user = userEvent.setup()
     render(
-      withProviders(
-        <FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />,
-      ),
+      withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
     expect(screen.getByRole('textbox', { name: /Title/i })).toBeInTheDocument()
@@ -142,9 +136,7 @@ describe('FindingDetailPanel', () => {
     globalThis.fetch = fetchSpy as unknown as typeof fetch
 
     render(
-      withProviders(
-        <FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />,
-      ),
+      withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
     const titleInput = screen.getByRole('textbox', { name: /Title/i })

@@ -5,8 +5,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
-import { PRDetail } from '@/pages/PRDetail'
 import { SelectionProvider } from '@/lib/selection'
+import { PRDetail } from '@/pages/PRDetail'
 
 function withRoute(
   ui: React.ReactNode,
