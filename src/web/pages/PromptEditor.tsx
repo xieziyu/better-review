@@ -105,7 +105,7 @@ export function PromptEditor() {
               type="button"
               onClick={() => setTab(id)}
               className={cn(
-                'relative w-full px-5 py-3 text-left text-caps tracking-caps uppercase transition-colors duration-180 ease-out-quart',
+                'relative w-full px-5 py-3 text-left text-h2 transition-colors duration-180 ease-out-quart',
                 tab === id ? 'text-ink-primary' : 'text-ink-muted hover:text-ink-primary',
               )}
             >
@@ -117,11 +117,11 @@ export function PromptEditor() {
               ) : null}
               <span className="block">{t(`prompt.tabs.${id}`)}</span>
               {isReadOnly ? (
-                <span className="block mt-1 text-[9px] tracking-caps text-ink-muted">
+                <span className="block mt-0.5 text-caps tracking-caps uppercase text-ink-muted">
                   {t('prompt.tabState.readOnly')}
                 </span>
               ) : !exists ? (
-                <span className="block mt-1 text-[9px] tracking-caps text-ink-muted">
+                <span className="block mt-0.5 text-caps tracking-caps uppercase text-ink-muted">
                   {t('prompt.tabState.empty')}
                 </span>
               ) : null}
