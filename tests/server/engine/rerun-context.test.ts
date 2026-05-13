@@ -265,4 +265,95 @@ describe('loadPriorReviewContext', () => {
     )
     expect(ctx!.inlineComments).toHaveLength(1)
   })
+
+  it('reaches past an empty rerun to the prior submitting round', async () => {
+    // Older round actually submitted to GitHub.
+    sessions.insert({
+      id: 'first',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'archived',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+      headSha: 'oldsha',
+    })
+    submissions.insert({
+      sessionId: 'first',
+      event: 'COMMENT',
+      githubUrl: 'https://github.com/o/r/pull/1#pullrequestreview-42',
+      githubReviewId: 42,
+      payloadJson: '{}',
+      findingIds: [],
+      error: null,
+    })
+    // More recent rerun re-found the same issues but never submitted.
+    sessions.insert({
+      id: 'second',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'archived',
+      agent: 'claude',
+      workdir: '/w2',
+      localRepoPath: null,
+      promptUsed: 'p',
+      headSha: 'oldsha',
+    })
+    const ctx = await loadPriorReviewContext(
+      {
+        sessions,
+        submissions,
+        submissionComments,
+        gh: stubGh({
+          reviews: [
+            {
+              id: 42,
+              user: { login: 'me' },
+              state: 'COMMENTED',
+              body: 'overall',
+              commit_id: 'oldsha',
+              submitted_at: null,
+              html_url: '',
+            },
+          ],
+          pulls: [
+            {
+              id: 1000,
+              pull_request_review_id: 42,
+              user: { login: 'me' },
+              path: 'a.ts',
+              line: 5,
+              start_line: null,
+              side: 'RIGHT',
+              start_side: null,
+              commit_id: 'oldsha',
+              original_commit_id: 'oldsha',
+              in_reply_to_id: null,
+              body: 'top-level finding from the FIRST round',
+              created_at: '2026-05-01T00:00:00Z',
+            },
+          ],
+        }),
+        log: NOOP_LOG,
+      },
+      { target: { owner: 'o', repo: 'r', number: 1 }, currentHeadSha: 'newsha', prAuthor: 'alice' },
+    )
+    expect(ctx!.inlineComments).toHaveLength(1)
+    expect(ctx!.inlineComments[0]!.body).toBe('top-level finding from the FIRST round')
+    expect(ctx!.reviewBody).toBe('overall')
+    expect(ctx!.priorRoundCount).toBe(2)
+  })
 })

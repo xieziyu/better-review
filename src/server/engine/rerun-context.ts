@@ -92,12 +92,12 @@ export async function loadPriorReviewContext(
   deps: LoadPriorContextDeps,
   args: LoadPriorContextArgs,
 ): Promise<PriorReviewContext | null> {
-  const prior = deps.sessions.findLatestArchivedByPR(
+  const latestArchived = deps.sessions.findLatestArchivedByPR(
     args.target.owner,
     args.target.repo,
     args.target.number,
   )
-  if (!prior) return null
+  if (!latestArchived) return null
 
   const priorRoundCount = deps.sessions.countArchivedByPR(
     args.target.owner,
@@ -105,10 +105,21 @@ export async function loadPriorReviewContext(
     args.target.number,
   )
 
-  // Best-effort prior submission. If the prior session never submitted, we
-  // still want to inject "you reviewed this once before" — but with no
-  // posted inline comments to display.
-  const submission = deps.submissions.latestSuccessfulForSession(prior.id)
+  // The "prior submission" we want is the one that produced the inline
+  // comments still live on GitHub — not necessarily the latest archived
+  // session, which may have rerun and decided not to submit. Look across
+  // every archived session for this PR.
+  const submission = deps.submissions.latestSuccessfulForPR(
+    args.target.owner,
+    args.target.repo,
+    args.target.number,
+  )
+  // Anchor `prior` to the session that actually submitted (its headSha is
+  // the meaningful `lastReviewedSha` for force-push detection). When no
+  // submission has ever happened we fall back to the latest archived row
+  // so the agent still gets the "you reviewed this once" framing.
+  const submittedSession = submission ? deps.sessions.getById(submission.sessionId) : null
+  const prior = submittedSession ?? latestArchived
   const reviewIdFromSubmission =
     submission?.githubReviewId ?? parseReviewIdFromUrl(submission?.githubUrl ?? null)
 
