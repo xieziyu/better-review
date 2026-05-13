@@ -39,12 +39,22 @@ export function ConfirmAction({
       const maxLeft = window.innerWidth - POPUP_WIDTH - VIEWPORT_MARGIN
       const minLeft = VIEWPORT_MARGIN
       const left = Math.min(Math.max(preferredLeft, minLeft), maxLeft)
-      setPosition({ top: rect.bottom + 8, left })
+
+      const popupHeight = popupRef.current?.offsetHeight ?? 0
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN
+      const spaceAbove = rect.top - VIEWPORT_MARGIN
+      const flipAbove =
+        popupHeight > 0 && popupHeight + 8 > spaceBelow && spaceAbove > spaceBelow
+      const top = flipAbove ? rect.top - popupHeight - 8 : rect.bottom + 8
+      setPosition({ top, left })
     }
     compute()
+    // Second pass once the popup has rendered so we know its real height.
+    const raf = requestAnimationFrame(compute)
     window.addEventListener('resize', compute)
     window.addEventListener('scroll', compute, true)
     return () => {
+      cancelAnimationFrame(raf)
       window.removeEventListener('resize', compute)
       window.removeEventListener('scroll', compute, true)
     }
