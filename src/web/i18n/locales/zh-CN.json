@@ -26,9 +26,14 @@
     "ariaLabel": "评审运行进度",
     "phase": {
       "prep": "PREP",
-      "reviewing": "REVIEWING"
+      "reviewing": "REVIEWING",
+      "review": "REVIEW"
     },
-    "runningDetail": "{{agent}} · {{count}} events",
+    "reviewingScanning": "{{agent}} · 扫描中…",
+    "reviewingDetail_one": "{{agent}} · 已发现 {{count}} 条",
+    "reviewingDetail_other": "{{agent}} · 已发现 {{count}} 条",
+    "reviewDetail_one": "{{count}} 条发现 · 待提交",
+    "reviewDetail_other": "{{count}} 条发现 · 待提交",
     "startingUp": "正在启动…",
     "transcript": "Transcript",
     "transcriptToggleAria": "切换 transcript 抽屉"
@@ -252,8 +257,7 @@
       "prep:preparing-source:worktree": "准备 PR head 工作树",
       "prep:preparing-source:snapshot": "快照 PR head 源码",
       "prep:rendering-prompt": "组装 prompt",
-      "prep:rendering-prompt:with-prior": "组装 prompt（含上轮上下文）",
-      "prep:starting": "启动 {{agent}}"
+      "prep:rendering-prompt:with-prior": "组装 prompt（含上轮上下文）"
     }
   },
   "finding": {

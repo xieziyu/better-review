@@ -86,10 +86,11 @@ export function resolveLocalRepoPath(raw: string): string {
 export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string }>
 
 // Phase names emitted as SSE `progress` events during prep. The UI filters on
-// these so it can show prep steps separately from agent-runtime progress.
-// Phases are stable identifiers that the web app translates per language; the
-// optional `detail` is interpolation data (e.g., agent name for `starting`),
-// never user-facing prose.
+// the `prep:` prefix so it can show prep steps separately from agent-runtime
+// progress. Phases are stable identifiers that the web app translates per
+// language; the optional `detail` is interpolation data, never user-facing
+// prose. The agent-spawn transition is emitted separately by runner.ts under
+// the `agent:` prefix once the session flips to status 'running'.
 export const PREP_PHASES = {
   fetchingPR: 'prep:fetching-pr',
   fetchingDiff: 'prep:fetching-diff',
@@ -98,7 +99,6 @@ export const PREP_PHASES = {
   preparingSourceSnapshot: 'prep:preparing-source:snapshot',
   renderingPrompt: 'prep:rendering-prompt',
   renderingPromptWithPrior: 'prep:rendering-prompt:with-prior',
-  starting: 'prep:starting',
 } as const
 
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
@@ -180,12 +180,6 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
           runners: deps.runners,
         }
         if (prep.sourcePath) runArgs.sourcePath = prep.sourcePath
-        deps.bus.emit({
-          type: 'progress',
-          sessionId: id,
-          phase: PREP_PHASES.starting,
-          detail: resolvedAgent.agent.displayName,
-        })
         await runReview(runArgs)
       } catch (e) {
         const msg = (e as Error).message

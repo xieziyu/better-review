@@ -99,6 +99,20 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     },
   }
   if (sourcePath !== undefined) spawnArgs.sourcePath = sourcePath
+
+  // Flip status pending → running and announce the agent boundary just before
+  // spawn. The synthetic `agent:starting` event is the first non-`prep:`
+  // phase the UI sees, so RunStrip can swap its "Prep" label for "Reviewing"
+  // exactly when the child process actually starts.
+  sessions.setStatus(sessionId, 'running')
+  bus.emit({ type: 'status-changed', sessionId, status: 'running' })
+  bus.emit({
+    type: 'progress',
+    sessionId,
+    phase: 'agent:starting',
+    detail: agent.displayName,
+  })
+
   const { child, drained } = agent.spawn(spawnArgs)
 
   runners.register(sessionId, async () => {

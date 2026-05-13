@@ -55,9 +55,7 @@ describe('i18n', () => {
   it('looks up the prep phase labels by stable phase id', async () => {
     expect(i18n.t('prep.phase.prep:fetching-pr')).toBe('Fetching PR metadata')
     expect(i18n.t('prep.phase.prep:fetching-pr', { lng: 'zh-CN' })).toBe('获取 PR 元数据')
-    expect(i18n.t('prep.phase.prep:starting', { agent: 'claude' })).toBe('Starting claude')
-    expect(i18n.t('prep.phase.prep:starting', { lng: 'zh-CN', agent: 'claude' })).toBe(
-      '启动 claude',
-    )
+    expect(i18n.t('prep.phase.prep:rendering-prompt')).toBe('Assembling prompt')
+    expect(i18n.t('prep.phase.prep:rendering-prompt', { lng: 'zh-CN' })).toBe('组装 prompt')
   })
 })
