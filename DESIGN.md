@@ -227,7 +227,15 @@ primary 按钮单独用一组 token，与 `--brand` **解耦**——理由是按
 
 ### Sidebar
 
-280px 默认宽度（可 256–560 拖拽，localStorage key `better-review:sidebar-width:v2`）。顶部一行 `+ 新会话` 链接（NavLink → `/`），下方按 `active / done / stale` 三段分组的 session 列表。
+300px 默认宽度（可 256–560 拖拽，localStorage key `better-review:sidebar-width:v2`）。**仅在「会话」相关路由 `/` 和 `/pr/:id` 上挂载**；`/prompt` / `/settings` 不渲染 sidebar（在 App.tsx 用 `matchPath` 做路由守卫）。Sidebar 是会话面板，不是全局 chrome。
+
+顶部 chrome 区由三层 stack 组成（`px-4 pt-3 pb-2.5`，下沿 1px rule）：
+
+1. **Header 行**：`Sessions` caps eyebrow + `共 N 个` mono total，右侧固定一个紧凑的 `+ New review` primary 按钮（28px 高，沿用 B4 dual token），点击回到 `/`。原本独占 56px 的横幅式 NavLink 被显式删除——它视觉太重、和「新建」语义又匹配不准。
+2. **Search input**：28px 高，flat（`bg-canvas` + `border-rule`），左缘 search 图标。匹配 `title / owner / repo / owner/repo / owner/repo#number / @author` 任一子串（大小写不敏感）；纯数字（带或不带 `#` 前缀）单独匹配 PR number。空查询时右端显示 `⌘K` kbd 提示，输入后变为清除按钮。`⌘K` / `Ctrl+K` 在 sidebar 挂载期间全局 focus + select search。
+3. **状态筛选 chip 行**：三个 toggle chip（Active / Done / Stale），各带 mono 计数；可任意组合多选，状态持久化到 localStorage `better-review:sidebar-filter:v1`。三 chip 全关时回退到「全开」，避免出现「我把所有都关掉了，列表就空了」的死锁。这是整个 UI **唯一** 的 rounded-full 形状——见 §6 的例外说明。
+
+下方按 `active / done / stale` 三段分组的 session 列表保持不动：组头 caps + mono 计数 + 1px rule。当搜索 / 筛选导致列表为空时，渲染 `noMatch` EmptyState（「没有会话符合当前筛选」），与首次安装的 `empty` 状态语义区分。
 
 **反模式更新**：原本的 active 行 2px brand 左边框被显式删除——选中态只用 `bg-canvas` 表示。运行中的会话仍保留左缘 1px `accent-running` 脉冲线（这是「有事在跑」的环境信号，不可删）。
 
@@ -332,7 +340,8 @@ active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edi
 - **不要** `border-left` / `border-right` 大于 2px 作色 stripe。原来 FindingCard 4px 左侧 stripe 已显式删除。
 - **不要** em dash（`—` 或 `--`）出现在任何用户可见文案。用逗号、冒号、分号、句号、括号代替。
 - **不要** 在 UI 文案中堆砌 emoji。仅在用户配置的 finding markdown 中允许（agent 输出尊重原样）。
-- **不要** rounded-full 胶囊按钮、status badge 圆点、渐变 icon。
+- **不要** 把动作按钮、Tag、status badge 做成 rounded-full 胶囊形，也不要在状态指示器上加圆点装饰。**例外**：sidebar 顶部的状态筛选 chip 是 segmented toggle 控件（不是 CTA、不是行内 badge），允许使用 rounded-full + 状态色小圆点作为开关 affordance。新组件如要复用这套形状，必须同时具备「toggle group」「持久化筛选状态」「不承载行业内 status 语义」三条特征。
+- **不要** 渐变 icon。
 - **不要** 在 light 用 `#ffffff`，在 dark 用 `#000000`。
 - **不要** 用颜色作为 severity 的 _唯一_ 信号。`→ CAPS` 文字始终是首要载体；颜色是辅助。
 - **不要** nested cards 或按文件分组的卡片堆叠 —— findings 已扁平化为表格行，详情在 Inspector。

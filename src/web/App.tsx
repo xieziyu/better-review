@@ -1,12 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation, matchPath } from 'react-router-dom'
 
 import { ActivityBar } from '@/components/ActivityBar'
 import { Sidebar } from '@/components/Sidebar'
 import { api, queryKeys } from '@/lib/api'
 import { SelectionProvider } from '@/lib/selection'
+
+// Routes that expose the sessions sidebar. The sidebar is scoped to session
+// surfaces only; /prompt and /settings render without it.
+const SIDEBAR_ROUTES = ['/', '/pr/:id'] as const
+
+function useShowSidebar(): boolean {
+  const { pathname } = useLocation()
+  return SIDEBAR_ROUTES.some((p) => matchPath({ path: p, end: true }, pathname) !== null)
+}
 
 const Home = lazy(() => import('@/pages/Home').then((m) => ({ default: m.Home })))
 const PRDetail = lazy(() => import('@/pages/PRDetail').then((m) => ({ default: m.PRDetail })))
@@ -34,6 +43,7 @@ function RouteFallback() {
 export function App() {
   const { i18n } = useTranslation()
   const { data: cfg } = useQuery({ queryKey: queryKeys.config, queryFn: api.getConfig })
+  const showSidebar = useShowSidebar()
 
   useEffect(() => {
     const lang = cfg?.config.language
@@ -46,7 +56,7 @@ export function App() {
     <SelectionProvider>
       <div className="h-screen flex bg-canvas text-ink-primary overflow-hidden">
         <ActivityBar />
-        <Sidebar />
+        {showSidebar ? <Sidebar /> : null}
         <main className="flex-1 min-w-0 overflow-auto bg-main">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
