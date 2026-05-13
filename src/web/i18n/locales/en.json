@@ -331,13 +331,27 @@
     "closeButton": "Close"
   },
   "sidebar": {
+    "eyebrow": "Sessions",
+    "total": "{{count}} total",
     "newReviewAria": "New review (back to home)",
     "newReview": "New review",
     "sessionsAria": "Sessions",
     "resizeAria": "Resize sidebar",
+    "search": {
+      "placeholder": "Search PR # / title / repo / @author",
+      "ariaLabel": "Search sessions",
+      "clearAriaLabel": "Clear search",
+      "kbd": "⌘K"
+    },
+    "filter": {
+      "ariaLabel": "Filter by status"
+    },
     "emptyEyebrow": "No sessions",
     "emptyTitle": "Paste a PR to begin",
     "emptyBody": "The agent runs locally; this list shows everything in flight, done, or stale.",
+    "noMatchEyebrow": "No matches",
+    "noMatchTitle": "Nothing matches the current filter",
+    "noMatchBody": "Adjust the search or re-enable a status chip.",
     "group": {
       "active": "Active",
       "done": "Done",
