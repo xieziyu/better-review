@@ -233,8 +233,16 @@ describe('PRDetail', () => {
       expect(screen.getByRole('button', { name: /Toggle transcript drawer/i })).toBeInTheDocument()
     })
 
-    it('does not render RunStrip once the session has settled', () => {
+    it('renders RunStrip in Review mode once the agent finishes', () => {
+      // Default fixture session is status:'ready' — agent done, awaiting submit.
       render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      const strip = screen.getByRole('status', { name: /Review run progress/i })
+      expect(within(strip).getByText('Review')).toBeInTheDocument()
+    })
+
+    it('hides RunStrip once the session has terminally settled', () => {
+      const submitted: PRSession = { ...session, status: 'submitted' }
+      render(withRoute(<PRDetail />, { session: submitted, findings: [finding] }))
       expect(screen.queryByRole('status', { name: /Review run progress/i })).not.toBeInTheDocument()
     })
   })

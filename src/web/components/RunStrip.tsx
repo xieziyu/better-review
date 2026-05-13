@@ -1,4 +1,4 @@
-import type { PrepStep, PRSession } from '@shared/types'
+import type { PrepStep, PRSession, SessionStatus } from '@shared/types'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,9 +8,18 @@ import { cn } from '@/lib/utils'
 interface RunStripProps {
   session: PRSession
   prepSteps: PrepStep[]
-  agentEventCount: number
+  findingsCount: number
   transcriptOpen: boolean
   onToggleTranscript: () => void
+}
+
+type StripMode = 'prep' | 'reviewing' | 'review'
+
+function modeFor(status: SessionStatus): StripMode | null {
+  if (status === 'pending') return 'prep'
+  if (status === 'running') return 'reviewing'
+  if (status === 'ready') return 'review'
+  return null
 }
 
 function formatElapsed(ms: number): string {
@@ -22,44 +31,62 @@ function formatElapsed(ms: number): string {
 
 /**
  * One-line live status row that lives between PR header and findings body.
- * Visible only while the session is in flight (`pending` for prep, `running`
- * for the agent run). Replaces the discrete PreparationPanel and unifies the
- * two phases under one running clock.
+ * Three modes:
+ *   - prep      (session.status === 'pending'): preparing the review run.
+ *   - reviewing (session.status === 'running'): the agent is producing findings.
+ *   - review    (session.status === 'ready'):   agent done, awaiting human submit.
+ * Hides entirely once the session reaches submitted/archived/failed/cancelled.
+ * Prep and reviewing share the live treatment (pulse, ticker, indeterminate
+ * progress bar). Review is static: it just keeps the strip on screen so the
+ * workbench has a continuous status row across the whole lifecycle.
  */
 export function RunStrip({
   session,
   prepSteps,
-  agentEventCount,
+  findingsCount,
   transcriptOpen,
   onToggleTranscript,
 }: RunStripProps) {
   const { t } = useTranslation()
-  const inFlight = session.status === 'pending' || session.status === 'running'
+  const mode = modeFor(session.status)
+  const isLive = mode === 'prep' || mode === 'reviewing'
   const [now, setNow] = useState<number>(() => Date.now())
 
   useEffect(() => {
-    if (!inFlight) return
+    if (!isLive) return
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
-  }, [inFlight])
+  }, [isLive])
 
-  if (!inFlight) return null
+  if (mode === null) return null
 
-  const isRunning = session.status === 'running'
-  const phaseLabel = isRunning ? t('runStrip.phase.reviewing') : t('runStrip.phase.prep')
+  const phaseLabel =
+    mode === 'review'
+      ? t('runStrip.phase.review')
+      : mode === 'reviewing'
+        ? t('runStrip.phase.reviewing')
+        : t('runStrip.phase.prep')
 
-  const lastPrep = prepSteps[prepSteps.length - 1]
-  const detail = isRunning
-    ? t('runStrip.runningDetail', { agent: session.agent, count: agentEventCount })
-    : lastPrep
+  let detail: string
+  if (mode === 'reviewing') {
+    detail =
+      findingsCount === 0
+        ? t('runStrip.reviewingScanning', { agent: session.agent })
+        : t('runStrip.reviewingDetail', { agent: session.agent, count: findingsCount })
+  } else if (mode === 'review') {
+    detail = t('runStrip.reviewDetail', { count: findingsCount })
+  } else {
+    const lastPrep = prepSteps[prepSteps.length - 1]
+    detail = lastPrep
       ? t(`prep.phase.${lastPrep.phase}`, {
           defaultValue: lastPrep.detail ?? lastPrep.phase,
           agent: lastPrep.detail ?? '',
         })
       : t('runStrip.startingUp')
+  }
 
   const elapsed = formatElapsed(now - session.createdAt)
-  const srLabel = `${phaseLabel} ${detail} ${elapsed}`
+  const srLabel = isLive ? `${phaseLabel} ${detail} ${elapsed}` : `${phaseLabel} ${detail}`
 
   return (
     <div
@@ -71,11 +98,20 @@ export function RunStrip({
       <span className="sr-only">{srLabel}</span>
 
       <div className="px-8 h-10 flex items-center gap-4">
-        <span className="inline-flex items-center gap-1.5 text-caps tracking-caps uppercase text-accent-running shrink-0">
-          <span
-            className="inline-block size-1.5 rounded-full bg-accent-running motion-safe:animate-running-pulse"
-            aria-hidden="true"
-          />
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 text-caps tracking-caps uppercase shrink-0',
+            isLive ? 'text-accent-running' : 'text-ink-secondary',
+          )}
+        >
+          {isLive ? (
+            <span
+              className="inline-block size-1.5 rounded-full bg-accent-running motion-safe:animate-running-pulse"
+              aria-hidden="true"
+            />
+          ) : (
+            <span className="inline-block size-1.5 rounded-full bg-ink-muted" aria-hidden="true" />
+          )}
           {phaseLabel}
         </span>
 
@@ -87,7 +123,11 @@ export function RunStrip({
           {detail}
         </span>
 
-        <span className="font-mono text-meta text-ink-muted tabular-nums shrink-0">{elapsed}</span>
+        {isLive ? (
+          <span className="font-mono text-meta text-ink-muted tabular-nums shrink-0">
+            {elapsed}
+          </span>
+        ) : null}
 
         <button
           type="button"
@@ -107,9 +147,13 @@ export function RunStrip({
         </button>
       </div>
 
-      <div className="relative h-0.5 w-full overflow-hidden bg-rule/60" aria-hidden="true">
-        <div className="absolute inset-y-0 w-1/4 bg-accent-running motion-safe:animate-progress-indeterminate" />
-      </div>
+      {isLive ? (
+        <div className="relative h-0.5 w-full overflow-hidden bg-rule/60" aria-hidden="true">
+          <div className="absolute inset-y-0 w-1/4 bg-accent-running motion-safe:animate-progress-indeterminate" />
+        </div>
+      ) : (
+        <div className="h-0.5 w-full bg-rule/60" aria-hidden="true" />
+      )}
     </div>
   )
 }

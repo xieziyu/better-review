@@ -43,8 +43,7 @@ export function ConfirmAction({
       const popupHeight = popupRef.current?.offsetHeight ?? 0
       const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN
       const spaceAbove = rect.top - VIEWPORT_MARGIN
-      const flipAbove =
-        popupHeight > 0 && popupHeight + 8 > spaceBelow && spaceAbove > spaceBelow
+      const flipAbove = popupHeight > 0 && popupHeight + 8 > spaceBelow && spaceAbove > spaceBelow
       const top = flipAbove ? rect.top - popupHeight - 8 : rect.bottom + 8
       setPosition({ top, left })
     }

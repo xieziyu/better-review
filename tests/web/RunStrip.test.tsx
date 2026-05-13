@@ -32,7 +32,7 @@ function renderStrip(
   overrides: {
     status?: SessionStatus
     prepSteps?: PrepStep[]
-    agentEventCount?: number
+    findingsCount?: number
     transcriptOpen?: boolean
   } = {},
 ) {
@@ -41,7 +41,7 @@ function renderStrip(
     <RunStrip
       session={session}
       prepSteps={overrides.prepSteps ?? []}
-      agentEventCount={overrides.agentEventCount ?? 0}
+      findingsCount={overrides.findingsCount ?? 0}
       transcriptOpen={overrides.transcriptOpen ?? false}
       onToggleTranscript={() => {}}
     />,
@@ -58,11 +58,20 @@ describe('RunStrip', () => {
     vi.useRealTimers()
   })
 
-  it('renders nothing when the session has settled', () => {
-    for (const status of ['ready', 'submitted', 'failed', 'cancelled', 'archived'] as const) {
+  it('renders nothing when the session has terminally settled', () => {
+    for (const status of ['submitted', 'failed', 'cancelled', 'archived'] as const) {
       const { container } = renderStrip({ status })
       expect(container.firstChild).toBeNull()
     }
+  })
+
+  it('renders the REVIEW phase label and findings count when ready', () => {
+    renderStrip({ status: 'ready', findingsCount: 12 })
+    const strip = screen.getByRole('status', { name: /Review run progress/i })
+    expect(strip).toHaveTextContent(/Review/i)
+    expect(strip).toHaveTextContent(/12 findings · awaiting submit/i)
+    // No live elapsed clock in the review mode.
+    expect(strip).not.toHaveTextContent(/\b\d+:\d{2}\b/)
   })
 
   it('renders the PREP phase label and last prep step detail during prep', () => {
@@ -76,11 +85,18 @@ describe('RunStrip', () => {
     expect(strip).toHaveTextContent(/Fetching diff/i)
   })
 
-  it('renders the REVIEWING label and the {agent} · {count} events detail while running', () => {
-    renderStrip({ status: 'running', agentEventCount: 23 })
+  it('shows the scanning fallback while running with zero findings so far', () => {
+    renderStrip({ status: 'running', findingsCount: 0 })
     const strip = screen.getByRole('status', { name: /Review run progress/i })
     expect(strip).toHaveTextContent(/Reviewing/i)
-    expect(strip).toHaveTextContent(/claude · 23 events/i)
+    expect(strip).toHaveTextContent(/claude · scanning…/i)
+  })
+
+  it('shows the live findings count while running once findings stream in', () => {
+    renderStrip({ status: 'running', findingsCount: 5 })
+    const strip = screen.getByRole('status', { name: /Review run progress/i })
+    expect(strip).toHaveTextContent(/Reviewing/i)
+    expect(strip).toHaveTextContent(/claude · 5 findings so far/i)
   })
 
   it('ticks the elapsed clock every second', () => {
@@ -96,7 +112,7 @@ describe('RunStrip', () => {
       <RunStrip
         session={session}
         prepSteps={[]}
-        agentEventCount={1}
+        findingsCount={0}
         transcriptOpen={false}
         onToggleTranscript={() => {}}
       />,
@@ -114,7 +130,7 @@ describe('RunStrip', () => {
       <RunStrip
         session={{ ...baseSession, status: 'running' }}
         prepSteps={[]}
-        agentEventCount={0}
+        findingsCount={0}
         transcriptOpen={false}
         onToggleTranscript={() => {}}
       />,
@@ -125,7 +141,7 @@ describe('RunStrip', () => {
       <RunStrip
         session={{ ...baseSession, status: 'running' }}
         prepSteps={[]}
-        agentEventCount={0}
+        findingsCount={0}
         transcriptOpen={true}
         onToggleTranscript={() => {}}
       />,

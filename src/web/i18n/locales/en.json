@@ -26,9 +26,14 @@
     "ariaLabel": "Review run progress",
     "phase": {
       "prep": "Prep",
-      "reviewing": "Reviewing"
+      "reviewing": "Reviewing",
+      "review": "Review"
     },
-    "runningDetail": "{{agent}} · {{count}} events",
+    "reviewingScanning": "{{agent}} · scanning…",
+    "reviewingDetail_one": "{{agent}} · {{count}} finding so far",
+    "reviewingDetail_other": "{{agent}} · {{count}} findings so far",
+    "reviewDetail_one": "{{count}} finding · awaiting submit",
+    "reviewDetail_other": "{{count}} findings · awaiting submit",
     "startingUp": "Starting up…",
     "transcript": "Transcript",
     "transcriptToggleAria": "Toggle transcript drawer"
@@ -252,8 +257,7 @@
       "prep:preparing-source:worktree": "Preparing PR head worktree",
       "prep:preparing-source:snapshot": "Snapshotting PR head source",
       "prep:rendering-prompt": "Assembling prompt",
-      "prep:rendering-prompt:with-prior": "Assembling prompt (with prior context)",
-      "prep:starting": "Starting {{agent}}"
+      "prep:rendering-prompt:with-prior": "Assembling prompt (with prior context)"
     }
   },
   "finding": {

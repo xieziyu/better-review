@@ -55,6 +55,9 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
     findings = new FindingsRepo(db)
     bus = new EventBus()
     workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    // Insert as 'pending' so we can observe the prep→running transition that
+    // runReview now performs right before agent.spawn(). Real callers
+    // (start-session.ts) also hand us a pending session.
     sessions.insert({
       id: 's1',
       owner: 'o',
@@ -65,7 +68,7 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
       url: null,
       baseRef: null,
       headRef: null,
-      status: 'running',
+      status: 'pending',
       agent: fx.kind,
       workdir,
       localRepoPath: null,
@@ -125,6 +128,19 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
     expect(findings.listBySession('s1')).toHaveLength(1)
     expect(events.some((e) => e.type === 'done')).toBe(true)
     expect(events.some((e) => e.type === 'finding-added')).toBe(true)
+    // The runner flips pending → running and announces it before spawn.
+    expect(events.some((e) => e.type === 'status-changed' && e.status === 'running')).toBe(true)
+    const startEvt = events.find((e) => e.type === 'progress' && e.phase === 'agent:starting')
+    expect(startEvt).toBeDefined()
+    expect(startEvt && 'detail' in startEvt ? startEvt.detail : undefined).toBe(
+      getAgent(fx.kind).displayName,
+    )
+    // The running→ready transition must happen after the running announce.
+    const runningIdx = events.findIndex(
+      (e) => e.type === 'status-changed' && e.status === 'running',
+    )
+    const readyIdx = events.findIndex((e) => e.type === 'status-changed' && e.status === 'ready')
+    expect(readyIdx).toBeGreaterThan(runningIdx)
     const outputs = events.filter(
       (e): e is Extract<SSEEvent, { type: 'agent-output' }> => e.type === 'agent-output',
     )

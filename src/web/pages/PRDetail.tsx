@@ -655,7 +655,7 @@ export function PRDetail() {
       <RunStrip
         session={session}
         prepSteps={prepSteps}
-        agentEventCount={agentChunks.length}
+        findingsCount={activeFindings.length}
         transcriptOpen={transcriptDrawer.open}
         onToggleTranscript={transcriptDrawer.toggle}
       />
