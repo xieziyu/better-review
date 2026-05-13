@@ -334,6 +334,23 @@ export function Home() {
           </fieldset>
         </form>
 
+        <div className="flex items-center gap-3 text-meta text-ink-muted pl-1">
+          <KbdHint keys={['⏎']} label={t('home.footer.startReviewLabel')} />
+          <span aria-hidden="true">·</span>
+          <span>
+            <Trans
+              i18nKey="home.footer.configureLine"
+              components={[
+                <Link
+                  key="settings"
+                  to="/settings"
+                  className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
+                />,
+              ]}
+            />
+          </span>
+        </div>
+
         {create.isError ? (
           <div className="text-meta text-severity-must">
             {create.error instanceof ApiError ? create.error.message : t('home.submitError')}
@@ -366,23 +383,6 @@ export function Home() {
           </div>
         )}
       </section>
-
-      <footer className="mt-12 border-t border-rule pt-4 flex items-center gap-3 text-meta text-ink-muted">
-        <KbdHint keys={['⏎']} label={t('home.footer.startReviewLabel')} />
-        <span>·</span>
-        <span>
-          <Trans
-            i18nKey="home.footer.configureLine"
-            components={[
-              <Link
-                key="settings"
-                to="/settings"
-                className="text-ink-secondary hover:text-brand underline-offset-4 hover:underline"
-              />,
-            ]}
-          />
-        </span>
-      </footer>
     </div>
   )
 }
