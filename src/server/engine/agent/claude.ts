@@ -98,4 +98,27 @@ export class ClaudeAgent implements ReviewAgent {
 
     return { child, drained }
   }
+
+  // agent.log holds newline-delimited stream-json (plus the occasional raw
+  // stderr fragment / `[stream-json error]` marker). Parse each line as JSON
+  // and run it through the same formatter the live path uses; non-JSON lines
+  // are stderr noise and get skipped, so the result mirrors live onOutput.
+  parseLog(raw: string): string[] {
+    const out: string[] = []
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      let event: unknown
+      try {
+        event = JSON.parse(trimmed)
+      } catch {
+        continue
+      }
+      if (typeof event !== 'object' || event === null) continue
+      const e = event as Record<string, unknown>
+      if (typeof e.type !== 'string') continue
+      for (const formatted of formatClaudeEvent(e as StreamEvent)) out.push(formatted)
+    }
+    return out
+  }
 }

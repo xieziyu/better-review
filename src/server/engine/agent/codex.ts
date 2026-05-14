@@ -92,4 +92,16 @@ export class CodexAgent implements ReviewAgent {
 
     return { child, drained }
   }
+
+  // agent.log holds one plain transcript line per emission — the live path
+  // appends exactly what it passes to onOutput. Replaying it is just a
+  // line split with the same trim/drop-empty rule consumeLines applies.
+  parseLog(raw: string): string[] {
+    const out: string[] = []
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trimEnd()
+      if (trimmed) out.push(trimmed)
+    }
+    return out
+  }
 }

@@ -44,4 +44,9 @@ export interface ReviewAgent {
   findExecutable(): string | null
   // Spawn one review run. Owns CLI flag construction and stdout parsing.
   spawn(args: AgentSpawnArgs): AgentRunHandle
+  // Reconstruct human-readable transcript lines from a persisted agent.log.
+  // The counterpart to live onOutput: same per-line shape, sourced from disk
+  // after the run. Input is the raw log text (already tail-truncated by the
+  // caller). Lines that don't map to transcript output are dropped.
+  parseLog(raw: string): string[]
 }
