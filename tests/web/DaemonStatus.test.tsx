@@ -17,6 +17,7 @@ const healthy: HealthStatus = {
   agents: {
     claude: { found: true, path: '/usr/local/bin/claude' },
     codex: { found: true, path: '/usr/local/bin/codex' },
+    pi: { found: true, path: '/usr/local/bin/pi' },
   },
   defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
@@ -44,7 +45,11 @@ describe('DaemonStatus', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
-        agents: { claude: { found: true, path: '/x' }, codex: { found: false } },
+        agents: {
+          claude: { found: true, path: '/x' },
+          codex: { found: false },
+          pi: { found: true, path: '/y' },
+        },
       }),
     )
     const trigger = screen.getByRole('button', { name: /daemon has warnings/i })
@@ -55,7 +60,11 @@ describe('DaemonStatus', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
-        agents: { claude: { found: false }, codex: { found: true, path: '/x' } },
+        agents: {
+          claude: { found: false },
+          codex: { found: true, path: '/x' },
+          pi: { found: true, path: '/y' },
+        },
       }),
     )
     const trigger = screen.getByRole('button', { name: /daemon has blockers/i })
@@ -89,9 +98,9 @@ describe('DaemonStatus', () => {
     const user = userEvent.setup()
     render(withClient(<DaemonStatus />, healthy))
     await user.click(screen.getByRole('button', { name: /daemon healthy/i }))
-    const popover = await screen.findByRole('dialog')
-    // The default tag is rendered next to the claude row
-    expect(popover.querySelector('li:first-child')).toHaveTextContent(/default/i)
+    await screen.findByRole('dialog')
+    // The default tag renders on the default agent's row (claude in this fixture).
+    expect(screen.getByText('claude').closest('li')).toHaveTextContent(/default/i)
   })
 
   it('closes the popover on Escape', async () => {

@@ -305,6 +305,7 @@ describe('PRDetail', () => {
               agents: {
                 claude: { found: true, path: '/usr/bin/claude' },
                 codex: { found: true, path: '/usr/bin/codex' },
+                pi: { found: true, path: '/usr/bin/pi' },
               },
               gh: { found: true, authed: true },
               fs: { folderPicker: { supported: false } },

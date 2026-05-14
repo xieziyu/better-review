@@ -114,7 +114,7 @@ export function Home() {
   }, [recentRepos, target, localRepoTouched, autoFilledFor])
 
   const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3)
-  const effectiveAgent = agent ?? health?.defaultAgent ?? 'claude'
+  const effectiveAgent = agent ?? health?.defaultAgent ?? 'codex'
   const showAutoFillHint =
     !localRepoTouched && target && autoFilledFor === `${target.owner}/${target.repo}`
   const folderPickerSupported = health?.fs?.folderPicker?.supported ?? false
@@ -291,7 +291,7 @@ export function Home() {
           )}
 
           <fieldset
-            className="flex items-center gap-1.5 text-meta text-ink-secondary"
+            className="flex flex-wrap items-center gap-1.5 text-meta text-ink-secondary"
             aria-label={t('home.agent.legend')}
           >
             <legend className="sr-only">{t('home.agent.legend')}</legend>
