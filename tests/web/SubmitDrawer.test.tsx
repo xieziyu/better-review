@@ -92,7 +92,7 @@ describe('SubmitDrawer', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('prefills body with PR-wide findings as a list', () => {
+  it('leaves the review body empty and shows PR-wide findings as preview cards', () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
         session,
@@ -110,8 +110,8 @@ describe('SubmitDrawer', () => {
       }),
     )
     const body = screen.getByLabelText(/Review body/i) as HTMLTextAreaElement
-    expect(body.value).toMatch(/Wider architectural concern/)
-    expect(body.value).toContain('🔴 **[MUST]**')
+    expect(body.value).toBe('')
+    expect(screen.getByTestId('pr-wide-list')).toHaveTextContent(/Wider architectural concern/)
   })
 
   it('keeps selected inline comments visible while editing submit options', () => {

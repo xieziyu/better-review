@@ -48,7 +48,8 @@
     "follow": "follow",
     "followAria": "follow stream to bottom",
     "openAria": "Open transcript drawer",
-    "closeAria": "Close transcript drawer"
+    "closeAria": "Close transcript drawer",
+    "truncatedNotice": "… earlier output truncated"
   },
   "inspector": {
     "section": {
@@ -317,8 +318,6 @@
     "noSelection": "No findings selected.",
     "reviewBody": "Review body (markdown)",
     "reviewBodyAria": "Review body",
-    "autoFilled_one": "Auto-filled from 1 PR-wide finding.",
-    "autoFilled_other": "Auto-filled from {{count}} PR-wide findings.",
     "diffNotLoaded": "Diff not loaded. Line-in-diff check will run on submit.",
     "submitted": "Submitted",
     "droppedToBody": "{{count}} finding(s) dropped to review body (line not in diff).",

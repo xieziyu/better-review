@@ -30,29 +30,6 @@ const SEVERITY_TEXT: Record<Finding['severity'], string> = {
   nit: 'text-severity-nit',
 }
 
-function severityTag(severity: Finding['severity']): string {
-  if (severity === 'must') return '🔴 **[MUST]**'
-  if (severity === 'should') return '🟡 **[SHOULD]**'
-  return '🔵 **[NIT]**'
-}
-
-function formatPRWideBody(prWide: Finding[]): string {
-  if (prWide.length === 0) return ''
-  const lines = ['**PR-wide notes:**']
-  for (const f of prWide) {
-    lines.push(`- ${severityTag(f.severity)} **${f.title}**`)
-    if (f.body.trim()) {
-      const indented = f.body
-        .trim()
-        .split('\n')
-        .map((l) => `  ${l}`)
-        .join('\n')
-      lines.push(indented)
-    }
-  }
-  return lines.join('\n')
-}
-
 function severityCounts(findings: Finding[]): Record<'must' | 'should' | 'nit', number> {
   const counts = { must: 0, should: 0, nit: 0 }
   for (const f of findings) counts[f.severity] += 1
@@ -97,7 +74,6 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
   const [step, setStep] = useState<Step>(1)
   const [event, setEvent] = useState<ReviewEvent>('COMMENT')
   const [body, setBody] = useState('')
-  const [bodyTouched, setBodyTouched] = useState(false)
 
   const findings = useMemo(
     () => (data?.findings ?? []).filter((f) => !f.archived),
@@ -124,13 +100,6 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
   const movedToBody = groups.movedToBody
   const prWide = groups.prWide
   const counts = useMemo(() => severityCounts(selected), [selected])
-
-  useEffect(() => {
-    if (!bodyTouched) {
-      const auto = formatPRWideBody(prWide)
-      setBody(auto)
-    }
-  }, [prWide, bodyTouched])
 
   const submit = useMutation({
     mutationFn: () => {
@@ -336,17 +305,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   <textarea
                     aria-label={t('submit.reviewBodyAria')}
                     value={body}
-                    onChange={(e) => {
-                      setBody(e.target.value)
-                      setBodyTouched(true)
-                    }}
+                    onChange={(e) => setBody(e.target.value)}
                     className="mt-1 w-full h-40 p-3 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
                   />
-                  {prWide.length > 0 && !bodyTouched ? (
-                    <span className="block text-meta text-ink-muted mt-1">
-                      {t('submit.autoFilled', { count: prWide.length })}
-                    </span>
-                  ) : null}
                 </label>
 
                 {!diff && selected.some((f) => f.file !== null) ? (

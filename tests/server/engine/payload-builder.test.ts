@@ -93,6 +93,17 @@ describe('buildSubmitPayload', () => {
     expect(r.payload.event).toBe('APPROVE')
   })
 
+  it('renders a PR-wide finding once even when userBody is present', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [f({ file: null, line: null, title: 'unique pr-wide title' })],
+      event: 'COMMENT',
+      userBody: 'my own notes',
+    })
+    expect(r.payload.body).toContain('my own notes')
+    expect(r.payload.body.match(/unique pr-wide title/g)).toHaveLength(1)
+  })
+
   it('includes suggestion block in inline comment', () => {
     const r = buildSubmitPayload({
       diff: DIFF,
