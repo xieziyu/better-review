@@ -7,19 +7,19 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { PromptStore, type WritableScope } from '../../../src/server/prompts/store'
 
 describe('PromptStore', () => {
-  let cwd: string
+  let repo: string
   let home: string
   let store: PromptStore
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'br-pcwd-'))
+    repo = mkdtempSync(join(tmpdir(), 'br-repo-'))
     home = mkdtempSync(join(tmpdir(), 'br-phome-'))
-    store = new PromptStore({ cwd, home })
+    store = new PromptStore({ home })
   })
 
-  it('write/read project scope', () => {
-    store.write('project', 'PROJECT')
-    expect(store.read('project')).toBe('PROJECT')
-    expect(existsSync(join(cwd, '.better-review', 'review.md'))).toBe(true)
+  it('write/read project scope against a repo path', () => {
+    store.write('project', 'PROJECT', repo)
+    expect(store.read('project', repo)).toBe('PROJECT')
+    expect(existsSync(join(repo, '.better-review', 'review.md'))).toBe(true)
   })
 
   it('write/read global scope', () => {
@@ -27,13 +27,26 @@ describe('PromptStore', () => {
     expect(store.read('global')).toBe('GLOBAL')
   })
 
-  it('delete clears file', () => {
-    store.write('project', 'X')
-    store.delete('project')
-    expect(store.read('project')).toBeNull()
+  it('project scope is isolated per repo', () => {
+    const otherRepo = mkdtempSync(join(tmpdir(), 'br-repo2-'))
+    store.write('project', 'A', repo)
+    store.write('project', 'B', otherRepo)
+    expect(store.read('project', repo)).toBe('A')
+    expect(store.read('project', otherRepo)).toBe('B')
   })
 
-  it('rejects writing to cwd alias', () => {
-    expect(() => store.write('cwd' as unknown as WritableScope, 'x')).toThrow()
+  it('delete clears project file', () => {
+    store.write('project', 'X', repo)
+    store.delete('project', repo)
+    expect(store.read('project', repo)).toBeNull()
+  })
+
+  it('throws when project scope is used without a repo path', () => {
+    expect(() => store.read('project')).toThrow(/requires a repo path/)
+    expect(() => store.write('project', 'x')).toThrow(/requires a repo path/)
+  })
+
+  it('rejects an unknown scope', () => {
+    expect(() => store.write('bogus' as unknown as WritableScope, 'x')).toThrow()
   })
 })

@@ -92,7 +92,7 @@ export function Settings() {
     onSuccess: ({ config }) => {
       qc.setQueryData(queryKeys.config, { config, file: cfgQ.data?.file ?? '' })
       void qc.invalidateQueries({ queryKey: queryKeys.health })
-      void qc.invalidateQueries({ queryKey: queryKeys.prompts })
+      void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
       setDraft({ ...config })
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 2000)

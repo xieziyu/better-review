@@ -41,7 +41,6 @@ export interface ServerHandle {
 
 export interface StartDaemonOpts {
   home?: string
-  cwd?: string
 }
 
 export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHandle> {
@@ -77,8 +76,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const queue = new ConcurrencyQueue(configState.maxConcurrentReviews)
   const runners = new RunnerRegistry()
   const gh = new GhClient()
-  const cwd = opts.cwd ?? process.cwd()
-  const promptStore = new PromptStore({ cwd, home: paths.home })
+  const promptStore = new PromptStore({ home: paths.home })
   const folderPicker = detectFolderPicker()
   log.info('folder picker', { kind: folderPicker.kind })
 
@@ -111,7 +109,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     runners,
     getConfig,
     paths: { home: paths.home, sessionsDir: paths.sessionsDir },
-    cwd,
     log,
     resolveAgent,
   })
@@ -177,7 +174,6 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     bus,
     gh,
     promptStore,
-    promptCwd: cwd,
     promptHome: paths.home,
     folderPicker,
     getConfig,

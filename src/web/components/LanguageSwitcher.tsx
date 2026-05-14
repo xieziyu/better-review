@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
     onSuccess: ({ config }) => {
       qc.setQueryData(queryKeys.config, { config, file: data?.file ?? '' })
       void qc.invalidateQueries({ queryKey: queryKeys.health })
-      void qc.invalidateQueries({ queryKey: queryKeys.prompts })
+      void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
     },
   })
 

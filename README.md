@@ -12,7 +12,7 @@
 - **Pluggable agents** — pick `claude` or `codex` per review, or set a default. The agent layer is a small interface; new providers drop into `src/server/engine/agent/`.
 - **One-click submission** to GitHub: selected findings become inline comments, off-diff or PR-wide ones fall back to the review body, all via `gh api`.
 - **Multi-PR concurrency** with a session sidebar that updates over SSE; the daemon caps parallel agent processes (configurable).
-- **Three-tier prompt overrides** — project (`<cwd>/.better-review/review.md`) → global (`~/.better-review/review.md`) → built-in. First hit wins.
+- **Three-tier prompt overrides** — project (`<selected-repo>/.better-review/review.md`) → global (`~/.better-review/review.md`) → built-in. First hit wins.
 - **No magic state** — sessions, findings, and submissions sit in a local SQLite file you can inspect.
 
 ## Prerequisites
@@ -95,12 +95,14 @@ The prompt is split into two layers:
 - **Rules** (overridable): the review checklist, `category` label set, and any domain-specific guidance you want the agent to follow. Resolved in this order — first hit wins:
 
   ```
-  <cwd>/.better-review/review.md   # project (relative to where the daemon was launched)
-  ~/.better-review/review.md       # global
-  prompts/builtin-rules.md         # built-in default
+  <selected-repo>/.better-review/review.md   # project (the local repo pinned for the review)
+  ~/.better-review/review.md                 # global
+  prompts/builtin-rules.md                   # built-in default
   ```
 
-Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. Daemon configuration (default agent, watchdog timeout, GC retention, etc.) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
+  The project tier is keyed to the local repo you pin for a review — not the daemon's working directory. If a review runs without a pinned local repo, the project tier is skipped.
+
+Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). The `Project` tab has a repo selector at the top — pick the local repo whose `.better-review/review.md` you want to edit. Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. Daemon configuration (default agent, watchdog timeout, GC retention, etc.) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
 
 ## Configuration
 

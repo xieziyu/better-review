@@ -114,11 +114,21 @@ export const api = {
     const qs = sp.toString()
     return req(qs ? `/api/recent-repos?${qs}` : '/api/recent-repos')
   },
-  getPrompts: (): Promise<PromptStateResponse> => req('/api/prompts'),
-  putPrompt: (scope: WritablePromptScope, content: string): Promise<{ ok: true }> =>
-    req(`/api/prompts/${scope}`, { method: 'PUT', body: JSON.stringify({ content }) }),
-  deletePrompt: (scope: WritablePromptScope): Promise<void> =>
-    req(`/api/prompts/${scope}`, { method: 'DELETE' }),
+  getPrompts: (repo?: string | null): Promise<PromptStateResponse> =>
+    req(repo ? `/api/prompts?repo=${encodeURIComponent(repo)}` : '/api/prompts'),
+  putPrompt: (
+    scope: WritablePromptScope,
+    content: string,
+    repo?: string | null,
+  ): Promise<{ ok: true }> =>
+    req(`/api/prompts/${scope}`, {
+      method: 'PUT',
+      body: JSON.stringify(repo ? { content, repo } : { content }),
+    }),
+  deletePrompt: (scope: WritablePromptScope, repo?: string | null): Promise<void> =>
+    req(repo ? `/api/prompts/${scope}?repo=${encodeURIComponent(repo)}` : `/api/prompts/${scope}`, {
+      method: 'DELETE',
+    }),
   getConfig: (): Promise<{ config: AppConfig; file: string }> => req('/api/config'),
   putConfig: (b: AppConfig): Promise<{ config: AppConfig }> =>
     req('/api/config', { method: 'PUT', body: JSON.stringify(b) }),
@@ -129,7 +139,9 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
   sessionTranscript: (id: string) => ['session-transcript', id] as const,
-  prompts: ['prompts'] as const,
+  // Base key for invalidating every per-repo prompt query at once.
+  promptsBase: ['prompts'] as const,
+  prompts: (repo: string | null) => ['prompts', repo] as const,
   config: ['config'] as const,
   recentRepos: (owner: string, repo: string) => ['recent-repos', owner, repo] as const,
 }

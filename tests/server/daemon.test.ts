@@ -13,7 +13,7 @@ describe('daemon lifecycle', () => {
   })
 
   it('starts, writes server.json, shuts down cleanly', async () => {
-    const h = await startDaemon({ home, cwd: home })
+    const h = await startDaemon({ home })
     expect(existsSync(join(home, 'server.json'))).toBe(true)
     expect(h.port).toBeGreaterThan(0)
     const meta = JSON.parse(readFileSync(join(home, 'server.json'), 'utf8'))
@@ -25,7 +25,7 @@ describe('daemon lifecycle', () => {
 
   it('ignores stale server.json on next start (overwrites)', async () => {
     writeFileSync(join(home, 'server.json'), JSON.stringify({ pid: 999999, port: 1, startedAt: 0 }))
-    const h = await startDaemon({ home, cwd: home })
+    const h = await startDaemon({ home })
     expect(h.port).toBeGreaterThan(0)
     const meta = JSON.parse(readFileSync(join(home, 'server.json'), 'utf8'))
     expect(meta.pid).toBe(process.pid)
@@ -33,7 +33,7 @@ describe('daemon lifecycle', () => {
   })
 
   it('serves /api/health from running daemon', async () => {
-    const h = await startDaemon({ home, cwd: home })
+    const h = await startDaemon({ home })
     try {
       const res = await fetch(`http://127.0.0.1:${h.port}/api/health`)
       expect(res.status).toBe(200)

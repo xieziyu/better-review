@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { Language } from '../../shared/types'
+import { projectPromptPath } from '../paths'
 import { getBuiltinRules, getFramework } from './builtin'
 
 export type RulesSource = 'project' | 'global' | 'builtin'
@@ -19,15 +20,20 @@ export interface ResolvedPrompt {
 }
 
 export interface ResolveOpts {
-  cwd: string
+  // Absolute path of the local repo selected for this review, or null when no
+  // local repo is pinned. The project tier resolves against this directory's
+  // `.better-review/review.md` — never the daemon's cwd. Null skips the tier.
+  projectDir: string | null
   home: string
   lang: Language
 }
 
 export function resolveEffectiveRules(opts: ResolveOpts): ResolvedRules {
-  const project = join(opts.cwd, '.better-review', 'review.md')
-  if (existsSync(project))
-    return { source: 'project', content: readFileSync(project, 'utf8'), path: project }
+  if (opts.projectDir !== null) {
+    const project = projectPromptPath(opts.projectDir)
+    if (existsSync(project))
+      return { source: 'project', content: readFileSync(project, 'utf8'), path: project }
+  }
   const global = join(opts.home, 'review.md')
   if (existsSync(global))
     return { source: 'global', content: readFileSync(global, 'utf8'), path: global }

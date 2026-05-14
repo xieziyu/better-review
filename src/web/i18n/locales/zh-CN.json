@@ -433,6 +433,20 @@
     "tabState": {
       "readOnly": "只读",
       "empty": "空"
+    },
+    "repo": {
+      "label": "仓库",
+      "placeholder": "Project 级规则所在的本地仓库路径 —— ~/code/owner/repo",
+      "ariaLabel": "Project 级规则的本地仓库路径",
+      "browse": "浏览",
+      "browseAriaLabel": "浏览本地仓库",
+      "opening": "打开中…",
+      "clear": "清除",
+      "clearAriaLabel": "清除仓库",
+      "pickerError": "打开文件夹选择器失败",
+      "hint": "Project 级规则位于所选仓库的 .better-review/review.md",
+      "pickFirst": "请先在上方选择一个仓库，以查看或编辑其 Project 级规则。",
+      "recentMeta": "上次使用 {{when}} · ×{{count}}"
     }
   }
 }

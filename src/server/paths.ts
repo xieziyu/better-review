@@ -1,5 +1,6 @@
+import { existsSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 export interface Paths {
   home: string
@@ -28,6 +29,20 @@ export function resolvePaths(home?: string): Paths {
   }
 }
 
-export function projectPromptPath(cwd: string): string {
-  return join(cwd, '.better-review', 'review.md')
+export function projectPromptPath(repoPath: string): string {
+  return join(repoPath, '.better-review', 'review.md')
+}
+
+// Normalizes a user-supplied local-repo path: trims, expands a leading `~`,
+// resolves to absolute, and asserts it points at an existing directory.
+// Throws with a caller-facing message on any failure.
+export function resolveLocalRepoPath(raw: string): string {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) throw new Error('localRepoPath must not be empty')
+  const expanded =
+    trimmed === '~' || trimmed.startsWith('~/') ? join(homedir(), trimmed.slice(1)) : trimmed
+  const abs = resolve(expanded)
+  if (!existsSync(abs)) throw new Error(`localRepoPath does not exist: ${abs}`)
+  if (!statSync(abs).isDirectory()) throw new Error(`localRepoPath is not a directory: ${abs}`)
+  return abs
 }
