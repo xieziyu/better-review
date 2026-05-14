@@ -164,4 +164,6 @@ For deeper architecture and design rationale, see [`CLAUDE.md`](./CLAUDE.md), [`
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Copyright (C) 2026 xieziyu
+
+better-review is free software, licensed under the **GNU General Public License v3.0 or later** — see [LICENSE](./LICENSE).
