@@ -60,7 +60,8 @@
       "source": "Source"
     },
     "cta": {
-      "submit": "提交评审",
+      "include": "纳入此条",
+      "included": "已纳入",
       "edit": "编辑",
       "discard": "丢弃"
     }

@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { FindingDetailPanel } from '@/components/FindingDetailPanel'
-import { SelectionProvider, useSubmitDrawer } from '@/lib/selection'
+import { SelectionProvider } from '@/lib/selection'
 
 function withProviders(ui: React.ReactNode) {
   const qc = new QueryClient({
@@ -73,13 +73,32 @@ describe('FindingDetailPanel', () => {
     expect(screen.getByText(/jwt\.verify/)).toBeInTheDocument()
   })
 
-  it('renders Edit, Discard, and Submit CTAs at the bottom', () => {
+  it('renders the include toggle, Edit, and Discard CTAs', () => {
     render(
       withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
-    expect(screen.getByRole('button', { name: /submit review/i })).toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: /unselect finding R1/i })
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveTextContent(/Included/i)
     expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit review/i })).not.toBeInTheDocument()
+  })
+
+  it('shows "Include in review" label when the finding is not selected', () => {
+    render(
+      withProviders(
+        <FindingDetailPanel
+          finding={{ ...finding, selected: false }}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const toggle = screen.getByRole('button', { name: /select finding R1/i })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).toHaveTextContent(/Include in review/i)
   })
 
   it('switches to edit mode when Edit is clicked', async () => {
@@ -93,23 +112,27 @@ describe('FindingDetailPanel', () => {
     expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument()
   })
 
-  it('clicking Submit opens the submit drawer through context', async () => {
+  it('PATCHes /api/findings/:id/select when the include toggle is clicked', async () => {
     const user = userEvent.setup()
-    function Probe() {
-      const drawer = useSubmitDrawer()
-      return <div data-testid="drawer-state">{drawer.isOpen ? 'open' : 'closed'}</div>
-    }
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ ...finding, selected: false }),
+    })
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
     render(
-      withProviders(
-        <>
-          <FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />
-          <Probe />
-        </>,
-      ),
+      withProviders(<FindingDetailPanel finding={finding} session={session} unifiedDiff={null} />),
     )
-    expect(screen.getByTestId('drawer-state').textContent).toBe('closed')
-    await user.click(screen.getByRole('button', { name: /submit review/i }))
-    expect(screen.getByTestId('drawer-state').textContent).toBe('open')
+    await user.click(screen.getByRole('button', { name: /unselect finding R1/i }))
+    const calls = fetchSpy.mock.calls
+    expect(calls.length).toBeGreaterThan(0)
+    const last = calls[calls.length - 1]!
+    expect(String(last[0])).toContain('/api/findings/d1/select')
+    const init = last[1] as RequestInit
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(String(init.body))).toEqual({ selected: false })
   })
 
   it('shows "No suggestion provided." when the finding has no suggestion', () => {

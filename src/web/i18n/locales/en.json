@@ -60,7 +60,8 @@
       "source": "Source"
     },
     "cta": {
-      "submit": "Submit review",
+      "include": "Include in review",
+      "included": "Included",
       "edit": "Edit",
       "discard": "Discard"
     }
