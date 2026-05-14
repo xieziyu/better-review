@@ -2,6 +2,7 @@
   "name": "better-review",
   "version": "0.1.0",
   "description": "Local PR review helper combining claude CLI + gh CLI with a browser UI.",
+  "license": "GPL-3.0-or-later",
   "bin": {
     "better-review": "dist/cli/index.js"
   },
