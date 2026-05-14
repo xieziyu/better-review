@@ -162,4 +162,6 @@ pnpm run format        # 写盘；CI 用 format:check
 
 ## License
 
-MIT — 详见 [LICENSE](./LICENSE).
+Copyright (C) 2026 xieziyu
+
+better-review 是自由软件，采用 **GNU General Public License v3.0 或更高版本** 授权——详见 [LICENSE](./LICENSE)。
