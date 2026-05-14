@@ -165,9 +165,7 @@
     },
     "defaultAgent": {
       "label": "默认 agent",
-      "hint": "新建评审会话时未显式指定 agent 则使用此项。即使 agent 缺失也可保留选择，方便后续安装。",
-      "found": "已找到 {{kind}}",
-      "missing": "未找到 {{kind}}"
+      "hint": "新建评审会话时未显式指定 agent 则使用此项。即使 agent 缺失也可保留选择，方便后续安装。"
     },
     "stallMinutes": {
       "label": "停滞分钟数",

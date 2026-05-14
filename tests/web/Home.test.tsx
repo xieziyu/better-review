@@ -15,6 +15,7 @@ function withClient(ui: React.ReactNode, sessions: PRSession[] = []) {
     agents: {
       claude: { found: true, path: '/usr/bin/claude' },
       codex: { found: true, path: '/usr/bin/codex' },
+      pi: { found: true, path: '/usr/bin/pi' },
     },
   })
   return (
@@ -106,6 +107,7 @@ describe('Home', () => {
             agents: {
               claude: { found: true, path: '/usr/bin/claude' },
               codex: { found: true, path: '/usr/bin/codex' },
+              pi: { found: true, path: '/usr/bin/pi' },
             },
             gh: { found: true, authed: true },
             fs: { folderPicker: { supported: false } },

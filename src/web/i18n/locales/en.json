@@ -165,9 +165,7 @@
     },
     "defaultAgent": {
       "label": "Default agent",
-      "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later.",
-      "found": "{{kind}} found",
-      "missing": "{{kind}} missing"
+      "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later."
     },
     "stallMinutes": {
       "label": "Stall minutes",

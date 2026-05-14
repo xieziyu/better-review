@@ -17,6 +17,7 @@ import type { AgentKind, SSEEvent } from '../../../src/shared/types'
 const here = dirname(fileURLToPath(import.meta.url))
 const FAKE_CLAUDE = resolve(here, '../../fixtures/fake-claude.sh')
 const FAKE_CODEX = resolve(here, '../../fixtures/fake-codex.sh')
+const FAKE_PI = resolve(here, '../../fixtures/fake-pi.sh')
 
 interface AgentFixture {
   kind: AgentKind
@@ -40,6 +41,13 @@ const FIXTURES: AgentFixture[] = [
     bodyEnv: 'FAKE_CODEX_BODY',
     failEnv: 'FAKE_CODEX_FAIL',
     stallEnv: 'FAKE_CODEX_STALL',
+  },
+  {
+    kind: 'pi',
+    executable: FAKE_PI,
+    bodyEnv: 'FAKE_PI_BODY',
+    failEnv: 'FAKE_PI_FAIL',
+    stallEnv: 'FAKE_PI_STALL',
   },
 ]
 
@@ -261,7 +269,7 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
     })
   })
 
-  it('passes localRepoPath through to the agent (claude→cwd; codex→-C/--add-dir flags)', async () => {
+  it('passes localRepoPath through to the agent (claude/pi→cwd; codex→-C/--add-dir flags)', async () => {
     const localRepo = mkdtempSync(join(tmpdir(), 'br-run-lrp-'))
     // macOS /var → /private/var, so `pwd` inside the shim canonicalises tmp
     // paths. Compare both sides via realpath.
@@ -290,7 +298,9 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
       const probeText = readFileSync(probe, 'utf8').trim().split('\n')
       const cwd = probeText[0]!
       const argv = probeText.slice(1)
-      if (fx.kind === 'claude') {
+      if (fx.kind === 'claude' || fx.kind === 'pi') {
+        // claude and pi both run with cwd = sourcePath (neither has a
+        // working-dir flag); the source tree is reached directly via cwd.
         expect(cwd).toBe(realLocalRepo)
       } else {
         // codex stays rooted in the staging dir so apply_patch's project-root

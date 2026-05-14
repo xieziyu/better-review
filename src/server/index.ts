@@ -82,10 +82,9 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
 
   // Cache findExecutable() once at startup; restart the daemon to pick up
   // newly installed agents.
-  const agentPaths: Record<AgentKind, string | null> = {
-    claude: getAgent('claude').findExecutable(),
-    codex: getAgent('codex').findExecutable(),
-  }
+  const agentPaths = Object.fromEntries(
+    AGENT_KINDS.map((k) => [k, getAgent(k).findExecutable()]),
+  ) as Record<AgentKind, string | null>
 
   const resolveAgent = (kind: AgentKind): ResolvedAgent => {
     const agent: ReviewAgent = getAgent(kind)
@@ -212,10 +211,9 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       const ghWhich = whichBinary('gh')
       const status: HealthStatus = {
         ok: true,
-        agents: {
-          claude: { found: !!agentPaths.claude },
-          codex: { found: !!agentPaths.codex },
-        },
+        agents: Object.fromEntries(
+          AGENT_KINDS.map((k) => [k, { found: !!agentPaths[k] }]),
+        ) as HealthStatus['agents'],
         defaultAgent: configState.defaultAgent,
         gh: {
           found: !!ghWhich,

@@ -1,8 +1,9 @@
-import { AGENT_KINDS, type AgentKind, type HealthStatus } from '@shared/types'
+import { AGENT_KINDS, type HealthStatus } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AgentRow, PresenceMark } from '@/components/AgentList'
 import { Tag } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
 import { useUptime } from '@/lib/format'
@@ -171,47 +172,6 @@ function Section({
       <div className="text-caps tracking-caps text-ink-muted uppercase mb-2">{label}</div>
       {children}
     </section>
-  )
-}
-
-function PresenceMark({ ok }: { ok: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'inline-flex items-center justify-center size-3.5 rounded-full text-[10px] font-bold leading-none shrink-0',
-        ok ? 'bg-accent-ready/15 text-accent-ready' : 'bg-severity-must/15 text-severity-must',
-      )}
-    >
-      {ok ? '✓' : '✗'}
-    </span>
-  )
-}
-
-function AgentRow({
-  kind,
-  path,
-  found,
-  isDefault,
-}: {
-  kind: AgentKind
-  path: string | undefined
-  found: boolean
-  isDefault: boolean
-}) {
-  const { t } = useTranslation()
-  return (
-    <li className="flex items-center gap-2 min-w-0">
-      <PresenceMark ok={found} />
-      <span className="text-meta text-ink-secondary w-12 shrink-0">{kind}</span>
-      <span
-        className="font-mono text-code text-ink-secondary truncate flex-1"
-        title={path ?? t('daemon.notFound')}
-      >
-        {path ?? t('daemon.notFound')}
-      </span>
-      {isDefault ? <Tag tone="brand">{t('daemon.default')}</Tag> : null}
-    </li>
   )
 }
 

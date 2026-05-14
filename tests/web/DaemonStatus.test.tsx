@@ -17,6 +17,7 @@ const healthy: HealthStatus = {
   agents: {
     claude: { found: true, path: '/usr/local/bin/claude' },
     codex: { found: true, path: '/usr/local/bin/codex' },
+    pi: { found: true, path: '/usr/local/bin/pi' },
   },
   defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
@@ -44,7 +45,11 @@ describe('DaemonStatus', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
-        agents: { claude: { found: true, path: '/x' }, codex: { found: false } },
+        agents: {
+          claude: { found: true, path: '/x' },
+          codex: { found: false },
+          pi: { found: true, path: '/y' },
+        },
       }),
     )
     const trigger = screen.getByRole('button', { name: /daemon has warnings/i })
@@ -55,7 +60,11 @@ describe('DaemonStatus', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
-        agents: { claude: { found: false }, codex: { found: true, path: '/x' } },
+        agents: {
+          claude: { found: false },
+          codex: { found: true, path: '/x' },
+          pi: { found: true, path: '/y' },
+        },
       }),
     )
     const trigger = screen.getByRole('button', { name: /daemon has blockers/i })

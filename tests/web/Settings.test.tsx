@@ -20,6 +20,7 @@ const baseHealth: HealthStatus = {
   agents: {
     claude: { found: true, path: '/usr/local/bin/claude' },
     codex: { found: true, path: '/usr/local/bin/codex' },
+    pi: { found: true, path: '/usr/local/bin/pi' },
   },
   defaultAgent: 'claude',
   gh: { found: true, path: '/usr/local/bin/gh', authed: true },
@@ -78,15 +79,19 @@ describe('Settings', () => {
     expect(tags.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('shows missing-agent tag when health reports an agent missing', () => {
+  it('lists each agent with its availability and resolved path', () => {
     renderSettings({
       health: {
         ...baseHealth,
-        agents: { claude: { found: true, path: '/x' }, codex: { found: false } },
+        agents: {
+          claude: { found: true, path: '/x' },
+          codex: { found: false },
+          pi: { found: false },
+        },
       },
     })
-    expect(screen.getByText(/codex missing/i)).toBeInTheDocument()
-    expect(screen.getByText(/claude found/i)).toBeInTheDocument()
+    expect(screen.getByText('/x')).toBeInTheDocument()
+    expect(screen.getAllByText(/not found/i).length).toBeGreaterThanOrEqual(2)
   })
 
   it('Save is disabled until the form is dirty, and Discard restores the original', async () => {

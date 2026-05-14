@@ -291,7 +291,7 @@ export function Home() {
           )}
 
           <fieldset
-            className="flex items-center gap-1.5 text-meta text-ink-secondary"
+            className="flex flex-wrap items-center gap-1.5 text-meta text-ink-secondary"
             aria-label={t('home.agent.legend')}
           >
             <legend className="sr-only">{t('home.agent.legend')}</legend>

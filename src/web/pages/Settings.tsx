@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
+import { AgentRow } from '@/components/AgentList'
 import { Button, Field, NumberInput, Select, Tag } from '@/components/ui'
 import { ApiError, api, queryKeys } from '@/lib/api'
 
@@ -182,21 +183,6 @@ export function Settings() {
           label={t('settings.defaultAgent.label')}
           htmlFor="cfg-defaultAgent"
           hint={t('settings.defaultAgent.hint')}
-          trail={
-            agentHealth
-              ? AGENT_KINDS.map((k) =>
-                  agentHealth[k].found ? (
-                    <Tag key={k} tone="success">
-                      {t('settings.defaultAgent.found', { kind: k })}
-                    </Tag>
-                  ) : (
-                    <Tag key={k} tone="danger">
-                      {t('settings.defaultAgent.missing', { kind: k })}
-                    </Tag>
-                  ),
-                )
-              : null
-          }
         >
           <Select
             id="cfg-defaultAgent"
@@ -211,6 +197,19 @@ export function Settings() {
               </option>
             ))}
           </Select>
+          {agentHealth ? (
+            <ul className="space-y-1.5 mt-2">
+              {AGENT_KINDS.map((k) => (
+                <AgentRow
+                  key={k}
+                  kind={k}
+                  path={agentHealth[k].path}
+                  found={agentHealth[k].found}
+                  isDefault={draft.defaultAgent === k}
+                />
+              ))}
+            </ul>
+          ) : null}
         </Field>
 
         <Field
