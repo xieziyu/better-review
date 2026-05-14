@@ -158,6 +158,7 @@
     "language": {
       "label": "Language",
       "hint": "Controls the UI language and the language the review agent writes findings in.",
+      "menuAria": "Select language",
       "options": {
         "en": "English",
         "zh-CN": "简体中文"
@@ -165,7 +166,9 @@
     },
     "defaultAgent": {
       "label": "Default agent",
-      "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later."
+      "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later.",
+      "menuAria": "Select default agent",
+      "notFound": "(not found)"
     },
     "stallMinutes": {
       "label": "Stall minutes",

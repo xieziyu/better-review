@@ -98,9 +98,9 @@ describe('DaemonStatus', () => {
     const user = userEvent.setup()
     render(withClient(<DaemonStatus />, healthy))
     await user.click(screen.getByRole('button', { name: /daemon healthy/i }))
-    const popover = await screen.findByRole('dialog')
-    // The default tag is rendered next to the claude row
-    expect(popover.querySelector('li:first-child')).toHaveTextContent(/default/i)
+    await screen.findByRole('dialog')
+    // The default tag renders on the default agent's row (claude in this fixture).
+    expect(screen.getByText('claude').closest('li')).toHaveTextContent(/default/i)
   })
 
   it('closes the popover on Escape', async () => {

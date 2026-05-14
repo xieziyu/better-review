@@ -36,7 +36,7 @@ const rawConfigSchema = z.object({
   port: z.number().int().nonnegative().default(0),
   maxConcurrentReviews: z.number().int().positive().default(4),
   stallMinutes: z.number().int().positive().default(3),
-  defaultAgent: z.enum(AGENT_KINDS).default('claude'),
+  defaultAgent: z.enum(AGENT_KINDS).default('codex'),
   perPRGCDays: z.number().int().nonnegative().default(7),
   language: z.enum(LANGUAGES).default(() => detectSystemLanguage()),
   // Deprecated alias kept for backward compatibility — superseded by `stallMinutes`.

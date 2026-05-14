@@ -158,6 +158,7 @@
     "language": {
       "label": "语言",
       "hint": "控制界面语言，以及评审 agent 撰写 findings 时使用的语言。",
+      "menuAria": "选择语言",
       "options": {
         "en": "English",
         "zh-CN": "简体中文"
@@ -165,7 +166,9 @@
     },
     "defaultAgent": {
       "label": "默认 agent",
-      "hint": "新建评审会话时未显式指定 agent 则使用此项。即使 agent 缺失也可保留选择，方便后续安装。"
+      "hint": "新建评审会话时未显式指定 agent 则使用此项。即使 agent 缺失也可保留选择，方便后续安装。",
+      "menuAria": "选择默认 agent",
+      "notFound": "(找不到)"
     },
     "stallMinutes": {
       "label": "停滞分钟数",

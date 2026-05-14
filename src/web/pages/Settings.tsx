@@ -1,10 +1,10 @@
-import { AGENT_KINDS, LANGUAGES, type AppConfig, type Language } from '@shared/types'
+import { AGENT_KINDS, LANGUAGES, type AppConfig } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
-import { AgentRow } from '@/components/AgentList'
-import { Button, Field, NumberInput, Select, Tag } from '@/components/ui'
+import { StatusDot } from '@/components/AgentList'
+import { Button, Field, NumberInput, SelectMenu, SelectMenuCheck, Tag } from '@/components/ui'
 import { ApiError, api, queryKeys } from '@/lib/api'
 
 interface FieldErrors {
@@ -161,55 +161,53 @@ export function Settings() {
       </header>
 
       <section className="space-y-6">
-        <Field
-          label={t('settings.language.label')}
-          htmlFor="cfg-language"
-          hint={t('settings.language.hint')}
-        >
-          <Select
-            id="cfg-language"
+        <Field label={t('settings.language.label')} hint={t('settings.language.hint')}>
+          <SelectMenu
             value={draft.language}
-            onChange={(e) => set('language', e.currentTarget.value as Language)}
-          >
-            {LANGUAGES.map((lng) => (
-              <option key={lng} value={lng}>
-                {t(`settings.language.options.${lng}`)}
-              </option>
-            ))}
-          </Select>
+            options={LANGUAGES}
+            onChange={(lng) => set('language', lng)}
+            getKey={(lng) => lng}
+            ariaLabel={t('settings.language.label')}
+            menuAriaLabel={t('settings.language.menuAria')}
+            renderTrigger={(lng) => (
+              <span className="flex-1">{t(`settings.language.options.${lng}`)}</span>
+            )}
+            renderOption={(lng, selected) => (
+              <>
+                <span className="flex-1">{t(`settings.language.options.${lng}`)}</span>
+                <SelectMenuCheck selected={selected} />
+              </>
+            )}
+          />
         </Field>
 
-        <Field
-          label={t('settings.defaultAgent.label')}
-          htmlFor="cfg-defaultAgent"
-          hint={t('settings.defaultAgent.hint')}
-        >
-          <Select
-            id="cfg-defaultAgent"
+        <Field label={t('settings.defaultAgent.label')} hint={t('settings.defaultAgent.hint')}>
+          <SelectMenu
             value={draft.defaultAgent}
-            onChange={(e) =>
-              set('defaultAgent', e.currentTarget.value as AppConfig['defaultAgent'])
-            }
-          >
-            {AGENT_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </Select>
-          {agentHealth ? (
-            <ul className="space-y-1.5 mt-2">
-              {AGENT_KINDS.map((k) => (
-                <AgentRow
-                  key={k}
-                  kind={k}
-                  path={agentHealth[k].path}
-                  found={agentHealth[k].found}
-                  isDefault={draft.defaultAgent === k}
-                />
-              ))}
-            </ul>
-          ) : null}
+            options={AGENT_KINDS}
+            onChange={(k) => set('defaultAgent', k)}
+            getKey={(k) => k}
+            ariaLabel={t('settings.defaultAgent.label')}
+            menuAriaLabel={t('settings.defaultAgent.menuAria')}
+            renderTrigger={(k) => (
+              <>
+                {agentHealth ? <StatusDot ok={agentHealth[k].found} /> : null}
+                <span className="flex-1">{k}</span>
+              </>
+            )}
+            renderOption={(k, selected) => (
+              <>
+                {agentHealth ? <StatusDot ok={agentHealth[k].found} /> : null}
+                <span className="flex-1">{k}</span>
+                {agentHealth && !agentHealth[k].found ? (
+                  <span className="text-meta text-ink-muted">
+                    {t('settings.defaultAgent.notFound')}
+                  </span>
+                ) : null}
+                <SelectMenuCheck selected={selected} />
+              </>
+            )}
+          />
         </Field>
 
         <Field

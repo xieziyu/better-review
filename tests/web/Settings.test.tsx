@@ -66,7 +66,7 @@ describe('Settings', () => {
   it('renders all five fields with current values and the config file path', () => {
     renderSettings()
     expect(screen.getByText(/\.better-review\/config\.json/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/default agent/i)).toHaveValue('claude')
+    expect(screen.getByRole('button', { name: /default agent/i })).toHaveTextContent('claude')
     expect(screen.getByLabelText(/stall minutes/i)).toHaveValue(3)
     expect(screen.getByLabelText(/per-pr gc days/i)).toHaveValue(7)
     expect(screen.getByLabelText(/max concurrent reviews/i)).toHaveValue(4)
@@ -79,7 +79,8 @@ describe('Settings', () => {
     expect(tags.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('lists each agent with its availability and resolved path', () => {
+  it('shows each agent availability inside the opened dropdown', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderSettings({
       health: {
         ...baseHealth,
@@ -90,8 +91,13 @@ describe('Settings', () => {
         },
       },
     })
-    expect(screen.getByText('/x')).toBeInTheDocument()
-    expect(screen.getAllByText(/not found/i).length).toBeGreaterThanOrEqual(2)
+    await user.click(screen.getByRole('button', { name: /default agent/i }))
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    // Missing agents are flagged; the found one is not.
+    expect(screen.getAllByText(/not found/i)).toHaveLength(2)
+    expect(screen.getByRole('menuitemradio', { name: /claude/i })).not.toHaveTextContent(
+      /not found/i,
+    )
   })
 
   it('Save is disabled until the form is dirty, and Discard restores the original', async () => {
@@ -148,16 +154,18 @@ describe('Settings', () => {
     await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument())
   })
 
-  it('keeps the language Select in lockstep with the cached config (top-bar switcher)', async () => {
+  it('keeps the language dropdown in lockstep with the cached config (top-bar switcher)', async () => {
     const { qc } = renderSettings()
-    expect(screen.getByLabelText(/^language$/i)).toHaveValue('en')
+    expect(screen.getByRole('button', { name: /^language$/i })).toHaveTextContent('English')
     // Simulate the top-bar LanguageSwitcher: it persists via PUT and updates
-    // the shared TanStack Query cache. The Settings Select must follow.
+    // the shared TanStack Query cache. The Settings dropdown must follow.
     qc.setQueryData(['config'], {
       config: { ...baseConfig, language: 'zh-CN' as const },
       file: '/Users/x/.better-review/config.json',
     })
-    await waitFor(() => expect(screen.getByLabelText(/^language$/i)).toHaveValue('zh-CN'))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^language$/i })).toHaveTextContent('简体中文'),
+    )
     // Form is back to clean — the external change matched the server, so
     // Save stays disabled rather than reading as a pending user edit.
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()

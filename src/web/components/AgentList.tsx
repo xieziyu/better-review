@@ -18,6 +18,18 @@ export function PresenceMark({ ok }: { ok: boolean }) {
   )
 }
 
+// A plain colored status dot — used where a ✓/✗ mark would clash with
+// selection semantics (e.g. inside the agent SelectMenu, which also renders a
+// real selected-check). Green = available, red = not found.
+export function StatusDot({ ok }: { ok: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('size-2 rounded-full shrink-0', ok ? 'bg-accent-ready' : 'bg-severity-must')}
+    />
+  )
+}
+
 // One agent's availability row: presence mark + kind + resolved path (or
 // "not found") + an optional "default" tag. Vertical-list shaped so it scales
 // to any number of agents — shared by the daemon-status popover and Settings.

@@ -9,7 +9,7 @@ export type SessionStatus =
   | 'pending'
   | 'cancelled'
 
-export const AGENT_KINDS = ['claude', 'codex', 'pi'] as const
+export const AGENT_KINDS = ['codex', 'claude', 'pi'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]
 
 export const LANGUAGES = ['en', 'zh-CN'] as const
