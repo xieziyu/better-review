@@ -65,6 +65,8 @@ export const api = {
     }
     return await res.text()
   },
+  getSessionTranscript: (id: string): Promise<{ chunks: string[]; truncated: boolean }> =>
+    req(`/api/sessions/${id}/transcript`),
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> => req(`/api/sessions/${id}`, { method: 'DELETE' }),
@@ -126,6 +128,7 @@ export const queryKeys = {
   health: ['health'] as const,
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
+  sessionTranscript: (id: string) => ['session-transcript', id] as const,
   prompts: ['prompts'] as const,
   config: ['config'] as const,
   recentRepos: (owner: string, repo: string) => ['recent-repos', owner, repo] as const,

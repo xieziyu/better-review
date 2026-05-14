@@ -40,7 +40,7 @@ describe('buildSubmitPayload', () => {
     })
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).toMatchObject({ path: 'foo.ts', line: 11, side: 'RIGHT' })
-    expect(r.payload.comments[0]!.body).toContain('🔴 **[must]** t')
+    expect(r.payload.comments[0]!.body).toContain('🔴 **[MUST]** t')
     expect(r.droppedToBody).toHaveLength(0)
   })
 
@@ -51,7 +51,7 @@ describe('buildSubmitPayload', () => {
       event: 'COMMENT',
     })
     expect(r.payload.comments).toHaveLength(0)
-    expect(r.payload.body).toContain('### 🔴 **[must]** t')
+    expect(r.payload.body).toContain('### 🔴 **[MUST]** t')
     expect(r.payload.body).toContain('body text')
   })
 
@@ -66,9 +66,9 @@ describe('buildSubmitPayload', () => {
       event: 'COMMENT',
     })
 
-    expect(r.payload.comments[0]!.body).toContain('🔴 **[must]** must title')
-    expect(r.payload.body).toContain('### 🟡 **[should]** should title')
-    expect(r.payload.body).toContain('### 🟢 **[nit]** nit title')
+    expect(r.payload.comments[0]!.body).toContain('🔴 **[MUST]** must title')
+    expect(r.payload.body).toContain('### 🟡 **[SHOULD]** should title')
+    expect(r.payload.body).toContain('### 🔵 **[NIT]** nit title')
   })
 
   it('line outside diff drops to body', () => {
@@ -91,6 +91,17 @@ describe('buildSubmitPayload', () => {
     })
     expect(r.payload.body).toContain('LGTM!')
     expect(r.payload.event).toBe('APPROVE')
+  })
+
+  it('renders a PR-wide finding once even when userBody is present', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [f({ file: null, line: null, title: 'unique pr-wide title' })],
+      event: 'COMMENT',
+      userBody: 'my own notes',
+    })
+    expect(r.payload.body).toContain('my own notes')
+    expect(r.payload.body.match(/unique pr-wide title/g)).toHaveLength(1)
   })
 
   it('includes suggestion block in inline comment', () => {

@@ -4,11 +4,16 @@ import { join } from 'node:path'
 import { Hono } from 'hono'
 
 import { AGENT_KINDS, type AgentKind } from '../../../shared/types'
+import { getAgent } from '../../engine/agent'
 import type { AppDeps } from '../app'
 
 function isAgentKind(value: unknown): value is AgentKind {
   return typeof value === 'string' && (AGENT_KINDS as readonly string[]).includes(value)
 }
+
+// Cap how much of agent.log we replay into a completed session's transcript.
+// stream-json logs can run to MBs; the tail is what's worth showing.
+const TRANSCRIPT_TAIL_LINES = 2000
 
 export function sessionsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
@@ -65,6 +70,21 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const cache = join(s.workdir, 'diff.cache')
     const diff = existsSync(cache) ? readFileSync(cache, 'utf8') : null
     return c.json({ diff })
+  })
+  // Replay the persisted agent.log into transcript lines so completed
+  // sessions keep a read-only view of their last run after a page reload
+  // (the live agent-output SSE stream is gone once the session ends).
+  r.get('/sessions/:id/transcript', (c) => {
+    const id = c.req.param('id')
+    const s = deps.sessions.getById(id)
+    if (!s) return c.json({ error: 'not found' }, 404)
+    const logPath = join(s.workdir, 'agent.log')
+    if (!existsSync(logPath)) return c.json({ chunks: [], truncated: false })
+    const lines = readFileSync(logPath, 'utf8').split('\n')
+    const truncated = lines.length > TRANSCRIPT_TAIL_LINES
+    const tail = truncated ? lines.slice(-TRANSCRIPT_TAIL_LINES) : lines
+    const chunks = getAgent(s.agent).parseLog(tail.join('\n'))
+    return c.json({ chunks, truncated })
   })
   r.delete('/sessions/:id', async (c) => {
     try {

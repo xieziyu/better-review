@@ -48,7 +48,8 @@
     "follow": "跟随",
     "followAria": "跟随到底部",
     "openAria": "展开 transcript 抽屉",
-    "closeAria": "收起 transcript 抽屉"
+    "closeAria": "收起 transcript 抽屉",
+    "truncatedNotice": "… 较早的输出已截断"
   },
   "inspector": {
     "section": {
@@ -60,7 +61,8 @@
       "source": "Source"
     },
     "cta": {
-      "submit": "提交评审",
+      "include": "纳入此条",
+      "included": "已纳入",
       "edit": "编辑",
       "discard": "丢弃"
     }
@@ -316,8 +318,6 @@
     "noSelection": "未选中任何 finding。",
     "reviewBody": "评审正文（Markdown）",
     "reviewBodyAria": "评审正文",
-    "autoFilled_one": "已从 1 条 PR-wide finding 自动填充。",
-    "autoFilled_other": "已从 {{count}} 条 PR-wide findings 自动填充。",
     "diffNotLoaded": "Diff 尚未加载。提交时会再做一次行内位置校验。",
     "submitted": "已提交",
     "droppedToBody": "{{count}} 条 finding 已挪到 review body（行不在 diff 中）。",

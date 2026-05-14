@@ -384,6 +384,106 @@ describe('sessions API', () => {
     expect(res.status).toBe(404)
   })
 
+  it('GET /api/sessions/:id/transcript replays agent.log into chunks', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-transcript-'))
+    writeFileSync(
+      join(wd, 'agent.log'),
+      [
+        '{"type":"system","subtype":"init","model":"claude-opus-4-7"}',
+        '[stream-json error] noise',
+        '{"type":"result","subtype":"success"}',
+      ].join('\n'),
+    )
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/transcript')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { chunks: string[]; truncated: boolean }
+    expect(j.chunks).toEqual(['system: init (model=claude-opus-4-7)', 'result: success'])
+    expect(j.truncated).toBe(false)
+  })
+
+  it('GET /api/sessions/:id/transcript tail-truncates a large log', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-transcript-big-'))
+    const lines = Array.from({ length: 2001 }, (_, i) => `codex line ${i}`)
+    writeFileSync(join(wd, 'agent.log'), lines.join('\n'))
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'codex',
+      workdir: wd,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/transcript')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { chunks: string[]; truncated: boolean }
+    expect(j.truncated).toBe(true)
+    expect(j.chunks).toHaveLength(2000)
+    expect(j.chunks[0]).toBe('codex line 1')
+    expect(j.chunks[1999]).toBe('codex line 2000')
+  })
+
+  it('GET /api/sessions/:id/transcript returns empty when agent.log missing', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-transcript-empty-'))
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'failed',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/transcript')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { chunks: string[]; truncated: boolean }
+    expect(j.chunks).toEqual([])
+    expect(j.truncated).toBe(false)
+  })
+
+  it('GET /api/sessions/:id/transcript returns 404 when session unknown', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing/transcript')
+    expect(res.status).toBe(404)
+  })
+
   it('POST /api/sessions/:id/rerun calls rerunSession and returns fresh id', async () => {
     let receivedId: string | null = null
     let receivedOpts: { agent?: string; extraPrompt?: string } | undefined

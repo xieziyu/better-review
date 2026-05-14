@@ -1,7 +1,7 @@
 import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, Pencil, Trash2 } from 'lucide-react'
+import { Check, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
@@ -10,7 +10,7 @@ import rehypeHighlight from 'rehype-highlight'
 import { DiffViewer } from '@/components/DiffViewer'
 import { Button, ConfirmAction, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
-import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
+import { useSelectedFinding } from '@/lib/selection'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -35,7 +35,6 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { setSelectedFindingDbId } = useSelectedFinding()
-  const submitDrawer = useSubmitDrawer()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({
@@ -92,19 +91,6 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
     },
   })
 
-  const onSubmitClick = () => {
-    if (!finding.selected) {
-      select.mutate(true, {
-        onSuccess: () => {
-          invalidate()
-          submitDrawer.open()
-        },
-      })
-      return
-    }
-    submitDrawer.open()
-  }
-
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (editing) {
       if (e.key === 'Escape') {
@@ -137,7 +123,40 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
           <header className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <SeverityLabel level={finding.severity} />
-              <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-meta text-ink-muted tabular-nums">
+                  {finding.id}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => select.mutate(!finding.selected)}
+                  disabled={select.isPending}
+                  aria-pressed={finding.selected}
+                  aria-label={t(
+                    finding.selected ? 'finding.unselectAriaLabel' : 'finding.selectAriaLabel',
+                    { id: finding.id },
+                  )}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-sm border px-2 py-1 text-meta transition-colors duration-180 ease-out-quart disabled:opacity-60',
+                    finding.selected
+                      ? 'border-brand bg-brand/10 text-brand'
+                      : 'border-rule text-ink-secondary hover:border-ink-muted',
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'flex size-3.5 items-center justify-center rounded-[2px] border',
+                      finding.selected
+                        ? 'border-brand bg-brand text-brand-ink'
+                        : 'border-rule bg-transparent text-transparent',
+                    )}
+                  >
+                    <Check size={10} strokeWidth={3} aria-hidden="true" />
+                  </span>
+                  {finding.selected ? t('inspector.cta.included') : t('inspector.cta.include')}
+                </button>
+              </div>
             </div>
             {!editing ? (
               <h2 className="text-h1 text-ink-primary">{finding.title}</h2>
@@ -304,49 +323,38 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
 
       <footer className="sticky bottom-0 shrink-0 border-t border-rule bg-raised px-6 py-3">
         {!editing ? (
-          <div className="flex items-center gap-2 justify-between">
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={onSubmitClick}
-              disabled={select.isPending}
+          <div className="flex items-center gap-1 justify-end">
+            <KbdTooltip keys={['e']} label={t('inspector.cta.edit')}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditing(true)}
+                aria-label={t('inspector.cta.edit')}
+              >
+                <Pencil size={12} aria-hidden="true" />
+                {t('inspector.cta.edit')}
+              </Button>
+            </KbdTooltip>
+            <ConfirmAction
+              title={t('finding.deleteTitle', { id: finding.id })}
+              description={t('finding.deleteDesc')}
+              confirmLabel={t('finding.deleteConfirm')}
+              onConfirm={() => remove.mutate()}
             >
-              {t('inspector.cta.submit')}
-            </Button>
-            <div className="flex items-center gap-1">
-              <KbdTooltip keys={['e']} label={t('inspector.cta.edit')}>
+              {(requestConfirm) => (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="danger"
                   size="sm"
-                  onClick={() => setEditing(true)}
-                  aria-label={t('inspector.cta.edit')}
+                  onClick={requestConfirm}
+                  aria-label={t('inspector.cta.discard')}
                 >
-                  <Pencil size={12} aria-hidden="true" />
-                  {t('inspector.cta.edit')}
+                  <Trash2 size={12} aria-hidden="true" />
+                  {t('inspector.cta.discard')}
                 </Button>
-              </KbdTooltip>
-              <ConfirmAction
-                title={t('finding.deleteTitle', { id: finding.id })}
-                description={t('finding.deleteDesc')}
-                confirmLabel={t('finding.deleteConfirm')}
-                onConfirm={() => remove.mutate()}
-              >
-                {(requestConfirm) => (
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    onClick={requestConfirm}
-                    aria-label={t('inspector.cta.discard')}
-                  >
-                    <Trash2 size={12} aria-hidden="true" />
-                    {t('inspector.cta.discard')}
-                  </Button>
-                )}
-              </ConfirmAction>
-            </div>
+              )}
+            </ConfirmAction>
           </div>
         ) : (
           <div className="flex items-center gap-2 justify-end">

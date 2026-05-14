@@ -28,7 +28,7 @@ export default {
         },
         accent: {
           ready: 'var(--accent-ready)',
-          running: 'var(--accent-running)',
+          active: 'var(--accent-active)',
         },
       },
       fontFamily: {

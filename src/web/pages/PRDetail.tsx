@@ -444,6 +444,19 @@ export function PRDetail() {
     queryFn: api.listSessions,
   })
 
+  // Once a session ends, the live agent-output SSE stream is gone. For a
+  // terminal session with no live chunks (page reloaded / opened after the
+  // run), replay the transcript from the persisted agent.log instead.
+  const { data: diskTranscript } = useQuery({
+    queryKey: queryKeys.sessionTranscript(id),
+    queryFn: () => api.getSessionTranscript(id),
+    enabled:
+      !!data &&
+      agentChunks.length === 0 &&
+      data.session.status !== 'running' &&
+      data.session.status !== 'pending',
+  })
+
   useSSE(`/api/sessions/${id}/events`, (e) => {
     if (e.type === 'agent-output') {
       setAgentChunks((prev) => [...prev, e.chunk])
@@ -539,6 +552,14 @@ export function PRDetail() {
   }
 
   const { session, findings } = data
+  // Live chunks win while/after watching a run; fall back to the disk replay.
+  const replayChunks = Array.isArray(diskTranscript?.chunks) ? diskTranscript.chunks : []
+  const transcriptChunks =
+    agentChunks.length > 0
+      ? agentChunks
+      : diskTranscript?.truncated
+        ? [t('transcriptDrawer.truncatedNotice'), ...replayChunks]
+        : replayChunks
   const activeFindings = findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -663,7 +684,7 @@ export function PRDetail() {
       <div className="flex-1 min-h-0 flex flex-col">{findingsBody}</div>
 
       <TranscriptDrawer
-        chunks={agentChunks}
+        chunks={transcriptChunks}
         status={session.status}
         open={transcriptDrawer.open}
         onToggle={transcriptDrawer.toggle}

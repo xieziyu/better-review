@@ -83,7 +83,7 @@ Apply the rules below against the diff. Skip any rule whose preconditions don't 
 
 - 🔴 **must** — blocks merge: bugs that will hit production, security issues, type-safety escape hatches, broken contracts.
 - 🟡 **should** — serious enough that a reviewer would normally request changes: design smells, missing error handling, performance traps, naming that will mislead.
-- 🟢 **nit** — minor polish: small naming preferences, comment fixes, optional refactors. Never blocks.
+- 🔵 **nit** — minor polish: small naming preferences, comment fixes, optional refactors. Never blocks.
 
 ## Output
 

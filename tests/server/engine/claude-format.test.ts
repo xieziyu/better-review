@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatClaudeEvent } from '../../../src/server/engine/agent/claude'
+import { ClaudeAgent, formatClaudeEvent } from '../../../src/server/engine/agent/claude'
 
 describe('formatClaudeEvent', () => {
   it('formats system init with model when present', () => {
@@ -108,5 +108,39 @@ describe('formatClaudeEvent', () => {
 
   it('returns empty for unknown event types', () => {
     expect(formatClaudeEvent({ type: 'something_else' })).toEqual([])
+  })
+})
+
+describe('ClaudeAgent.parseLog', () => {
+  const agent = new ClaudeAgent()
+
+  it('reconstructs transcript lines from stream-json log', () => {
+    const raw = [
+      '{"type":"system","subtype":"init","model":"claude-opus-4-7"}',
+      '{"type":"assistant","message":{"content":[{"type":"text","text":"Reading the diff"}]}}',
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"a.ts"}}]}}',
+      '{"type":"result","subtype":"success"}',
+    ].join('\n')
+    expect(agent.parseLog(raw)).toEqual([
+      'system: init (model=claude-opus-4-7)',
+      'Reading the diff',
+      '→ tool: Read({"file_path":"a.ts"})',
+      'result: success',
+    ])
+  })
+
+  it('skips non-JSON noise lines (stderr fragments, error markers)', () => {
+    const raw = [
+      '{"type":"system","subtype":"init"}',
+      '[stream-json error] Unexpected token',
+      'some raw stderr chunk',
+      '',
+      '{"type":"result","subtype":"success"}',
+    ].join('\n')
+    expect(agent.parseLog(raw)).toEqual(['system: init', 'result: success'])
+  })
+
+  it('returns empty for empty input', () => {
+    expect(agent.parseLog('')).toEqual([])
   })
 })

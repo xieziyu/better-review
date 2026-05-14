@@ -101,12 +101,12 @@ export function RunStrip({
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-caps tracking-caps uppercase shrink-0',
-            isLive ? 'text-accent-running' : 'text-ink-secondary',
+            isLive ? 'text-accent-active' : 'text-ink-secondary',
           )}
         >
           {isLive ? (
             <span
-              className="inline-block size-1.5 rounded-full bg-accent-running motion-safe:animate-running-pulse"
+              className="inline-block size-1.5 rounded-full bg-accent-active motion-safe:animate-running-pulse"
               aria-hidden="true"
             />
           ) : (
@@ -149,7 +149,7 @@ export function RunStrip({
 
       {isLive ? (
         <div className="relative h-0.5 w-full overflow-hidden bg-rule/60" aria-hidden="true">
-          <div className="absolute inset-y-0 w-1/4 bg-accent-running motion-safe:animate-progress-indeterminate" />
+          <div className="absolute inset-y-0 w-1/4 bg-accent-active motion-safe:animate-progress-indeterminate" />
         </div>
       ) : (
         <div className="h-0.5 w-full bg-rule/60" aria-hidden="true" />
