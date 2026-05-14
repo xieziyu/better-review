@@ -68,7 +68,7 @@ describe('buildSubmitPayload', () => {
 
     expect(r.payload.comments[0]!.body).toContain('🔴 **[must]** must title')
     expect(r.payload.body).toContain('### 🟡 **[should]** should title')
-    expect(r.payload.body).toContain('### 🟢 **[nit]** nit title')
+    expect(r.payload.body).toContain('### 🔵 **[nit]** nit title')
   })
 
   it('line outside diff drops to body', () => {

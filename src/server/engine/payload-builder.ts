@@ -17,7 +17,7 @@ export interface BuildResult {
 function severityTag(s: Finding['severity']): string {
   if (s === 'must') return '🔴 **[must]**'
   if (s === 'should') return '🟡 **[should]**'
-  return '🟢 **[nit]**'
+  return '🔵 **[nit]**'
 }
 
 function formatLineLoc(f: Finding): string {

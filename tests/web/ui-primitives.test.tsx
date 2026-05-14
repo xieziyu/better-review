@@ -32,14 +32,20 @@ describe('ui primitives', () => {
     expect(el.className).toMatch(/bg-brand/)
   })
 
-  it('SeverityLabel writes data-level and inline `→ CAPS` wordmark', () => {
-    const { container } = render(<SeverityLabel level="must" />)
+  it('SeverityLabel writes data-level and inline icon + CAPS wordmark per level', () => {
+    const { container, rerender } = render(<SeverityLabel level="must" />)
     const wrapper = container.querySelector('[data-level="must"]')
     expect(wrapper).toBeTruthy()
     expect(wrapper?.className).toMatch(/text-severity-must/)
-    expect(wrapper?.textContent).toContain('→')
+    expect(wrapper?.textContent).toContain('🔴')
     expect(wrapper?.textContent).toContain('MUST')
     expect(screen.getByLabelText(/severity: must/i)).toBe(wrapper)
+
+    rerender(<SeverityLabel level="should" />)
+    expect(container.querySelector('[data-level="should"]')?.textContent).toContain('🟡')
+
+    rerender(<SeverityLabel level="nit" />)
+    expect(container.querySelector('[data-level="nit"]')?.textContent).toContain('🔵')
   })
 
   it('SectionHeader shows eyebrow + title + meta + actions', () => {

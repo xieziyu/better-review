@@ -19,6 +19,12 @@ const LABEL: Record<Severity, string> = {
   nit: 'NIT',
 }
 
+const ICON: Record<Severity, string> = {
+  must: '🔴',
+  should: '🟡',
+  nit: '🔵',
+}
+
 export function SeverityLabel({ level, className }: Props) {
   return (
     <span
@@ -30,7 +36,7 @@ export function SeverityLabel({ level, className }: Props) {
       )}
       aria-label={`severity: ${LABEL[level].toLowerCase()}`}
     >
-      <span aria-hidden="true">→</span>
+      <span aria-hidden="true">{ICON[level]}</span>
       <span>{LABEL[level]}</span>
     </span>
   )

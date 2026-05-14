@@ -33,7 +33,7 @@ const SEVERITY_TEXT: Record<Finding['severity'], string> = {
 function severityTag(severity: Finding['severity']): string {
   if (severity === 'must') return '🔴 **[must]**'
   if (severity === 'should') return '🟡 **[should]**'
-  return '🟢 **[nit]**'
+  return '🔵 **[nit]**'
 }
 
 function formatPRWideBody(prWide: Finding[]): string {

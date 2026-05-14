@@ -38,13 +38,13 @@ export interface DedupResult {
   skipped: SkippedDuplicate[]
 }
 
-// Strip the leading severity tag (🔴/🟡/🟢 + **[xxx]**) and keep the rest
+// Strip the leading severity tag (🔴/🟡/🔵 + **[xxx]**) and keep the rest
 // of the first non-empty line. Lowercase, strip leading punctuation, and
 // collapse whitespace.
 function normalizeTitle(raw: string): string {
   const firstLine = raw.split('\n').find((l) => l.trim().length > 0) ?? ''
   return firstLine
-    .replace(/^[\u{1F534}\u{1F7E1}\u{1F7E2}]\s*\*\*\[[^\]]+\]\*\*\s*/u, '')
+    .replace(/^[\u{1F534}\u{1F7E1}\u{1F535}]\s*\*\*\[[^\]]+\]\*\*\s*/u, '')
     .replace(/^[^\p{L}\p{N}]+/u, '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
