@@ -272,7 +272,13 @@ export class GhClient {
         throw new GhPRNotFoundError(`${t.owner}/${t.repo}#${t.number}`)
       throw new Error(`gh api pulls comments failed: ${txt.slice(0, 500)}`)
     }
-    return parseConcatenatedJsonArrays<GhReviewComment>(String(r.stdout))
+    // GitHub omits `in_reply_to_id` entirely on top-level (non-reply)
+    // comments rather than emitting it as null. Normalize to null here so
+    // downstream `=== null` predicates correctly identify top-level rows.
+    return parseConcatenatedJsonArrays<GhReviewComment>(String(r.stdout)).map((c) => ({
+      ...c,
+      in_reply_to_id: c.in_reply_to_id ?? null,
+    }))
   }
 
   // PR-level discussion (the issue comments thread). The PR author often

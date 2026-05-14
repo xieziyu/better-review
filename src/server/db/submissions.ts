@@ -84,6 +84,24 @@ export class SubmissionsRepo {
     return row ? rowToSubmission(row) : null
   }
 
+  // Most-recent successful submission across ALL archived sessions for a PR.
+  // Needed by rerun-context.ts: if the immediately-preceding rerun never
+  // submitted (user noticed duplicate findings and rerun'd again), the live
+  // GitHub review still belongs to an earlier round — we must reach past the
+  // empty session to find it.
+  latestSuccessfulForPR(owner: string, repo: string, number: number): Submission | null {
+    const row = this.db
+      .prepare(
+        `SELECT s.* FROM submissions s
+         JOIN pr_sessions ps ON s.session_id = ps.id
+         WHERE ps.owner=? AND ps.repo=? AND ps.number=? AND ps.status='archived'
+           AND s.error IS NULL
+         ORDER BY s.submitted_at DESC LIMIT 1`,
+      )
+      .get(owner, repo, number) as Row | undefined
+    return row ? rowToSubmission(row) : null
+  }
+
   deleteBySession(sessionId: string): void {
     this.db.prepare('DELETE FROM submissions WHERE session_id=?').run(sessionId)
   }

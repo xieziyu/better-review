@@ -142,6 +142,10 @@ describe('GhClient', () => {
     writeFileSync(
       f,
       JSON.stringify([
+        // Mirrors GitHub's real wire shape: top-level (non-reply)
+        // comments OMIT `in_reply_to_id` entirely rather than emit null.
+        // The client must normalize the missing field to null so callers
+        // can identify top-level rows via `=== null`.
         {
           id: 1,
           pull_request_review_id: 42,
@@ -153,7 +157,6 @@ describe('GhClient', () => {
           start_side: null,
           commit_id: 'abc',
           original_commit_id: 'abc',
-          in_reply_to_id: null,
           body: 'top',
           created_at: '2026-05-01T00:00:00Z',
         },
@@ -178,6 +181,7 @@ describe('GhClient', () => {
     const c = new GhClient({ ghPath: FAKE })
     const cs = await c.listAllPRComments({ owner: 'o', repo: 'r', number: 1 })
     expect(cs).toHaveLength(2)
+    expect(cs[0]!.in_reply_to_id).toBeNull()
     expect(cs[1]!.in_reply_to_id).toBe(1)
   })
 
