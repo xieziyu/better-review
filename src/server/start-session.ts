@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import type { AgentKind } from '../shared/types'
 import type { Config } from './config'
@@ -20,6 +19,7 @@ import { prepareSourceContext } from './git/source-prep'
 import type { GhClient } from './github/gh-client'
 import { parsePRTarget, type PRTarget } from './github/pr-target-parser'
 import type { Logger } from './logger'
+import { resolveLocalRepoPath } from './paths'
 import { renderPrompt, type PriorReviewVars } from './prompts/renderer'
 import { resolveEffectivePrompt } from './prompts/resolver'
 
@@ -42,7 +42,6 @@ export interface StartSessionDeps {
   // it still requires a daemon restart.
   getConfig: () => Config
   paths: { home: string; sessionsDir: string }
-  cwd: string
   log: Logger
   // Resolves a kind to a concrete agent + located executable. Throws when the
   // CLI is not installed so the daemon can surface the error to the caller.
@@ -70,17 +69,6 @@ export interface StartSessionInput {
   agent?: AgentKind
   localRepoPath?: string
   extraPrompt?: string
-}
-
-export function resolveLocalRepoPath(raw: string): string {
-  const trimmed = raw.trim()
-  if (trimmed.length === 0) throw new Error('localRepoPath must not be empty')
-  const expanded =
-    trimmed === '~' || trimmed.startsWith('~/') ? join(homedir(), trimmed.slice(1)) : trimmed
-  const abs = resolve(expanded)
-  if (!existsSync(abs)) throw new Error(`localRepoPath does not exist: ${abs}`)
-  if (!statSync(abs).isDirectory()) throw new Error(`localRepoPath is not a directory: ${abs}`)
-  return abs
 }
 
 export type StartSessionFn = (input: StartSessionInput) => Promise<{ id: string }>
@@ -305,7 +293,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   )
 
   const resolved = resolveEffectivePrompt({
-    cwd: deps.cwd,
+    projectDir: localRepoPath,
     home: deps.paths.home,
     lang: deps.getConfig().language,
   })

@@ -177,10 +177,23 @@ export interface SelectFindingRequest {
 }
 export type PromptScope = 'global' | 'project'
 export type RulesSource = PromptScope | 'builtin'
+export interface PromptScopeState {
+  exists: boolean
+  content: string | null
+  // Absolute path of the override file. Null only for the project scope when
+  // no repo is selected — there is no project file to point at yet.
+  path: string | null
+}
 export interface PromptStateResponse {
+  // The local repo the project scope resolved against, echoed back from the
+  // request. Null when no repo was provided.
+  repo: string | null
   framework: { content: string }
   rules: {
     effective: { source: RulesSource; content: string; path: string | null }
-    scopes: Record<PromptScope, { exists: boolean; content: string | null; path: string }>
+    scopes: {
+      global: PromptScopeState
+      project: PromptScopeState
+    }
   }
 }

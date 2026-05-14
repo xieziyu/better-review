@@ -433,6 +433,20 @@
     "tabState": {
       "readOnly": "read only",
       "empty": "empty"
+    },
+    "repo": {
+      "label": "Repo",
+      "placeholder": "Local repo path for Project-scope rules — ~/code/owner/repo",
+      "ariaLabel": "Local repository path for project rules",
+      "browse": "Browse",
+      "browseAriaLabel": "Browse for local repository",
+      "opening": "Opening…",
+      "clear": "clear",
+      "clearAriaLabel": "Clear repo",
+      "pickerError": "Failed to open folder picker",
+      "hint": "Project-scope rules live in the selected repo's .better-review/review.md",
+      "pickFirst": "Select a repo above to view or edit its Project-scope rules.",
+      "recentMeta": "last used {{when}} · ×{{count}}"
     }
   }
 }

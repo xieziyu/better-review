@@ -33,7 +33,6 @@ export interface AppDeps {
   bus: EventBus
   gh: GhClient
   promptStore: PromptStore
-  promptCwd: string
   promptHome: string
   folderPicker: FolderPicker
   getConfig: () => Config

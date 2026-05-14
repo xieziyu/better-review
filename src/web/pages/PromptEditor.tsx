@@ -1,11 +1,13 @@
 import type { PRSession, RulesSource } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { FolderGit2, FolderOpen } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { Button, ConfirmAction, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError, type WritablePromptScope } from '@/lib/api'
+import { useRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 type Tab = 'effective' | 'framework' | WritablePromptScope
@@ -16,22 +18,48 @@ const ELIGIBLE_RERUN_STATUSES = new Set(['running', 'ready', 'failed', 'cancelle
 
 export function PromptEditor() {
   const { t } = useTranslation()
+  const relativeTime = useRelativeTime()
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const promptsQ = useQuery({ queryKey: queryKeys.prompts, queryFn: api.getPrompts })
+
+  // The repo whose `.better-review/review.md` backs the Project scope. Empty
+  // means no repo is pinned — the Project tab then has nothing to resolve
+  // against and the effective chain collapses to global → builtin.
+  const [repo, setRepo] = useState('')
+  const repoTrimmed = repo.trim()
+  const repoArg = repoTrimmed.length > 0 ? repoTrimmed : null
+
+  const promptsQ = useQuery({
+    queryKey: queryKeys.prompts(repoArg),
+    queryFn: () => api.getPrompts(repoArg),
+  })
   const sessionsQ = useQuery({ queryKey: queryKeys.sessions, queryFn: api.listSessions })
+  const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
+  const { data: recentRepos } = useQuery({
+    queryKey: queryKeys.recentRepos('', ''),
+    queryFn: () => api.recentRepos({ limit: 10 }),
+  })
 
   const [tab, setTab] = useState<Tab>('effective')
   const [draft, setDraft] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
   const [showApplyModal, setShowApplyModal] = useState(false)
+  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [pickerBusy, setPickerBusy] = useState(false)
 
   const data = promptsQ.data
   const isWritable = tab === 'project' || tab === 'global'
+  const needsRepo = tab === 'project' && repoArg === null
 
   useEffect(() => {
     setDraft(null)
   }, [tab])
+
+  // A repo switch re-resolves Project + Guidelines tabs; drop any in-progress
+  // edit so the textarea reflects the newly fetched content.
+  useEffect(() => {
+    setDraft(null)
+  }, [repoArg])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -45,13 +73,29 @@ export function PromptEditor() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const folderPickerSupported = health?.fs?.folderPicker?.supported ?? false
+
+  async function browseRepo(): Promise<void> {
+    setPickerError(null)
+    setPickerBusy(true)
+    try {
+      const r = await api.pickDirectory('Select repository for project rules')
+      if (r.path) setRepo(r.path)
+    } catch (e) {
+      setPickerError(e instanceof ApiError ? e.message : t('prompt.repo.pickerError'))
+    } finally {
+      setPickerBusy(false)
+    }
+  }
+
   const saveMut = useMutation({
     mutationFn: () => {
       if (!isWritable || draft === null) return Promise.reject(new Error('nothing to save'))
-      return api.putPrompt(tab as WritablePromptScope, draft)
+      const scope = tab as WritablePromptScope
+      return api.putPrompt(scope, draft, scope === 'project' ? repoArg : null)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.prompts })
+      void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
       setDraft(null)
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 2000)
@@ -61,24 +105,28 @@ export function PromptEditor() {
   const resetMut = useMutation({
     mutationFn: () => {
       if (!isWritable) return Promise.reject(new Error('not writable'))
-      return api.deletePrompt(tab as WritablePromptScope)
+      const scope = tab as WritablePromptScope
+      return api.deletePrompt(scope, scope === 'project' ? repoArg : null)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.prompts })
+      void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
       setDraft(null)
     },
   })
 
-  const eligibleSessions = useMemo<PRSession[]>(
-    () => (sessionsQ.data ?? []).filter((s) => ELIGIBLE_RERUN_STATUSES.has(s.status)),
-    [sessionsQ.data],
-  )
+  // Sessions a prompt edit can be re-applied to. A Project-scope edit only
+  // affects sessions pinned to that same repo; Global affects all.
+  const eligibleSessions = useMemo<PRSession[]>(() => {
+    const all = (sessionsQ.data ?? []).filter((s) => ELIGIBLE_RERUN_STATUSES.has(s.status))
+    if (tab === 'project') {
+      const resolved = data?.repo ?? null
+      if (resolved === null) return []
+      return all.filter((s) => s.localRepoPath === resolved)
+    }
+    return all
+  }, [sessionsQ.data, tab, data?.repo])
 
-  if (!data) {
-    return <div className="p-8 text-meta text-ink-muted">{t('prompt.loading')}</div>
-  }
-
-  const scopeState = isWritable ? data.rules.scopes[tab as WritablePromptScope] : null
+  const scopeState = data && isWritable ? data.rules.scopes[tab as WritablePromptScope] : null
   const writableValue = isWritable && draft !== null ? draft : (scopeState?.content ?? '')
 
   const sourceLabel = (source: RulesSource): string => t(`prompt.sourceLabel.${source}`)
@@ -96,7 +144,8 @@ export function PromptEditor() {
       >
         {TABS.map((id) => {
           const isReadOnly = id === 'effective' || id === 'framework'
-          const exists = id === 'project' || id === 'global' ? data.rules.scopes[id].exists : true
+          const exists =
+            (id === 'project' || id === 'global') && data ? data.rules.scopes[id].exists : true
           return (
             <button
               key={id}
@@ -141,7 +190,7 @@ export function PromptEditor() {
           <div className="text-meta text-ink-secondary">
             {t('prompt.source')}{' '}
             <strong data-testid="prompt-source" className="text-ink-primary font-semibold">
-              {sourceLabel(data.rules.effective.source)}
+              {data ? sourceLabel(data.rules.effective.source) : '—'}
             </strong>
           </div>
           {isWritable && eligibleSessions.length > 0 && draft === null ? (
@@ -151,8 +200,67 @@ export function PromptEditor() {
           ) : null}
         </header>
 
+        <div className="px-8 pt-4">
+          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas">
+            <FolderGit2 size={15} className="text-ink-muted shrink-0" aria-hidden="true" />
+            <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+              {t('prompt.repo.label')}
+            </span>
+            <input
+              type="text"
+              list="prompt-recent-repos"
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
+              placeholder={t('prompt.repo.placeholder')}
+              className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+              aria-label={t('prompt.repo.ariaLabel')}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {folderPickerSupported ? (
+              <button
+                type="button"
+                onClick={browseRepo}
+                disabled={pickerBusy}
+                className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                aria-label={t('prompt.repo.browseAriaLabel')}
+              >
+                <FolderOpen size={14} aria-hidden="true" />
+                {pickerBusy ? t('prompt.repo.opening') : t('prompt.repo.browse')}
+              </button>
+            ) : null}
+            {repo ? (
+              <button
+                type="button"
+                onClick={() => setRepo('')}
+                className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                aria-label={t('prompt.repo.clearAriaLabel')}
+              >
+                {t('prompt.repo.clear')}
+              </button>
+            ) : null}
+          </div>
+          <datalist id="prompt-recent-repos">
+            {recentRepos?.items.map((r) => (
+              <option key={r.path} value={r.path}>
+                {t('prompt.repo.recentMeta', {
+                  when: relativeTime(r.lastUsedAt),
+                  count: r.useCount,
+                })}
+              </option>
+            ))}
+          </datalist>
+          {pickerError ? (
+            <div className="text-meta text-severity-must mt-1 pl-1">{pickerError}</div>
+          ) : (
+            <p className="text-meta text-ink-muted mt-1 pl-1">{t('prompt.repo.hint')}</p>
+          )}
+        </div>
+
         <div className="flex-1 min-h-0 overflow-auto px-8 py-6 space-y-4">
-          {tab === 'effective' ? (
+          {!data ? (
+            <div className="text-meta text-ink-muted">{t('prompt.loading')}</div>
+          ) : tab === 'effective' ? (
             <section className="space-y-2">
               <textarea
                 aria-label={t('prompt.guidelinesAria')}
@@ -182,6 +290,10 @@ export function PromptEditor() {
                   components={[<code key="ph" className="font-mono" />]}
                 />
               </p>
+            </section>
+          ) : needsRepo ? (
+            <section className="space-y-3 border border-rule rounded-md py-8 px-6 text-center">
+              <p className="text-body text-ink-secondary">{t('prompt.repo.pickFirst')}</p>
             </section>
           ) : !scopeState!.exists && draft === null ? (
             <section className="space-y-3 border border-rule rounded-md py-8 px-6 text-center">

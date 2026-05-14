@@ -4,7 +4,7 @@ import { join, sep } from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import { resolveLocalRepoPath } from '../../src/server/start-session'
+import { resolveLocalRepoPath } from '../../src/server/paths'
 
 describe('resolveLocalRepoPath', () => {
   it('returns the absolute path for an existing directory', () => {

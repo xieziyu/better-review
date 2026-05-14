@@ -32,7 +32,6 @@ export interface DepsOverrides {
 }
 
 export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
-  const cwd = mkdtempSync(join(tmpdir(), 'br-pcwd-'))
   const home = mkdtempSync(join(tmpdir(), 'br-phome-'))
   const dbDir = mkdtempSync(join(tmpdir(), 'br-api-'))
   const db = openDatabase(join(dbDir, 's.db'))
@@ -68,8 +67,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     submissionComments,
     bus,
     gh: {} as GhClient,
-    promptStore: new PromptStore({ cwd, home }),
-    promptCwd: cwd,
+    promptStore: new PromptStore({ home }),
     promptHome: home,
     folderPicker: overrides.folderPicker ?? {
       kind: 'unsupported',
