@@ -186,9 +186,9 @@ function DrawerShell({
         <span className="text-ink-muted">·</span>
         <span className="font-mono text-meta text-ink-muted tabular-nums">{linesLabel}</span>
         {streaming ? (
-          <span className="ml-2 inline-flex items-center gap-1.5 text-caps tracking-caps uppercase text-accent-running">
+          <span className="ml-2 inline-flex items-center gap-1.5 text-caps tracking-caps uppercase text-accent-active">
             <span
-              className="inline-block size-1.5 rounded-full bg-accent-running motion-safe:animate-running-pulse"
+              className="inline-block size-1.5 rounded-full bg-accent-active motion-safe:animate-running-pulse"
               aria-hidden="true"
             />
             {streamingLabel}

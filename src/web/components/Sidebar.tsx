@@ -28,7 +28,7 @@ const GROUP_ORDER: GroupKey[] = ['active', 'done', 'stale']
 const ALL_GROUPS = new Set<GroupKey>(GROUP_ORDER)
 
 const STATUS_TONE: Record<SessionStatus, string> = {
-  running: 'text-accent-running',
+  running: 'text-accent-active',
   pending: 'text-severity-should',
   ready: 'text-accent-ready',
   submitted: 'text-ink-muted',
@@ -40,9 +40,9 @@ const STATUS_TONE: Record<SessionStatus, string> = {
 // The "dot" on each filter chip — picks a representative status color so the
 // chip carries the same signal language as the row status pill.
 const GROUP_DOT: Record<GroupKey, string> = {
-  active: 'bg-accent-running',
+  active: 'bg-accent-active',
   done: 'bg-accent-ready',
-  stale: 'bg-severity-must',
+  stale: 'bg-ink-muted',
 }
 
 const CLOSED_STATUSES: ReadonlySet<SessionStatus> = new Set(['submitted', 'archived', 'cancelled'])
@@ -112,7 +112,7 @@ function SessionRow({ session }: SessionRowProps) {
         className={cn(
           'absolute left-0 top-2 bottom-2 w-px',
           session.status === 'running'
-            ? 'bg-accent-running animate-running-pulse'
+            ? 'bg-accent-active animate-running-pulse'
             : 'bg-transparent',
         )}
       />
