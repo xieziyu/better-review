@@ -111,7 +111,7 @@ describe('SubmitDrawer', () => {
     )
     const body = screen.getByLabelText(/Review body/i) as HTMLTextAreaElement
     expect(body.value).toMatch(/Wider architectural concern/)
-    expect(body.value).toContain('🔴 **[must]**')
+    expect(body.value).toContain('🔴 **[MUST]**')
   })
 
   it('keeps selected inline comments visible while editing submit options', () => {
