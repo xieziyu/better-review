@@ -88,11 +88,45 @@ describe('shikiTokensForDiff', () => {
     expect(tok.dark).not.toBe('inherit')
   })
 
-  it('fills gap lines with empty tokens so indexing stays stable', async () => {
-    // Skip from line 1 to line 5 — lines 2/3/4 should still resolve to empty token rows.
+  it('leaves gap lines as sparse holes (CodeCell falls back to change.content)', async () => {
+    // Skip from line 1 to line 5 — lines 2/3/4 have no contributing change,
+    // so their token slots stay `undefined`. react-diff-view's CodeCell sees
+    // an absent token row and renders the raw change.content for those lines.
     const hunk = makeHunk([normal('a', 1, 1), normal('b', 5, 5)])
     const out = await shikiTokensForDiff(fakeHighlighter(), 'typescript', [hunk])
     expect(out!.old).toHaveLength(5)
-    expect((out!.old[2]![0] as ShikiDiffTokenNode).value).toBe('')
+    expect(out!.old[0]).toBeDefined()
+    expect(out!.old[4]).toBeDefined()
+    expect(out!.old[1]).toBeUndefined()
+    expect(out!.old[2]).toBeUndefined()
+    expect(out!.old[3]).toBeUndefined()
+  })
+
+  it('tokenizes only the visible lines, regardless of how deep the finding sits', async () => {
+    // Regression guard against the earlier O(maxLineNumber) shape: a single
+    // change at line 50_000 must not cause us to tokenize 50_000 lines of
+    // padding. We capture the text handed to the highlighter and assert it
+    // contains only the contributing line(s).
+    const captured: string[] = []
+    const hi = {
+      getLoadedLanguages: () => ['typescript'],
+      loadLanguage: async () => {},
+      codeToTokensWithThemes: (code: string) => {
+        captured.push(code)
+        return code.split('\n').map((line) => [
+          {
+            content: line,
+            variants: { light: { color: '#000' }, dark: { color: '#fff' } },
+          },
+        ])
+      },
+    } as unknown as Parameters<typeof shikiTokensForDiff>[0]
+    const hunk = makeHunk([normal('deep line', 50_000, 50_000)])
+    await shikiTokensForDiff(hi, 'typescript', [hunk])
+    expect(captured.length).toBeGreaterThan(0)
+    for (const text of captured) {
+      expect(text.split('\n')).toHaveLength(1)
+      expect(text).toBe('deep line')
+    }
   })
 })

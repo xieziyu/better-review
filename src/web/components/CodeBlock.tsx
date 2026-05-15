@@ -25,6 +25,10 @@ export function CodeBlock({ code, lang, fallbackFile }: Props) {
 
   useEffect(() => {
     let cancelled = false
+    // Drop any previous render eagerly. Until the new highlight resolves we
+    // want the plain <pre><code> fallback for the *current* code, not the
+    // stale HTML from the previous (code, lang, fallbackFile) tuple.
+    setHtml(null)
     void (async () => {
       const requested = lang && lang.trim().length > 0 ? lang : inferLangFromFile(fallbackFile)
       try {
@@ -39,7 +43,9 @@ export function CodeBlock({ code, lang, fallbackFile }: Props) {
         })
         if (!cancelled) setHtml(out)
       } catch {
-        // Swallow — fallback <pre><code> remains visible.
+        // Highlighter failed — keep the fallback <pre><code> showing the
+        // current code rather than risk leaving stale HTML on screen.
+        if (!cancelled) setHtml(null)
       }
     })()
     return () => {

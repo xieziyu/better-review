@@ -157,8 +157,12 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
 
   useEffect(() => {
     let cancelled = false
+    // Drop the previous tokens immediately. react-diff-view's CodeCell uses
+    // each token's *value* in place of change.content, so a stale tokens map
+    // would print the previous finding's source on the current finding's
+    // line numbers until the new tokenization lands.
+    setTokens(null)
     if (!fileDiff || hunks.length === 0 || lang === 'plaintext') {
-      setTokens(null)
       return
     }
     void (async () => {
@@ -168,7 +172,9 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
         const next = await shikiTokensForDiff(highlighter, lang, hunks)
         if (!cancelled) setTokens(next)
       } catch {
-        // Falls through to react-diff-view's plain-text rendering.
+        // Highlighter failed — keep tokens cleared so react-diff-view falls
+        // back to its plain-text rendering of the current diff.
+        if (!cancelled) setTokens(null)
       }
     })()
     return () => {
