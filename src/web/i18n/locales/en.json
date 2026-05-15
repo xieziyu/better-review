@@ -250,6 +250,28 @@
       "editedTag": "edited for rerun",
       "editAriaLabel": "Edit extra context for rerun",
       "edit": "edit"
+    },
+    "export": {
+      "trigger": "Export",
+      "triggerTitle": "Export findings locally (⌘E)",
+      "dialogAria": "Export findings",
+      "scopeLabel": "Scope",
+      "scopeSelected": "Selected · {{count}}",
+      "scopeAll": "All · {{count}}",
+      "severityCount": {
+        "must": "{{count}} must",
+        "should": "{{count}} should",
+        "nit": "{{count}} nit"
+      },
+      "formatLabel": "Format",
+      "formatMarkdown": "Markdown",
+      "formatMarkdownDesc": "Grouped by file. Best for pasting to a coding agent.",
+      "formatJson": "JSON",
+      "formatJsonDesc": "Structured array. For scripts & tooling.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "download": "Download",
+      "shortcutHint": "to toggle"
     }
   },
   "prep": {

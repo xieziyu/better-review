@@ -1,4 +1,11 @@
-import type { AgentKind, HealthStatus, PrepStep, PRSession, SessionStatus } from '@shared/types'
+import type {
+  AgentKind,
+  Finding,
+  HealthStatus,
+  PrepStep,
+  PRSession,
+  SessionStatus,
+} from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -15,6 +22,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
+import { ExportPopover } from '@/components/ExportPopover'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
 import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
@@ -58,6 +66,8 @@ function SourceKindBadge({ session }: { session: PRSession }) {
 
 interface PRHeaderProps {
   session: PRSession
+  // Non-archived findings on this session. Used by the Export popover.
+  findings: Finding[]
   selectedCount: number
   // 1-based round number for the *current* session (first review = 1,
   // first rerun = 2, …). Computed by the parent from archived sessions
@@ -78,6 +88,7 @@ interface PRHeaderProps {
 
 function PRHeader({
   session,
+  findings,
   selectedCount,
   roundNumber,
   onRerun,
@@ -268,6 +279,7 @@ function PRHeader({
               {t('prdetail.rerun')}
             </Button>
           )}
+          <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
           <Button
             type="button"
             variant="primary"
@@ -611,6 +623,7 @@ export function PRDetail() {
       <div ref={topStackRef} className="shrink-0 px-8 pt-8 pb-6 space-y-6 border-b border-rule">
         <PRHeader
           session={session}
+          findings={activeFindings}
           selectedCount={selectedCount}
           roundNumber={roundNumber}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}

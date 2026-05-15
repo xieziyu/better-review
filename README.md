@@ -87,6 +87,14 @@ The **Submit** drawer is two steps:
 
 There are no automatic retries; failures surface in the banner and the submissions table.
 
+### 本地导出 findings（转交 coding agent）
+
+不想走 GitHub review 流程，只想把 findings 交给本地 coding agent（Claude Code / Codex / Cursor）做修复？详情页工具栏的 **Export ▾** 按钮（快捷键 `⌘E` / `Ctrl+E`）会弹出一个小面板：
+
+- **Scope**：默认导出已勾选的 findings（与 Submit 一致），可切换到 All（全部未归档 findings）。如果一条都没勾选，会自动切到 All。
+- **Format**：`Markdown` 按文件分组、带严重级别 emoji 与 `suggestion` 代码块，适合直接粘贴给 coding agent；`JSON` 是一个干净的 `Finding[]`（剥掉了 dbId / sessionId 等内部字段），适合脚本消费。
+- **Copy / Download**：复制到剪贴板或下载文件 `findings-pr-<n>-<scope>.<ext>`。整个过程是纯前端，不调用 `gh`、不写远端、不修改 finding 状态，也不会触发提交。
+
 ### Customise the review prompt
 
 The prompt is split into two layers:

@@ -1,4 +1,4 @@
-import type { Severity } from '@shared/findings-schema'
+import { sortByPriority } from '@shared/findings-sort'
 import type { Finding, PRSession } from '@shared/types'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -6,20 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { FindingRow } from '@/components/FindingRow'
 import { EmptyState } from '@/components/ui'
 
-const SEVERITY_ORDER: Record<Severity, number> = { must: 0, should: 1, nit: 2 }
-
 interface Props {
   findings: Finding[]
   session: PRSession
-}
-
-function sortByPriority(a: Finding, b: Finding): number {
-  const sevDiff = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
-  if (sevDiff !== 0) return sevDiff
-  const fileA = a.file ?? ''
-  const fileB = b.file ?? ''
-  if (fileA !== fileB) return fileA.localeCompare(fileB)
-  return a.ord - b.ord
 }
 
 export function FindingList({ findings, session }: Props) {
