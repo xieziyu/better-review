@@ -4,6 +4,29 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+// Replace CodeBlock with a transparent passthrough so tests don't pull Shiki's
+// WASM under jsdom. The mock exposes the resolved props via data-* attributes
+// so we can assert language plumbing.
+vi.mock('@/components/CodeBlock', () => ({
+  CodeBlock: ({
+    code,
+    lang,
+    fallbackFile,
+  }: {
+    code: string
+    lang?: string | null
+    fallbackFile?: string | null
+  }) => (
+    <pre
+      data-testid="codeblock"
+      data-lang={lang ?? ''}
+      data-fallback-file={fallbackFile ?? ''}
+    >
+      <code>{code}</code>
+    </pre>
+  ),
+}))
+
 import { FindingDetailPanel } from '@/components/FindingDetailPanel'
 import { SelectionProvider } from '@/lib/selection'
 
@@ -146,6 +169,48 @@ describe('FindingDetailPanel', () => {
       ),
     )
     expect(screen.getByText(/no suggestion provided/i)).toBeInTheDocument()
+  })
+
+  it('passes the explicit fence language to CodeBlock for body code blocks', () => {
+    render(
+      withProviders(
+        <FindingDetailPanel
+          finding={{
+            ...finding,
+            body: 'See snippet:\n\n```python\nprint("ok")\n```',
+          }}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const blocks = screen.getAllByTestId('codeblock')
+    const bodyBlock = blocks.find((el) => el.textContent?.includes('print("ok")'))
+    expect(bodyBlock).toBeDefined()
+    expect(bodyBlock).toHaveAttribute('data-lang', 'python')
+    expect(bodyBlock).toHaveAttribute('data-fallback-file', 'src/x.ts')
+  })
+
+  it('falls back to inferring language from finding.file when a fence has no language', () => {
+    render(
+      withProviders(
+        <FindingDetailPanel
+          finding={{
+            ...finding,
+            body: 'See snippet:\n\n```\nconst x = 1\n```',
+          }}
+          session={session}
+          unifiedDiff={null}
+        />,
+      ),
+    )
+    const blocks = screen.getAllByTestId('codeblock')
+    const bodyBlock = blocks.find((el) => el.textContent?.includes('const x = 1'))
+    expect(bodyBlock).toBeDefined()
+    // No explicit fence language → CodeBlock receives null; CodeBlock itself
+    // will fall back to inferLangFromFile(fallbackFile) at runtime.
+    expect(bodyBlock).toHaveAttribute('data-lang', '')
+    expect(bodyBlock).toHaveAttribute('data-fallback-file', 'src/x.ts')
   })
 
   it('PATCHes /api/findings/:id when Save is clicked', async () => {

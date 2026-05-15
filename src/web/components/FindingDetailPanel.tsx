@@ -2,11 +2,11 @@ import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, ExternalLink, Pencil, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { isValidElement, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
+import ReactMarkdown, { type Components } from 'react-markdown'
 
+import { CodeBlock } from '@/components/CodeBlock'
 import { DiffViewer } from '@/components/DiffViewer'
 import { Button, ConfirmAction, KbdTooltip, SeverityLabel, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
@@ -109,6 +109,25 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
   }
 
   const githubHref = finding.file ? githubLineLink(session, finding.file, finding.line) : null
+
+  // Override <pre> in markdown so fenced code blocks route through <CodeBlock>.
+  // react-markdown v9 wraps the fenced <code> in a <pre>; inline <code> never
+  // gets a <pre> parent, so this only fires for block-level code.
+  const fallbackFile = finding.file
+  const markdownComponents = useMemo<Components>(
+    () => ({
+      pre({ children, ...rest }) {
+        if (isValidElement(children) && children.type === 'code') {
+          const codeProps = children.props as { className?: string; children?: unknown }
+          const m = /language-([\w+#-]+)/.exec(codeProps.className ?? '')
+          const text = String(codeProps.children ?? '').replace(/\n$/, '')
+          return <CodeBlock code={text} lang={m?.[1] ?? null} fallbackFile={fallbackFile} />
+        }
+        return <pre {...rest}>{children}</pre>
+      },
+    }),
+    [fallbackFile],
+  )
 
   return (
     <div
@@ -257,7 +276,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
             <SectionHeader>{t('inspector.section.claim')}</SectionHeader>
             {!editing ? (
               <div className="prose prose-sm max-w-[72ch] prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{finding.body}</ReactMarkdown>
+                <ReactMarkdown components={markdownComponents}>{finding.body}</ReactMarkdown>
               </div>
             ) : (
               <>
@@ -272,7 +291,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
                     {t('finding.form.preview')}
                   </summary>
                   <div className="mt-2 p-3 rounded-md bg-sunken border border-rule prose prose-sm max-w-none prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary">
-                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                    <ReactMarkdown components={markdownComponents}>
                       {draft.body || t('finding.form.previewEmpty')}
                     </ReactMarkdown>
                   </div>
@@ -285,9 +304,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
             <SectionHeader>{t('inspector.section.suggestion')}</SectionHeader>
             {!editing ? (
               finding.suggestion ? (
-                <pre className="font-mono text-code text-ink-primary bg-sunken border border-rule rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
-                  <code>{finding.suggestion}</code>
-                </pre>
+                <CodeBlock code={finding.suggestion} fallbackFile={finding.file} />
               ) : (
                 <p className="text-meta text-ink-muted">{t('inspector.section.suggestionEmpty')}</p>
               )
