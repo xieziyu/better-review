@@ -250,6 +250,28 @@
       "editedTag": "已为重跑修改",
       "editAriaLabel": "为重跑编辑附加上下文",
       "edit": "编辑"
+    },
+    "export": {
+      "trigger": "导出",
+      "triggerTitle": "本地导出 findings（⌘E）",
+      "dialogAria": "导出 findings",
+      "scopeLabel": "范围",
+      "scopeSelected": "已选 · {{count}}",
+      "scopeAll": "全部 · {{count}}",
+      "severityCount": {
+        "must": "{{count}} must",
+        "should": "{{count}} should",
+        "nit": "{{count}} nit"
+      },
+      "formatLabel": "格式",
+      "formatMarkdown": "Markdown",
+      "formatMarkdownDesc": "按文件分组，适合直接粘贴给 coding agent。",
+      "formatJson": "JSON",
+      "formatJsonDesc": "结构化数组，适合脚本与工具消费。",
+      "copy": "复制",
+      "copied": "已复制",
+      "download": "下载",
+      "shortcutHint": "切换"
     }
   },
   "prep": {
