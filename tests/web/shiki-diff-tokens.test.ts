@@ -11,13 +11,15 @@ function fakeHighlighter(loaded: string[] = ['typescript']): Highlighter {
   const hi = {
     getLoadedLanguages: () => loaded,
     loadLanguage: async () => {},
+    // Mirror real shiki behavior: variants are keyed by the user-chosen
+    // option names ('light' / 'dark'), not the theme ids.
     codeToTokensWithThemes: (code: string) =>
       code.split('\n').map((line) => [
         {
           content: line,
           variants: {
-            'github-light': { color: '#24292e' },
-            'github-dark': { color: '#e1e4e8' },
+            light: { color: '#24292e' },
+            dark: { color: '#e1e4e8' },
           },
         },
       ]),
@@ -79,6 +81,11 @@ describe('shikiTokensForDiff', () => {
     expect(tok.type).toBe('shiki')
     expect(tok.light).toBe('#24292e')
     expect(tok.dark).toBe('#e1e4e8')
+    // Regression: we previously read variants by theme id ('github-light'),
+    // which silently returns undefined and falls back to 'inherit'. Reading
+    // by the *option key* ('light' / 'dark') is what produces actual colors.
+    expect(tok.light).not.toBe('inherit')
+    expect(tok.dark).not.toBe('inherit')
   })
 
   it('fills gap lines with empty tokens so indexing stays stable', async () => {

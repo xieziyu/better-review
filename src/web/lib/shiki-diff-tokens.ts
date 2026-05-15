@@ -59,12 +59,16 @@ interface ShikiVariantToken {
   variants: Record<string, ShikiVariantTokenStyle>
 }
 
+// Shiki's codeToTokensWithThemes keys `variants` by the user-chosen names from
+// the `themes` option (here: 'light' / 'dark') — NOT by the underlying theme id
+// like 'github-light'. Reading by theme id silently returns `undefined`, which
+// is why this previously fell back to 'inherit' and produced no color.
 function toTokenNodes(line: ShikiVariantToken[]): ShikiDiffTokenNode[] {
   return line.map((tok) => ({
     type: 'shiki',
     value: tok.content,
-    light: tok.variants[THEMES[0]]?.color ?? 'inherit',
-    dark: tok.variants[THEMES[1]]?.color ?? 'inherit',
+    light: tok.variants.light?.color ?? 'inherit',
+    dark: tok.variants.dark?.color ?? 'inherit',
   }))
 }
 
