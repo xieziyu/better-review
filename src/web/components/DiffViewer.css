@@ -1,8 +1,21 @@
 /* Pin diff text color to a theme token so it adapts to light/dark
  * instead of using the library default (`initial`, which inherits to
- * near-white in dark mode and ends up unreadable on pastel rows). */
+ * near-white in dark mode and ends up unreadable on pastel rows).
+ * Also swap the upstream `Consolas, Courier, monospace` to GitHub's
+ * system mono stack so the diff text matches our other code blocks. */
 :root {
   --diff-text-color: var(--ink-primary);
+  --diff-font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Shiki tokens injected by our custom renderToken — dual-theme colors live
+ * on the element as CSS custom properties, swapped via [data-theme]. */
+.shiki-tok {
+  color: var(--shiki-light);
+}
+[data-theme='dark'] .shiki-tok {
+  color: var(--shiki-dark);
 }
 
 /* Re-tint the diff row backgrounds for dark mode. The upstream defaults

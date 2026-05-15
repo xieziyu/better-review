@@ -69,9 +69,7 @@
   pre,
   samp,
   .font-mono {
-    font-feature-settings:
-      'tnum' 1,
-      'ss01' 1;
+    font-feature-settings: 'tnum' 1;
   }
 
   ::selection {
@@ -93,5 +91,29 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+
+  /* Shiki dual-theme: codeToHtml emits CSS variables for both github-light
+     and github-dark; we swap them via the [data-theme] selector so toggling
+     the page theme is a single repaint with no re-highlight. */
+  .shiki-host .shiki,
+  .shiki-host .shiki span {
+    color: var(--shiki-light);
+    background-color: var(--shiki-light-bg);
+  }
+  [data-theme='dark'] .shiki-host .shiki,
+  [data-theme='dark'] .shiki-host .shiki span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
+  }
+  .shiki-host pre.shiki {
+    padding: 0.75rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+  .shiki-host pre.shiki code {
+    font-family: theme('fontFamily.mono');
+    font-size: 13px;
+    line-height: 20px;
   }
 }

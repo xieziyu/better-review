@@ -40,7 +40,15 @@ export default {
           '-apple-system',
           'sans-serif',
         ],
-        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: [
+          'ui-monospace',
+          'SFMono-Regular',
+          'SF Mono',
+          'Menlo',
+          'Consolas',
+          'Liberation Mono',
+          'monospace',
+        ],
       },
       fontSize: {
         display: ['32px', { lineHeight: '36px', letterSpacing: '-0.02em', fontWeight: '800' }],
