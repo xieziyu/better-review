@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   parseDiff,
   Diff,
@@ -8,7 +8,13 @@ import {
   type ChangeData,
   type HunkData,
   type FileData,
+  type HunkTokens,
+  type RenderToken,
 } from 'react-diff-view'
+
+import { inferLangFromFile } from '@/lib/lang-from-file'
+import { getHighlighter } from '@/lib/shiki'
+import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
 
 import 'react-diff-view/style/index.css'
 import './DiffViewer.css'
@@ -23,6 +29,24 @@ interface Props {
 type ExpandLevel = 'window' | 'full'
 
 const WINDOW = 6
+
+/** Project a Shiki-tagged token onto a span carrying both theme colors as CSS
+ *  variables; `.shiki-tok` rules in DiffViewer.css pick the active one. */
+const renderShikiToken: RenderToken = (token, renderDefault, i) => {
+  if ((token as { type?: string }).type === 'shiki') {
+    const shiki = token as ShikiDiffTokenNode
+    const style = {
+      '--shiki-light': shiki.light,
+      '--shiki-dark': shiki.dark,
+    } as CSSProperties
+    return (
+      <span key={i} className="shiki-tok" style={style}>
+        {shiki.value}
+      </span>
+    )
+  }
+  return renderDefault(token, i)
+}
 
 function fileMatches(f: FileData, target: string): boolean {
   return (f.newPath ?? '') === target || (f.oldPath ?? '') === target
@@ -124,6 +148,34 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
     return change ? [getChangeKey(change)] : []
   }, [hunks, line])
 
+  // Shiki-driven syntax highlighting for the visible hunks. We tokenize only
+  // the displayed window (no full-file source), so tokens may miss multi-line
+  // context (e.g. an open block comment beyond the window) — visually fine
+  // for the short slices we render.
+  const [tokens, setTokens] = useState<HunkTokens | null>(null)
+  const lang = useMemo(() => inferLangFromFile(file), [file])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!fileDiff || hunks.length === 0 || lang === 'plaintext') {
+      setTokens(null)
+      return
+    }
+    void (async () => {
+      try {
+        const highlighter = await getHighlighter()
+        if (cancelled) return
+        const next = await shikiTokensForDiff(highlighter, lang, hunks)
+        if (!cancelled) setTokens(next)
+      } catch {
+        // Falls through to react-diff-view's plain-text rendering.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [fileDiff, hunks, lang])
+
   if (!unifiedDiff) {
     return (
       <div
@@ -187,6 +239,8 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
           diffType={fileDiff.type}
           hunks={hunks}
           selectedChanges={selectedChanges}
+          tokens={tokens}
+          renderToken={renderShikiToken}
         >
           {(hs: HunkData[]) => hs.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)}
         </Diff>
