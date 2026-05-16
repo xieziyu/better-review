@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 interface Props {
   finding: Finding
   sessionId: string
+  readOnly?: boolean | undefined
 }
 
 function LocationLabel({ file, line }: { file: string | null; line: number | null }) {
@@ -35,7 +36,7 @@ function LocationLabel({ file, line }: { file: string | null; line: number | nul
   )
 }
 
-export function FindingRow({ finding, sessionId }: Props) {
+export function FindingRow({ finding, sessionId, readOnly }: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { selectedFindingDbId, setSelectedFindingDbId } = useSelectedFinding()
@@ -79,9 +80,10 @@ export function FindingRow({ finding, sessionId }: Props) {
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          if (readOnly) return
           select.mutate()
         }}
-        disabled={select.isPending}
+        disabled={readOnly || select.isPending}
         aria-pressed={finding.selected}
         aria-label={t(finding.selected ? 'finding.unselectAriaLabel' : 'finding.selectAriaLabel', {
           id: finding.id,
@@ -91,6 +93,7 @@ export function FindingRow({ finding, sessionId }: Props) {
           finding.selected
             ? 'border-brand bg-brand text-brand-ink'
             : 'border-rule bg-transparent text-transparent hover:border-ink-muted',
+          readOnly && 'opacity-50 cursor-not-allowed',
         )}
       >
         <Check size={11} strokeWidth={3} aria-hidden="true" />

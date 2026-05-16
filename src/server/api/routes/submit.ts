@@ -13,6 +13,9 @@ export function submitRoutes(deps: AppDeps): Hono {
     if (!body?.event || !VALID.includes(body.event)) {
       return c.json({ error: 'event required' }, 400)
     }
+    const session = deps.sessions.getById(id)
+    if (!session) return c.json({ error: 'not found' }, 404)
+    if (session.status === 'archived') return c.json({ error: 'session archived' }, 409)
     try {
       const out = await deps.submitSession(id, body.event, body.body)
       return c.json(out)

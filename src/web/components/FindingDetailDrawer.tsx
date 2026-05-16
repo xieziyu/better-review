@@ -10,9 +10,16 @@ interface Props {
   session: PRSession
   unifiedDiff: string | null
   onClose: () => void
+  readOnly?: boolean | undefined
 }
 
-export function FindingDetailDrawer({ finding, session, unifiedDiff, onClose }: Props) {
+export function FindingDetailDrawer({
+  finding,
+  session,
+  unifiedDiff,
+  onClose,
+  readOnly,
+}: Props) {
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -54,7 +61,12 @@ export function FindingDetailDrawer({ finding, session, unifiedDiff, onClose }: 
           </button>
         </header>
         <div className="flex-1 min-h-0">
-          <FindingDetailPanel finding={finding} session={session} unifiedDiff={unifiedDiff} />
+          <FindingDetailPanel
+            finding={finding}
+            session={session}
+            unifiedDiff={unifiedDiff}
+            readOnly={readOnly}
+          />
         </div>
       </aside>
     </>

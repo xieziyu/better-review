@@ -17,6 +17,8 @@ interface Props {
   finding: Finding
   session: PRSession
   unifiedDiff: string | null
+  /** Historical (archived) round — disable Include toggle, hide Edit/Delete. */
+  readOnly?: boolean | undefined
 }
 
 const SEVERITY_LIST: Severity[] = ['must', 'should', 'nit']
@@ -31,7 +33,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return <div className="text-caps tracking-caps text-ink-muted uppercase">{children}</div>
 }
 
-export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
+export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { setSelectedFindingDbId } = useSelectedFinding()
@@ -102,7 +104,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
       }
       return
     }
-    if (e.key === 'e' && e.target === containerRef.current) {
+    if (!readOnly && e.key === 'e' && e.target === containerRef.current) {
       e.preventDefault()
       setEditing(true)
     }
@@ -148,8 +150,11 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => select.mutate(!finding.selected)}
-                  disabled={select.isPending}
+                  onClick={() => {
+                    if (readOnly) return
+                    select.mutate(!finding.selected)
+                  }}
+                  disabled={readOnly || select.isPending}
                   aria-pressed={finding.selected}
                   aria-label={t(
                     finding.selected ? 'finding.unselectAriaLabel' : 'finding.selectAriaLabel',
@@ -338,7 +343,12 @@ export function FindingDetailPanel({ finding, session, unifiedDiff }: Props) {
         </div>
       </div>
 
-      <footer className="sticky bottom-0 shrink-0 border-t border-rule bg-raised px-6 py-3">
+      <footer
+        className={cn(
+          'sticky bottom-0 shrink-0 border-t border-rule bg-raised px-6 py-3',
+          readOnly && !editing && 'hidden',
+        )}
+      >
         {!editing ? (
           <div className="flex items-center gap-1 justify-end">
             <KbdTooltip keys={['e']} label={t('inspector.cta.edit')}>

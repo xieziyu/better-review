@@ -72,7 +72,14 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const id = c.req.param('id')
     const s = deps.sessions.getById(id)
     if (!s) return c.json({ error: 'not found' }, 404)
-    return c.json({ session: s, findings: deps.findings.listBySession(id) })
+    // Archived sessions show their historical findings as read-only — all of
+    // those rows carry archived=1 (rerun-session.ts archives them in lockstep
+    // with the status flip), so the default `archived=0` filter would hide
+    // every entry. Other statuses keep the active-only view.
+    const findings = deps.findings.listBySession(id, {
+      includeArchived: s.status === 'archived',
+    })
+    return c.json({ session: s, findings })
   })
   r.get('/sessions/:id/diff', (c) => {
     const id = c.req.param('id')
@@ -185,7 +192,10 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       const result = await deps.rerunSession(c.req.param('id'), opts)
       return c.json(result, 202)
     } catch (e) {
-      return c.json({ error: (e as Error).message }, 400)
+      const msg = (e as Error).message
+      if (msg === 'not found') return c.json({ error: msg }, 404)
+      if (msg === 'already archived') return c.json({ error: msg }, 409)
+      return c.json({ error: msg }, 400)
     }
   })
   return r

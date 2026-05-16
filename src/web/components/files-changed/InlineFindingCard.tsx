@@ -18,6 +18,8 @@ interface Props {
   onToggle: () => void
   /** Switch to the Findings tab and select this finding for full-editor work. */
   onOpenInPanel?: () => void
+  /** Historical (archived) round — hide Include/Edit/Delete affordances. */
+  readOnly?: boolean | undefined
 }
 
 const STRIPE: Record<Severity, string> = {
@@ -32,7 +34,14 @@ const TINT: Record<Severity, string> = {
   nit: 'bg-[color:color-mix(in_oklch,var(--severity-nit)_5%,var(--bg-main))]',
 }
 
-export function InlineFindingCard({ finding, session, expanded, onToggle, onOpenInPanel }: Props) {
+export function InlineFindingCard({
+  finding,
+  session,
+  expanded,
+  onToggle,
+  onOpenInPanel,
+  readOnly,
+}: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
 
@@ -108,39 +117,41 @@ export function InlineFindingCard({ finding, session, expanded, onToggle, onOpen
                 <CodeBlock code={finding.suggestion} fallbackFile={finding.file} />
               </div>
             ) : null}
-            <div className="flex items-center gap-2 pt-1 border-t border-rule">
-              <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={finding.selected}
-                  disabled={select.isPending}
-                  onChange={(e) => select.mutate(e.target.checked)}
-                  aria-label={t('filesChanged.includeInReview')}
-                />
-                {t('filesChanged.includeInReview')}
-              </label>
-              <div className="ml-auto flex items-center gap-1">
-                {onOpenInPanel ? (
-                  <Button variant="ghost" size="sm" onClick={onOpenInPanel}>
-                    <Pencil className="h-3 w-3" />
-                    {t('filesChanged.editInPanel')}
-                  </Button>
-                ) : null}
-                <ConfirmAction
-                  title={t('filesChanged.confirmDeleteTitle')}
-                  description={t('filesChanged.confirmDeleteBody')}
-                  confirmLabel={t('common.delete')}
-                  onConfirm={() => remove.mutate()}
-                >
-                  {(askConfirm) => (
-                    <Button variant="danger" size="sm" onClick={askConfirm}>
-                      <Trash2 className="h-3 w-3" />
-                      {t('common.delete')}
+            {!readOnly ? (
+              <div className="flex items-center gap-2 pt-1 border-t border-rule">
+                <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={finding.selected}
+                    disabled={select.isPending}
+                    onChange={(e) => select.mutate(e.target.checked)}
+                    aria-label={t('filesChanged.includeInReview')}
+                  />
+                  {t('filesChanged.includeInReview')}
+                </label>
+                <div className="ml-auto flex items-center gap-1">
+                  {onOpenInPanel ? (
+                    <Button variant="ghost" size="sm" onClick={onOpenInPanel}>
+                      <Pencil className="h-3 w-3" />
+                      {t('filesChanged.editInPanel')}
                     </Button>
-                  )}
-                </ConfirmAction>
+                  ) : null}
+                  <ConfirmAction
+                    title={t('filesChanged.confirmDeleteTitle')}
+                    description={t('filesChanged.confirmDeleteBody')}
+                    confirmLabel={t('common.delete')}
+                    onConfirm={() => remove.mutate()}
+                  >
+                    {(askConfirm) => (
+                      <Button variant="danger" size="sm" onClick={askConfirm}>
+                        <Trash2 className="h-3 w-3" />
+                        {t('common.delete')}
+                      </Button>
+                    )}
+                  </ConfirmAction>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -154,6 +165,7 @@ interface OffDiffSectionProps {
   expandedIds: Set<string>
   onToggle: (dbId: string) => void
   onOpenInPanel?: (dbId: string) => void
+  readOnly?: boolean | undefined
 }
 
 export function OffDiffFindingsSection({
@@ -162,6 +174,7 @@ export function OffDiffFindingsSection({
   expandedIds,
   onToggle,
   onOpenInPanel,
+  readOnly,
 }: OffDiffSectionProps) {
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
@@ -191,6 +204,7 @@ export function OffDiffFindingsSection({
               session={session}
               expanded={expandedIds.has(f.dbId)}
               onToggle={() => onToggle(f.dbId)}
+              readOnly={readOnly}
               {...(onOpenInPanel ? { onOpenInPanel: () => onOpenInPanel(f.dbId) } : {})}
             />
           ))

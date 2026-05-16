@@ -19,6 +19,8 @@ interface Props {
   onOpenInPanel: (dbId: string) => void
   /** PR file URL on github, derived once by the parent. */
   fileUrl?: string | null
+  /** Historical (archived) round — hide the inline "+ add finding" + inline mutations. */
+  readOnly?: boolean | undefined
 }
 
 interface AnchoredFinding {
@@ -56,6 +58,7 @@ export function FileDiffPane({
   onToggleFinding,
   onOpenInPanel,
   fileUrl,
+  readOnly,
 }: Props) {
   const { t } = useTranslation()
   const [addingLine, setAddingLine] = useState<number | null>(null)
@@ -81,6 +84,7 @@ export function FileDiffPane({
               expanded={expandedFindingIds.has(a.finding.dbId)}
               onToggle={() => onToggleFinding(a.finding.dbId)}
               onOpenInPanel={() => onOpenInPanel(a.finding.dbId)}
+              readOnly={readOnly}
             />
           ))}
         </div>
@@ -116,6 +120,7 @@ export function FileDiffPane({
     onOpenInPanel,
     onToggleFinding,
     session,
+    readOnly,
   ])
 
   return (
@@ -149,13 +154,14 @@ export function FileDiffPane({
         expandedIds={expandedFindingIds}
         onToggle={onToggleFinding}
         onOpenInPanel={onOpenInPanel}
+        readOnly={readOnly}
       />
       <FileDiff
         file={file.path}
         fileType={file.status}
         hunks={file.hunks}
         widgets={widgets}
-        onAddRequest={(line) => setAddingLine(line)}
+        {...(readOnly ? {} : { onAddRequest: (line: number) => setAddingLine(line) })}
       />
     </div>
   )
