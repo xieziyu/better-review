@@ -71,13 +71,22 @@ function renderTree(
 }
 
 function getFolderItem(path: string): HTMLElement {
-  const items = screen.getAllByRole('treeitem')
-  for (const item of items) {
-    if (item.getAttribute('aria-expanded') == null) continue
-    const label = item.getAttribute('aria-label') ?? ''
-    if (label.includes(path)) return item
+  // Folder rows are the buttons that carry aria-expanded (file rows don't).
+  const buttons = screen.getAllByRole('button')
+  for (const btn of buttons) {
+    if (btn.getAttribute('aria-expanded') == null) continue
+    const label = btn.getAttribute('aria-label') ?? ''
+    if (label.includes(path)) return btn
   }
-  throw new Error(`folder treeitem with path "${path}" not found`)
+  throw new Error(`folder button with path "${path}" not found`)
+}
+
+function getRowButtons(): HTMLElement[] {
+  // The file-tree column has no other buttons today, but be explicit and
+  // exclude the filter checkbox/input which getAllByRole('button') already
+  // skips. Order matches DOM order (folder rows interleaved with file rows
+  // per the flattened visible-rows model).
+  return screen.getAllByRole('button')
 }
 
 describe('FileTree path compression', () => {
@@ -88,24 +97,20 @@ describe('FileTree path compression', () => {
     ])
     const folder = getFolderItem('src/web/components/files-changed')
     expect(folder).toHaveAttribute('aria-expanded', 'true')
-    expect(folder).toHaveAttribute('aria-level', '1')
     expect(folder.textContent).toContain('files-changed')
     expect(folder.textContent).toContain('src')
-    // The two file rows live at the next level.
-    const fileButtons = screen
-      .getAllByRole('treeitem')
-      .filter((i) => i.getAttribute('aria-expanded') == null)
+    // The two file rows live under the folder: file rows have no aria-expanded.
+    const fileButtons = getRowButtons().filter((b) => b.getAttribute('aria-expanded') == null)
     expect(fileButtons).toHaveLength(2)
-    expect(fileButtons[0]).toHaveAttribute('aria-level', '2')
   })
 
   it('merges a folder chain ending in a sole file into one leaf row', () => {
     renderTree([mkFile('lib/diff-utils.ts', { additions: 42, deletions: 9 })])
-    const items = screen.getAllByRole('treeitem')
+    const buttons = getRowButtons()
     // Only the file row — no folder wrapper, because lib/ collapses into it.
-    expect(items).toHaveLength(1)
-    const leaf = items[0]!
-    expect(leaf).toHaveAttribute('aria-level', '1')
+    expect(buttons).toHaveLength(1)
+    const leaf = buttons[0]!
+    expect(leaf.getAttribute('aria-expanded')).toBeNull()
     const text = leaf.textContent ?? ''
     expect(text).toContain('lib/')
     expect(text).toContain('diff-utils.ts')
@@ -113,11 +118,10 @@ describe('FileTree path compression', () => {
 
   it('renders a root file at depth 0 with no folder wrapper', () => {
     renderTree([mkFile('README.md', { additions: 6, deletions: 2 })])
-    const items = screen.getAllByRole('treeitem')
-    expect(items).toHaveLength(1)
-    expect(items[0]).toHaveAttribute('aria-level', '1')
-    expect(items[0]!.getAttribute('aria-expanded')).toBeNull()
-    expect(items[0]!.textContent).toContain('README.md')
+    const buttons = getRowButtons()
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]!.getAttribute('aria-expanded')).toBeNull()
+    expect(buttons[0]!.textContent).toContain('README.md')
   })
 
   it('keeps a file and a folder with the same segment side by side', () => {
@@ -130,15 +134,15 @@ describe('FileTree path compression', () => {
       mkFile('Makefile/build.mk', { status: 'add', additions: 18 }),
       mkFile('Makefile/test.mk', { status: 'add', additions: 7 }),
     ])
-    const items = screen.getAllByRole('treeitem')
+    const buttons = getRowButtons()
     // 1 folder row (Makefile/) + 2 file rows under it + 1 standalone file row.
-    expect(items).toHaveLength(4)
-    const labels = items.map((i) => i.getAttribute('aria-label'))
+    expect(buttons).toHaveLength(4)
+    const labels = buttons.map((b) => b.getAttribute('aria-label'))
     expect(labels).toContain('Makefile, folder')
     // The standalone file row has no aria-label; verify by text content.
-    const standaloneFile = items.find(
-      (i) =>
-        i.getAttribute('aria-expanded') == null && (i.textContent ?? '').endsWith('−12'),
+    const standaloneFile = buttons.find(
+      (b) =>
+        b.getAttribute('aria-expanded') == null && (b.textContent ?? '').endsWith('−12'),
     )
     expect(standaloneFile).toBeDefined()
     expect(standaloneFile!.textContent).toContain('Makefile')

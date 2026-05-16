@@ -129,10 +129,10 @@ describe('FilesChangedView', () => {
     )
     // Both files appear in the tree. With path compression, the shared "src/"
     // parent becomes a folder row and the files render as leaf rows under it.
-    const tree = screen.getByRole('tree', { name: /files changed/i })
-    expect(within(tree).getByText('src/')).toBeInTheDocument()
-    expect(within(tree).getByText('foo.ts')).toBeInTheDocument()
-    expect(within(tree).getByText('bar.ts')).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: /files changed/i })
+    expect(within(list).getByText('src/')).toBeInTheDocument()
+    expect(within(list).getByText('foo.ts')).toBeInTheDocument()
+    expect(within(list).getByText('bar.ts')).toBeInTheDocument()
     // Default selection feeds back via onSelectPath effect.
     expect(onSelect).toHaveBeenCalledWith('src/foo.ts')
     // The diff stub renders for the currently-selected file.
@@ -154,7 +154,7 @@ describe('FilesChangedView', () => {
       ),
     )
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-file', 'src/foo.ts')
-    const barRow = screen.getByRole('treeitem', { name: /bar\.ts/ })
+    const barRow = screen.getByRole('button', { name: /bar\.ts/ })
     fireEvent.click(barRow)
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
     rerender(
@@ -254,7 +254,7 @@ rename to src/new.ts
     // showing dim "src/" + bright "new.ts". The "+1" diff stat in the row
     // proves bucketing landed under newPath (not oldPath, which would have
     // produced a tree miss and no row at all).
-    const newRow = screen.getByRole('treeitem', { name: /new\.ts/ })
+    const newRow = screen.getByRole('button', { name: /new\.ts/ })
     expect(newRow).toHaveTextContent('+1')
   })
 })

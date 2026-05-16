@@ -118,12 +118,11 @@ export function FileTree({
         </label>
       </div>
       <ul
-        role="tree"
         aria-label={t('filesChanged.tree.ariaTree')}
         className="flex-1 min-h-0 overflow-y-auto py-1"
       >
         {visibleRows.length === 0 ? (
-          <li className="px-3 py-4 text-meta text-ink-muted" role="none">
+          <li className="px-3 py-4 text-meta text-ink-muted">
             {t('filesChanged.noMatch')}
           </li>
         ) : (
@@ -268,13 +267,10 @@ function FolderRowItem({
       : t('filesChanged.tree.ariaFolderEmpty', { path: node.path })
 
   return (
-    <li role="none">
+    <li>
       <button
         type="button"
-        role="treeitem"
         aria-expanded={isOpen}
-        aria-selected={false}
-        aria-level={node.depth + 1}
         onClick={onToggle}
         aria-label={buttonLabel}
         title={isOpen ? t('filesChanged.tree.ariaToggleCollapse', { path: node.path }) : t('filesChanged.tree.ariaToggleExpand', { path: node.path })}
@@ -310,12 +306,10 @@ function FileRowItem({
   const { file, aggregate } = node
   const paddingLeft = node.depth * INDENT_PX + ROW_BASE_PX
   return (
-    <li role="none">
+    <li>
       <button
         type="button"
-        role="treeitem"
-        aria-selected={isSelected}
-        aria-level={node.depth + 1}
+        aria-current={isSelected ? 'true' : undefined}
         onClick={onSelect}
         className={cn(
           'w-full py-1.5 pr-3 flex items-center gap-2 text-left transition-colors duration-180 ease-out-quart',
