@@ -9,6 +9,9 @@ export type SessionStatus =
   | 'pending'
   | 'cancelled'
 
+// Array order doubles as the fallback priority used by
+// `pickEffectiveDefaultAgent` when the configured defaultAgent is missing
+// locally and the user hasn't explicitly chosen one. Reorder with care.
 export const AGENT_KINDS = ['codex', 'claude', 'pi'] as const
 export type AgentKind = (typeof AGENT_KINDS)[number]
 

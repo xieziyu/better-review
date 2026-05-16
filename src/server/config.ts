@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { z } from 'zod'
 
-import { AGENT_KINDS, LANGUAGES, type Language } from '../shared/types'
+import { AGENT_KINDS, LANGUAGES, type AgentKind, type Language } from '../shared/types'
 
 // Picks the supported locale that best matches the host. Used as the initial
 // default for `config.language` so a fresh install reflects the user's system
@@ -51,9 +51,15 @@ export interface LoadConfigResult {
   config: Config
   // Deprecation messages emitted while reading the file (logged by the caller).
   warnings: string[]
+  // True iff the on-disk config.json had a `defaultAgent` key. Used by the
+  // daemon to decide whether it may auto-switch to an installed agent on boot:
+  // user-explicit values are always respected, defaults can be overridden.
+  defaultAgentExplicit: boolean
 }
 
-function applyLegacyAliases(parsed: Config): { config: Config; warnings: string[] } {
+type AliasedConfig = { config: Config; warnings: string[] }
+
+function applyLegacyAliases(parsed: Config): AliasedConfig {
   const warnings: string[] = []
   let stall = parsed.stallMinutes
   if (parsed.claudeStallMinutes !== undefined) {
@@ -76,10 +82,14 @@ export function loadConfig(home: string): Config {
 
 export function loadConfigWithWarnings(home: string): LoadConfigResult {
   const file = join(home, 'config.json')
-  if (!existsSync(file)) return { config: defaultConfig, warnings: [] }
-  const raw = JSON.parse(readFileSync(file, 'utf8'))
+  if (!existsSync(file)) {
+    return { config: defaultConfig, warnings: [], defaultAgentExplicit: false }
+  }
+  const raw: unknown = JSON.parse(readFileSync(file, 'utf8'))
+  const defaultAgentExplicit = typeof raw === 'object' && raw !== null && 'defaultAgent' in raw
   const parsed = rawConfigSchema.parse(raw)
-  return applyLegacyAliases(parsed)
+  const aliased = applyLegacyAliases(parsed)
+  return { ...aliased, defaultAgentExplicit }
 }
 
 const writableKeys = [
@@ -97,4 +107,19 @@ export function saveConfig(file: string, config: Config): void {
   // Deprecated `claudeStallMinutes` is intentionally dropped — `loadConfig`
   // already coalesces it into `stallMinutes` on read.
   writeFileSync(file, JSON.stringify(out, null, 2) + '\n')
+}
+
+// Picks the agent the daemon should actually use this run when the configured
+// value is missing locally. Iterates `AGENT_KINDS` in declared order (which is
+// the implicit priority list). Returns `configured` unchanged when nothing is
+// installed, so the existing /api/health red-banner UX still fires.
+export function pickEffectiveDefaultAgent(
+  configured: AgentKind,
+  agentPaths: Record<AgentKind, string | null>,
+): AgentKind {
+  if (agentPaths[configured]) return configured
+  for (const k of AGENT_KINDS) {
+    if (agentPaths[k]) return k
+  }
+  return configured
 }

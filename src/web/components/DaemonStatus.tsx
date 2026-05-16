@@ -12,10 +12,9 @@ import { cn } from '@/lib/utils'
 type Severity = 'ok' | 'warn' | 'block'
 
 function severityFrom(h: HealthStatus): Severity {
-  const def = h.agents[h.defaultAgent]
-  if (!def?.found) return 'block'
   if (!h.gh.found || !h.gh.authed) return 'block'
-  for (const k of AGENT_KINDS) if (!h.agents[k].found) return 'warn'
+  const anyAgent = AGENT_KINDS.some((k) => h.agents[k].found)
+  if (!anyAgent) return 'block'
   return 'ok'
 }
 
