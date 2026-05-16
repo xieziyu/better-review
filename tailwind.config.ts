@@ -34,10 +34,15 @@ export default {
       fontFamily: {
         sans: [
           'Inter',
-          'Noto Sans SC',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
+          'BlinkMacSystemFont',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei',
+          'Noto Sans CJK SC',
+          'Noto Sans SC',
           'sans-serif',
         ],
         mono: [
