@@ -85,7 +85,13 @@
     "filterPlaceholder": "过滤文件…",
     "onlyWithFindings": "仅含 findings",
     "noMatch": "没有匹配的文件。",
-    "treeAria": "此 PR 的改动文件",
+    "tree": {
+      "ariaTree": "此 PR 的改动文件",
+      "ariaFolder": "{{path}}，目录，{{count}} 条 findings",
+      "ariaFolderEmpty": "{{path}}，目录",
+      "ariaToggleCollapse": "折叠目录 {{path}}",
+      "ariaToggleExpand": "展开目录 {{path}}"
+    },
     "resizeAria": "调整文件树宽度",
     "fileCount_one": "{{count}} 个文件",
     "fileCount_other": "{{count}} 个文件",

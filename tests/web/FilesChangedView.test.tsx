@@ -1,6 +1,6 @@
 import type { Finding, PRSession } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 // Stub heavy pieces so jsdom doesn't pull Shiki WASM or actually mount the
@@ -127,11 +127,12 @@ describe('FilesChangedView', () => {
         />,
       ),
     )
-    // Both files appear in the tree (the diff pane header also shows the
-    // selected path, so query within the listbox by role).
-    const list = screen.getByRole('listbox', { name: /files changed/i })
-    expect(list).toHaveTextContent('src/foo.ts')
-    expect(list).toHaveTextContent('src/bar.ts')
+    // Both files appear in the tree. With path compression, the shared "src/"
+    // parent becomes a folder row and the files render as leaf rows under it.
+    const list = screen.getByRole('list', { name: /files changed/i })
+    expect(within(list).getByText('src/')).toBeInTheDocument()
+    expect(within(list).getByText('foo.ts')).toBeInTheDocument()
+    expect(within(list).getByText('bar.ts')).toBeInTheDocument()
     // Default selection feeds back via onSelectPath effect.
     expect(onSelect).toHaveBeenCalledWith('src/foo.ts')
     // The diff stub renders for the currently-selected file.
@@ -153,7 +154,7 @@ describe('FilesChangedView', () => {
       ),
     )
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-file', 'src/foo.ts')
-    const barRow = screen.getByRole('option', { name: /src\/bar\.ts/ })
+    const barRow = screen.getByRole('button', { name: /bar\.ts/ })
     fireEvent.click(barRow)
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
     rerender(
@@ -249,9 +250,11 @@ rename to src/new.ts
         />,
       ),
     )
-    const newRow = screen.getByRole('option', { name: /src\/new\.ts/ })
-    // Finding count rendered inside the row → proves bucketing landed under
-    // newPath, not oldPath.
-    expect(newRow).toHaveTextContent('1')
+    // With one file in the diff, path compression renders a single leaf row
+    // showing dim "src/" + bright "new.ts". The "+1" diff stat in the row
+    // proves bucketing landed under newPath (not oldPath, which would have
+    // produced a tree miss and no row at all).
+    const newRow = screen.getByRole('button', { name: /new\.ts/ })
+    expect(newRow).toHaveTextContent('+1')
   })
 })

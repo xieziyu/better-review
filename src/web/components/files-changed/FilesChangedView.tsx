@@ -165,6 +165,7 @@ export function FilesChangedView({
           onSelect={onSelectPath}
           severitiesByFile={severitiesByFile}
           countsByFile={countsByFile}
+          sessionId={session.id}
         />
         <div
           {...separatorProps}
