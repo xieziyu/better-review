@@ -1,28 +1,34 @@
 # better-review
 
-> A local-first PR review helper. Drives `claude` or `codex` review agents under a browser UI, then ships findings to GitHub as inline comments via the `gh` CLI.
+> A local-first PR review helper. Drives `codex`, `claude`, or `pi` review agents under a browser UI, then ships findings to GitHub as inline comments via the `gh` CLI.
 
 [简体中文](./README.zh-CN.md)
 
 `better-review` runs entirely on your machine: a Node daemon, a React SPA, and a thin orchestration layer over the agent and `gh` CLIs. There is no cloud component, no auth layer, and no shared state — everything lives under `~/.better-review/`.
 
-## Features
+<p align="center">
+  <img src="./docs/overview.png" alt="better-review overview — files-changed tab with inline findings" width="900" />
+</p>
 
-- **Browser triage** for findings: checkbox / edit / delete each one, with the relevant diff slice expanded inline.
-- **Pluggable agents** — pick `claude` or `codex` per review, or set a default.
-- **One-click submission** to GitHub: selected findings become inline comments, off-diff or PR-wide ones fall back to the review body, all via `gh api`.
-- **Multi-PR concurrency** with a session sidebar that updates over SSE; the daemon caps parallel agent processes (configurable).
-- **Three-tier prompt overrides** — project (`<selected-repo>/.better-review/review.md`) → global (`~/.better-review/review.md`) → built-in. First hit wins.
-- **No magic state** — sessions, findings, and submissions sit in a local SQLite file you can inspect.
+## Highlights
+
+- **Pick the right agent per review.** Swap between `codex`, `claude`, and `pi` from a single UI — no separate tools, no separate workflows. Set a default and override per session.
+- **Agents read your real source.** Point at your local clone and the agent reviews a `git worktree` at the PR head — actual files, real callers, not just the diff. No clone? It still pulls the touched files at HEAD.
+- **You stay in charge before anything ships.** Triage every finding, edit wording or severity, add your own, drop the ones that don't matter. Nothing reaches GitHub until you press Submit.
+- **Reruns build on the last round.** Each rerun preserves the prior round as read-only history and feeds the previous review back to the agent, so it can extend past judgment instead of starting from scratch.
+- **Two ways out: GitHub or a coding agent.** One click posts selected findings as inline comments via `gh`. Or skip the GitHub round-trip entirely and export the findings as Markdown / JSON to hand off to Claude Code / Codex / Cursor for fixing.
+- **Bend the prompt to your project.** Layer a project-level `review.md` over a global one over the built-in rules — first hit wins, no forking, no merging.
+- **Bilingual end to end.** The UI and the agent-facing prompts are both maintained in English and 简体中文; findings come back in the language you picked.
+- **Local-first and inspectable.** Everything lives in `~/.better-review/` — SQLite for state, flat files for prompts, diffs, transcripts, and prep logs. No cloud, no telemetry, no auth.
 
 ## Prerequisites
 
-| Tool                               | Version                   | Notes                                                                                                                                 |
-| ---------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [Node.js](https://nodejs.org)      | ≥ 20                      | Required by the daemon and the build.                                                                                                 |
-| [`gh` CLI](https://cli.github.com) | recent                    | Must be authenticated (`gh auth login`).                                                                                              |
-| Review agent CLI                   | at least one              | [`claude`](https://docs.anthropic.com/en/docs/claude-code) and/or [`codex`](https://github.com/openai/codex). Must be on your `PATH`. |
-| Browser                            | Chrome / Firefox / Safari | UI runs at `http://127.0.0.1:<port>`.                                                                                                 |
+| Tool                               | Version                   | Notes                                                                                                                                              |
+| ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Node.js](https://nodejs.org)      | ≥ 20                      | Required by the daemon and the build.                                                                                                              |
+| [`gh` CLI](https://cli.github.com) | recent                    | Must be authenticated (`gh auth login`).                                                                                                           |
+| Review agent CLI                   | at least one              | [`codex`](https://github.com/openai/codex), [`claude`](https://docs.anthropic.com/en/docs/claude-code), or `pi`. Must be on your `PATH`.           |
+| Browser                            | Chrome / Firefox / Safari | UI runs at `http://127.0.0.1:<port>`.                                                                                                              |
 
 ## Install
 
@@ -51,6 +57,7 @@ better-review                                       # launch daemon + open UI
 better-review https://github.com/owner/repo/pull/1  # also create a review and jump to it
 better-review status                                # pid / port / startedAt
 better-review stop                                  # graceful shutdown
+better-review restart                               # stop + start (use after gh auth login)
 ```
 
 The first run creates `~/.better-review/` (override with `BETTER_REVIEW_HOME`).
@@ -61,56 +68,70 @@ The first run creates `~/.better-review/` (override with `BETTER_REVIEW_HOME`).
 
 Paste a GitHub PR URL on the home page (only `https://github.com/<owner>/<repo>/pull/<n>` is accepted) and press **Start review**. The form has three optional inputs you can layer on top:
 
-- **Local repo path** — point at your existing clone (e.g. `~/code/owner/repo`). The daemon adds a `git worktree` at the PR head so the agent sees PR-merged source, not just the diff. Auto-filled from history when the URL matches a previously-used path.
-- **Extra context** — a per-review prompt addendum (spec snippets, design intent, etc.). Affects only this session; doesn't touch `review.md`.
-- **Agent** — segmented selector to override `defaultAgent` for this session.
+- **Local repo path** — point at your existing clone (e.g. `~/code/owner/repo`). The daemon adds a `git worktree` at the PR head so the agent sees PR-merged source, not just the diff. Auto-filled from history when the URL matches a previously-used path; the **Browse** button opens a native folder picker on platforms that support one. Without a pinned clone, the daemon falls back to a partial `gh api`-backed snapshot of diff-touched files at HEAD.
+- **Extra context** — a per-review prompt addendum (spec snippets, design intent, etc.). Affects only this session; doesn't touch `review.md`. Editable later from the PR detail page and carried into reruns unless overridden.
+- **Agent** — segmented selector to override `defaultAgent` for this session. Disabled buttons mean the CLI isn't on `PATH`.
 
-You can also pass the URL directly on the CLI — it opens the UI at that PR with default settings.
+You can also pass the URL directly on the CLI — it opens the UI at that PR with the default settings.
 
 ### Triage findings
 
-Each finding renders as a card with:
+The PR detail page opens on the **Files changed** tab — a hierarchical, path-compressed tree of the touched files with the unified diff on the right and finding cards inlined at the relevant hunks. The flat **Findings** tab is one click away when you want to step through the full list with the Inspector pane open.
+
+Each finding renders with:
 
 - a checkbox controlling whether it ships,
-- a severity tag (`MUST` / `SHOULD` / `NIT`),
+- a severity tag (`MUST` / `SHOULD` / `NIT`) and a free-form `category` label,
 - the body in markdown with an inline diff slice when the finding has `file:line`,
 - edit and delete buttons (`⌘↵` saves; delete is local-only and doesn't touch GitHub).
 
-PR-wide findings (no `file`) live in a separate group at the top. Open the same PR in another tab and edits sync over SSE.
+PR-wide findings (no `file`) live in a separate group. You can also **add a manual finding** yourself from the Files tab; it submits to GitHub like any other. While the agent is still streaming, a toast notifies you when a new finding lands in a file you're not currently viewing — click it to jump.
+
+Multi-tab edits sync over SSE.
+
+### Rerun a review
+
+Every rerun archives the previous round; the live page shows a `Round 2`, `Round 3`, … tag and the prior runs become read-only history (`/pr/<old-id>` still loads, just without Submit/Edit). Reruns also feed the previous review back to the agent: the prior review body, your prior inline comments, plus the PR-conversation thread are inlined into the prompt under a `PRIOR REVIEW` section, so the agent can build on past judgment instead of starting from scratch. Force-pushes are detected and called out explicitly. Cancel a running review with the **Stop** button (sends SIGTERM, then SIGKILL on timeout).
 
 ### Submit to GitHub
 
 The **Submit** drawer is two steps:
 
-1. **Review** — preview which selected findings become inline comments and which fall back to the review body (off-diff or PR-wide), pick a review event (`COMMENT` / `REQUEST_CHANGES` / `APPROVE`), and edit the review body. The body is auto-populated from PR-wide findings unless you override it.
+1. **Review** — preview which selected findings become inline comments and which fall back to the review body (off-diff or PR-wide), pick a review event (`COMMENT` / `REQUEST_CHANGES` / `APPROVE`), and edit the review body. The body is auto-populated from PR-wide findings unless you override it. Findings that duplicate a comment you already posted in a prior submission are flagged and skipped server-side.
 2. **Confirm** — final summary, then submit (`⌘⏎`). The daemon POSTs to `gh api repos/<owner>/<repo>/pulls/<n>/reviews` and shows the GitHub URL inline.
 
 There are no automatic retries; failures surface in the banner and the submissions table.
 
-### 本地导出 findings（转交 coding agent）
+### Local export (hand off to a coding agent)
 
-不想走 GitHub review 流程，只想把 findings 交给本地 coding agent（Claude Code / Codex / Cursor）做修复？详情页工具栏的 **Export ▾** 按钮（快捷键 `⌘E` / `Ctrl+E`）会弹出一个小面板：
+Don't want to go through the GitHub review flow — just want to hand the findings to a local coding agent (Claude Code / Codex / Cursor) for fixing? The detail-page toolbar's **Export ▾** button (`⌘E` / `Ctrl+E`) pops a small panel:
 
-- **Scope**：默认导出已勾选的 findings（与 Submit 一致），可切换到 All（全部未归档 findings）。如果一条都没勾选，会自动切到 All。
-- **Format**：`Markdown` 按文件分组、带严重级别 emoji 与 `suggestion` 代码块，适合直接粘贴给 coding agent；`JSON` 是一个干净的 `Finding[]`（剥掉了 dbId / sessionId 等内部字段），适合脚本消费。
-- **Copy / Download**：复制到剪贴板或下载文件 `findings-pr-<n>-<scope>.<ext>`。整个过程是纯前端，不调用 `gh`、不写远端、不修改 finding 状态，也不会触发提交。
+- **Scope** — defaults to selected findings (matches Submit); switch to All for every non-archived finding. With nothing selected it auto-switches to All.
+- **Format** — `Markdown` groups by file with severity emoji + `suggestion` code blocks, ready to paste into a coding agent; `JSON` is a clean `Finding[]` (internal fields like `dbId` / `sessionId` stripped), suitable for scripts.
+- **Copy / Download** — clipboard or a file named `findings-pr-<n>-<scope>.<ext>`. Pure client-side: doesn't call `gh`, doesn't touch GitHub, doesn't mutate finding state, doesn't count as a submission.
 
 ### Customise the review prompt
 
 The prompt is split into two layers:
 
-- **Framework** (read-only, shipped with the package): reviewer persona, placeholder positions, the **severity rubric** (`must` / `should` / `nit` semantics), output schema, and `suggestion` anchoring rules. These are hard contracts for the findings parser and the submit pipeline — your `review.md` cannot override them.
-- **Rules** (overridable): the review checklist, `category` label set, and any domain-specific guidance you want the agent to follow. Resolved in this order — first hit wins:
+- **Framework** (read-only, shipped with the package, in `prompts/framework.{en,zh-CN}.md`): reviewer persona, placeholder positions, the **severity rubric** (`must` / `should` / `nit` semantics), output schema, `suggestion` anchoring rules, and the `{{#SOURCE:…}}` / `{{#EXTRA_NOTES}}` / `{{#PRIOR_REVIEW}}` blocks. These are hard contracts for the findings parser and the submit pipeline — your `review.md` cannot override them.
+- **Rules** (overridable, `prompts/builtin-rules.{en,zh-CN}.md`): the review checklist, `category` label set, and any domain-specific guidance you want the agent to follow. Resolved in this order — first hit wins:
 
   ```
-  <selected-repo>/.better-review/review.md   # project (the local repo pinned for the review)
+  <pinned-repo>/.better-review/review.md     # project (the local repo pinned for the review)
   ~/.better-review/review.md                 # global
-  prompts/builtin-rules.md                   # built-in default
+  prompts/builtin-rules.<lang>.md            # built-in default, language-paired
   ```
 
   The project tier is keyed to the local repo you pin for a review — not the daemon's working directory. If a review runs without a pinned local repo, the project tier is skipped.
 
-Edit either scope from the **Prompt** link in the top bar (`Project` / `Global` tabs; `⌘S` saves). The `Project` tab has a repo selector at the top — pick the local repo whose `.better-review/review.md` you want to edit. Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page. Daemon configuration (default agent, watchdog timeout, GC retention, etc.) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
+Edit either scope from the **Prompt** link in the top bar (`Effective` / `Framework` / `Project` / `Global` tabs; `⌘S` saves). The `Project` tab has a repo selector at the top — pick the local repo whose `.better-review/review.md` you want to edit. Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page.
+
+Daemon configuration (language, default agent, watchdog timeout, GC retention, port, concurrency) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
+
+### Language
+
+Both the UI and the agent-facing prompts are bilingual (English + 简体中文). The language picker in the top bar hot-applies; it also drives which built-in prompt variant is fed to the agent, so findings come back in the matching language. First boot picks the language from `LANG` / `LC_ALL` / OS locale.
 
 ## Configuration
 
@@ -119,21 +140,22 @@ Layout under `~/.better-review/`:
 ```
 config.json               # optional; defaults are fine
 server.json               # daemon liveness: { pid, port, startedAt }
-state.db                  # SQLite — sessions / findings / submissions
+state.db                  # SQLite — sessions / findings / submissions / submission_comments
 daemon.log                # structured server logs
 review.md                 # global rule overrides (optional)
-sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent.log, prompt.txt
+sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent.log, prompt.txt, prep.log
 ```
 
 `config.json` keys (all optional). The **Settings** page edits the same file; most keys hot-reload, the two flagged below need a daemon restart.
 
-| Key                    | Default      | Meaning                                                                     |
-| ---------------------- | ------------ | --------------------------------------------------------------------------- |
-| `port`                 | `0` (random) | Set to a fixed port if you want a stable URL. _(restart required)_          |
-| `maxConcurrentReviews` | `4`          | Cap on parallel agent processes; the rest queue. _(restart required)_       |
-| `stallMinutes`         | `3`          | Watchdog kills an agent that emits no stdout for this long.                 |
-| `defaultAgent`         | `"claude"`   | `"claude"` or `"codex"`; UI selector overrides per session.                 |
-| `perPRGCDays`          | `7`          | Garbage-collect per-PR workdirs older than this many days; `0` disables GC. |
+| Key                    | Default                | Meaning                                                                                                                |
+| ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `port`                 | `0` (random)           | Set to a fixed port if you want a stable URL. _(restart required)_                                                     |
+| `maxConcurrentReviews` | `4`                    | Cap on parallel agent processes; the rest queue. _(restart required)_                                                  |
+| `stallMinutes`         | `3`                    | Watchdog kills an agent that emits no stdout for this long.                                                            |
+| `defaultAgent`         | `"codex"`              | `"codex"` / `"claude"` / `"pi"`. If unset and the configured CLI is missing, falls back to the first installed agent.  |
+| `perPRGCDays`          | `7`                    | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.                                            |
+| `language`             | auto (`en` / `zh-CN`)  | UI + built-in prompt language. Auto-detected from `LANG` / `LC_ALL` / OS locale on first boot.                         |
 
 ## Development
 
@@ -153,10 +175,10 @@ pnpm run format        # writes; `format:check` for CI
 
 - **Conventional Commits**, lowercase imperative — `feat(scope): …`, `fix(scope): …`. Match existing scopes (`cli`, `server`, `engine`, `web`, `prompts`).
 - **TDD for routes and engine code**: failing test → implementation → commit.
-- **No mocks for `better-sqlite3`, the agent CLIs, or `gh`.** Tests open a real SQLite file at a temp path, and shell shims under `tests/fixtures/` (`fake-claude.sh`, `fake-codex.sh`, `fake-gh.sh`) stand in for the external tools.
+- **No mocks for `better-sqlite3`, the agent CLIs, or `gh`.** Tests open a real SQLite file at a temp path, and shell shims under `tests/fixtures/` (`fake-codex.sh`, `fake-claude.sh`, `fake-gh.sh`) stand in for the external tools.
 - **Strict TS** — `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are on. Narrow indexed access; pass `undefined` explicitly for optional fields.
 - **Don't add `.js` to TypeScript imports.** `scripts/copy-assets.mjs` rewrites compiled output post-build; sources stay extensionless.
-- **Prompt convention** — when editing `prompts/builtin-rules.md` or override `review.md`, write prose in 简体中文 and keep code identifiers, paths, and flags in English.
+- **Prompt convention** — every built-in prompt has paired `<name>.en.md` and `<name>.zh-CN.md` variants. Keep them in sync (same structure, same placeholders). Chinese variants follow "Chinese prose, English code identifiers": file paths, symbol names, CLI flags, category strings (`Scope`, `Correctness`, …), and severity values (`must` / `should` / `nit`) stay English.
 
 For deeper architecture and design rationale, see [`CLAUDE.md`](./CLAUDE.md), [`DESIGN.md`](./DESIGN.md), and [`PRODUCT.md`](./PRODUCT.md).
 
@@ -169,6 +191,8 @@ For deeper architecture and design rationale, see [`CLAUDE.md`](./CLAUDE.md), [`
 **Agent runs forever and nothing happens.** Default watchdog is 3 minutes of silent stdout; raise `stallMinutes` if your reviews legitimately go quiet for longer. After a kill, the session goes `failed` — click **Rerun**.
 
 **I edited the prompt — does it re-run my open PRs?** No. Existing findings stay put; click **Rerun** on the PR detail page (or **Apply to current session** in the prompt editor) to re-execute with the current rules.
+
+**My configured default agent isn't installed.** If you never explicitly set `defaultAgent` in `config.json`, the daemon auto-switches to the first installed CLI from `codex` → `claude` → `pi`. If you _did_ set it explicitly, the status dot goes red and the home page disables that button until you install the CLI or change the setting.
 
 ## License
 
