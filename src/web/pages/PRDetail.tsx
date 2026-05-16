@@ -552,11 +552,33 @@ export function PRDetail() {
   })
   useEffect(() => {
     if (!diskPrepLog) return
+    // Merge persisted entries into the head of local state. Without this merge,
+    // a single SSE tick arriving before the query resolves would make prev
+    // non-empty and discard all earlier persisted history on refresh.
     if (Array.isArray(diskPrepLog.phases)) {
-      setPrepSteps((prev) => (prev.length === 0 ? diskPrepLog.phases : prev))
+      const persisted = diskPrepLog.phases
+      setPrepSteps((prev) => {
+        // Server `markPhase` fires each phase once per session, so phase+detail
+        // is a stable dedupe key. ts can't be used here because the SSE handler
+        // synthesizes ts via Date.now() (the `progress` event doesn't carry one).
+        const live = new Set(prev.map((s) => `${s.phase} ${s.detail ?? ''}`))
+        const missing = persisted.filter(
+          (s) => !live.has(`${s.phase} ${s.detail ?? ''}`),
+        )
+        return missing.length === 0 ? prev : [...missing, ...prev]
+      })
     }
     if (Array.isArray(diskPrepLog.calls)) {
-      setPrepCalls((prev) => (prev.length === 0 ? diskPrepLog.calls : prev))
+      const persisted = diskPrepLog.calls
+      setPrepCalls((prev) => {
+        // ts comes from the server for both disk and SSE (`prep-output` carries it),
+        // so ts+command uniquely identifies a call across the two paths.
+        const live = new Set(prev.map((c) => `${c.ts} ${c.command.join(' ')}`))
+        const missing = persisted.filter(
+          (c) => !live.has(`${c.ts} ${c.command.join(' ')}`),
+        )
+        return missing.length === 0 ? prev : [...missing, ...prev]
+      })
     }
   }, [diskPrepLog])
 
@@ -619,6 +641,8 @@ export function PRDetail() {
     setExtraDraft(null)
     setExtraEditing(false)
     setExtraExpanded(false)
+    setActiveTab('files')
+    setFilesTabSelectedPath(null)
   }, [id])
 
   useEffect(() => {
