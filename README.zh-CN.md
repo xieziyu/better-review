@@ -9,7 +9,7 @@
 ## 主要能力
 
 - **浏览器审阅**：每条 finding 都能勾选 / 编辑 / 删除，旁边自动展开对应的 diff 切片。
-- **可插拔 agent**：每次 review 自由选 `claude` 或 `codex`，也可以设默认。Agent 层是个简单接口，新 provider 直接落到 `src/server/engine/agent/`。
+- **可插拔 agent**：每次 review 自由选 `claude` 或 `codex`，也可以设默认。
 - **一键提交 GitHub**：勾选的 findings 走 inline comments，跨文件或 off-diff 的降级到 review body，全部经 `gh api`。
 - **多 PR 并行**：侧栏通过 SSE 实时刷新各 session 状态；并发上限可配置。
 - **三级 prompt 覆盖**：项目级（`<cwd>/.better-review/review.md`）→ 全局（`~/.better-review/review.md`）→ 内置，第一个命中即生效。
