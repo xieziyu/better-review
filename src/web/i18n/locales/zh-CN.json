@@ -35,20 +35,20 @@
     "reviewDetail_one": "{{count}} 条发现 · 待提交",
     "reviewDetail_other": "{{count}} 条发现 · 待提交",
     "startingUp": "正在启动…",
-    "transcript": "Transcript",
-    "transcriptToggleAria": "切换 transcript 抽屉"
+    "transcript": "实时日志",
+    "transcriptToggleAria": "切换实时日志抽屉"
   },
   "transcriptDrawer": {
-    "handleLabel": "Transcript",
-    "streaming": "streaming",
+    "handleLabel": "实时日志",
+    "streaming": "传输中",
     "linesLabel": "{{count}} 行",
-    "transcriptAria": "Agent transcript",
-    "resizeAria": "调整 transcript 抽屉高度",
+    "transcriptAria": "Agent 实时日志",
+    "resizeAria": "调整实时日志抽屉高度",
     "waiting": "等待 agent 输出…",
     "follow": "跟随",
     "followAria": "跟随到底部",
-    "openAria": "展开 transcript 抽屉",
-    "closeAria": "收起 transcript 抽屉",
+    "openAria": "展开实时日志抽屉",
+    "closeAria": "收起实时日志抽屉",
     "truncatedNotice": "… 较早的输出已截断"
   },
   "inspector": {
@@ -74,8 +74,8 @@
     "openDetailAria": "展开详情面板"
   },
   "filesChanged": {
-    "tabFindings": "Findings",
-    "tabFiles": "Files changed",
+    "tabFindings": "评审发现",
+    "tabFiles": "文件变更",
     "filterPlaceholder": "过滤文件…",
     "onlyWithFindings": "仅含 findings",
     "noMatch": "没有匹配的文件。",

@@ -9,6 +9,15 @@
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
+/* Match the project's `code` token (13px / 20px). The library leaves
+ * font-size unset, which makes diff rows inherit the 16px body default
+ * and look noticeably larger than GitHub's PR diff. */
+.diff-line,
+.diff-decoration {
+  font-size: 13px;
+  line-height: 20px;
+}
+
 /* Shiki tokens injected by our custom renderToken — dual-theme colors live
  * on the element as CSS custom properties, swapped via [data-theme]. */
 .shiki-tok {
