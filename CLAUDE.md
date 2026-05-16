@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Orientation
 
-`better-review` is a **local PR-review tool**: a Node daemon + React SPA that drives one of several review-agent CLIs (currently `claude` and `codex`) plus the `gh` CLI. The agent layer is pluggable — see `src/server/engine/agent/`. Distributed as an npm bin (`better-review`) that launches a detached daemon, opens a browser UI, and shells out to those CLIs for actual work. There is no cloud component, no auth layer, and no multi-user state — everything lives under `~/.better-review/`.
+`better-review` is a **local PR-review tool**: a Node daemon + React SPA that drives one of several review-agent CLIs (currently `codex`, `claude`, and `pi`) plus the `gh` CLI. The agent layer is pluggable — see `src/server/engine/agent/`. Distributed as an npm bin (`better-review`) that launches a detached daemon, opens a browser UI, and shells out to those CLIs for actual work. There is no cloud component, no auth layer, and no multi-user state — everything lives under `~/.better-review/`.
 
-User-facing docs live in `README.md` (Chinese). Read it for end-to-end semantics (PR input formats, submit flow, prompt overrides, config keys). The notes below are about _building and changing_ the code, not using it.
+User-facing docs live in `README.md` (English) and `README.zh-CN.md` (Chinese). Read them for end-to-end semantics (PR input formats, submit flow, prompt overrides, config keys, rerun/round semantics). The notes below are about _building and changing_ the code, not using it.
 
 ## Common commands
 
@@ -35,9 +35,9 @@ The Node-env vitest run is pinned to `pool: "forks"` with `singleFork: true` (se
 ## Build pipeline gotchas
 
 - Three tsconfigs: `tsconfig.server.json` (CLI + server + shared → `dist/`), `tsconfig.web.json` (Vite, `@/` and `@shared/` aliases), `tsconfig.test.json`. Keep server-only and web-only code separated; only `src/shared/` is consumed by both.
-- `scripts/copy-assets.mjs` runs after `tsc` and does three things:
+- `scripts/copy-assets.mjs` runs after `tsc` and does four things:
   1. Copies `src/server/db/migrations/*.sql` into `dist/server/db/migrations/`.
-  2. Copies `prompts/framework.md` and `prompts/builtin-rules.md` to `dist/prompts/`.
+  2. Copies the language-paired prompt assets (`prompts/framework.{en,zh-CN}.md` + `prompts/builtin-rules.{en,zh-CN}.md`) to `dist/prompts/`.
   3. **Rewrites relative imports in compiled `.js` to add `.js` extensions** (and folds `./foo` → `./foo/index.js` where applicable). This is required because the package is ESM (`"type": "module"`) but the source uses extensionless imports. Don't manually add `.js` to `.ts` imports — rely on this step.
   4. Chmods `dist/cli/index.js` to 0755 so the bin works after `npm install -g .`.
 - Vite builds the SPA to `dist/web/`. The daemon serves it via Hono static middleware (`webDir = dist/web`) — see `src/server/index.ts:67`.
@@ -61,17 +61,24 @@ The CLI is a thin launcher (`src/cli/index.ts`, `src/cli/daemon-launcher.ts`). A
 
 ### Review session lifecycle
 
-Source: `src/server/start-session.ts` plus `src/server/engine/`.
+Source: `src/server/start-session.ts` plus `src/server/engine/` and `src/server/git/`. Sessions transition through `pending` (prep in progress) → `running` (agent producing findings) → `ready` (awaiting human submit) → `submitted` / `failed` / `cancelled` / `archived` (set by rerun).
 
 1. **Resolve PR target** — `github/pr-target-parser.ts` accepts only the canonical HTTPS GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`) and throws on anything else.
-2. **Fetch metadata + diff** — `gh pr view --json` and `gh pr diff` via `github/gh-client.ts` (always `execa`, never raw `child_process`). Diff is cached at `<workdir>/diff.cache`.
-3. **Resolve prompt** — `prompts/resolver.ts` walks: project (`<localRepoPath>/.better-review/review.md`) → global (`~/.better-review/review.md`) → builtin (`prompts/builtin.md`). First hit wins; no merging. The project tier resolves against the session's selected local repo (`localRepoPath`), **not** the daemon's cwd; when no local repo is pinned the project tier is skipped. `prompts/renderer.ts` substitutes `{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`. The framework wording is agent-neutral — it tells the agent to "write a JSON array of findings to {{FINDINGS_PATH}} using whatever file-write capability your runtime provides," not "use the Write tool."
-4. **Pick agent** — the session's `agent` field (default `config.defaultAgent`) selects a `ReviewAgent` from `engine/agent/` (`getAgent(kind)`). Each agent owns its own spawn args and stdout parsing.
-5. **Spawn agent** — `engine/runner.ts` calls `agent.spawn({ executable, prompt, workdir, logPath, onProgress })` under a `ConcurrencyQueue` (config `maxConcurrentReviews`, default 4). Each `onProgress` tick resets the watchdog; if no tick arrives for `stallMinutes`, the runner SIGTERMs (then SIGKILLs) the child. Implementations:
+2. **Insert pending row + queue prep** — the session row is inserted with minimal fields immediately so the UI can navigate to its detail page; the rest of prep runs inside `queue.run(id, …)`. A `PrepLogger` (`engine/prep-logger.ts`) writes each phase + every captured `gh` call (full stdout / stderr / exit / duration) as JSONL to `<workdir>/prep.log`, and emits matching `progress` (`prep:*`) + `prep-output` SSE events. Phases are listed in `PREP_PHASES`.
+3. **Fetch metadata + diff** — `gh pr view --json` and `gh pr diff` via `github/gh-client.ts` (always `execa`, never raw `child_process`). Diff is cached at `<workdir>/diff.cache`. Metadata back-fills the session row so the UI updates as soon as title/author/url/headSha are known.
+4. **Prior review context + source prep** in parallel —
+   - `engine/rerun-context.ts` fans out gh-api calls to load the prior submission's body + inline comments + replies + PR conversation thread (force-push detection by checking whether `lastReviewedSha` is still in the commit graph).
+   - `git/source-prep.ts` picks a strategy: `worktree` (when `localRepoPath` is pinned — `git/worktree.ts` creates `<workdir>/source/` as a worktree at the PR head SHA), otherwise `snapshot` (`git/snapshot.ts` uses `gh api .../contents` to materialize just the diff-touched files), otherwise `none`. The orchestrator falls back to `none` on failure rather than aborting.
+5. **Resolve + render prompt** — `prompts/resolver.ts` walks: project (`<localRepoPath>/.better-review/review.md`) → global (`~/.better-review/review.md`) → builtin (`prompts/builtin-rules.<lang>.md`). First hit wins; no merging. The project tier resolves against the session's selected local repo (`localRepoPath`), **not** the daemon's cwd; when no local repo is pinned the project tier is skipped. The framework template (`prompts/framework.<lang>.md`, picked by `getFramework(lang)` in `prompts/builtin.ts`) wraps the rules via `{{RULES}}`. `prompts/renderer.ts` substitutes `{{PR_META}}`, `{{DIFF}}`, `{{FINDINGS_PATH}}`, `{{SCHEMA}}`, `{{SOURCE_KIND}}`, `{{SOURCE_PATH}}`, `{{HEAD_SHA}}`, and conditionally expands three block sections: `{{#SOURCE:worktree|snapshot|none}}…{{/SOURCE}}` (active kind survives, others are stripped), `{{#EXTRA_NOTES}}…{{/EXTRA_NOTES}}` (kept only when `extraPrompt` is non-empty), `{{#PRIOR_REVIEW}}…{{/PRIOR_REVIEW}}` with nested `{{#FORCE_PUSHED}}` / `{{^FORCE_PUSHED}}` switches (kept only when prior context loaded). On rerun with prior context, `extractNewHunks` + `annotateDiffWithIncremental` add `[NEW SINCE LAST REVIEW]` markers to the diff. The framework wording is agent-neutral — it tells the agent to "write a JSON array of findings to {{FINDINGS_PATH}} using whatever file-write capability your runtime provides," not "use the Write tool."
+6. **Pick agent + resolve executable** — the session's `agent` field (default `config.defaultAgent`) selects a `ReviewAgent` from `engine/agent/` (`getAgent(kind)`); `agentPaths` is cached at boot via `findExecutable()`. `pickEffectiveDefaultAgent` auto-falls-back to the first installed agent in `AGENT_KINDS` order (codex → claude → pi) when the configured default is missing AND the user never wrote `defaultAgent` to `config.json`. Sessions that pin a missing CLI fail synchronously to the caller — no pending row that will instantly fail.
+7. **Spawn agent** — `engine/runner.ts` calls `agent.spawn({ executable, prompt, workdir, sourcePath?, logPath, onProgress, onOutput })` under a `ConcurrencyQueue` (config `maxConcurrentReviews`, default 4). The runner registers the handle in `RunnerRegistry` so `cancel-session.ts` can kill it. Each `onProgress` tick resets the watchdog; if no tick arrives for `stallMinutes`, the runner SIGTERMs (then SIGKILLs) the child. Implementations:
+   - `agent/codex.ts` — `codex exec --sandbox workspace-write --skip-git-repo-check --color never -`; prompt fed via stdin (avoids argv length limits with large diffs); ticks once per stdout line. When `sourcePath` is set, exposes the source tree via `--add-dir` while keeping `cwd=workdir` so apply_patch lets the agent write `findings.json` (see comments in `agent/codex.ts` for the two-boundary explanation).
    - `agent/claude.ts` — `claude --output-format stream-json --verbose -p <prompt>`; ticks once per stream-json event via `engine/stream-json.ts`.
-   - `agent/codex.ts` — `codex exec --sandbox workspace-write --skip-git-repo-check --color never -`; prompt is fed via stdin (avoids argv length limits with large diffs); ticks once per stdout line.
-6. **Parse findings** — `engine/findings-watcher.ts` uses `chokidar` on `<workdir>/findings.json`. `engine/findings-parser.ts` validates entries against the zod schema in `src/shared/findings-schema.ts` and dedupes by `(file, line, title)`. New rows go through `db/findings.ts` and get broadcast on the SSE bus.
-7. **Submit** — `engine/payload-builder.ts` separates inline-eligible findings from PR-wide / off-diff ones (validated by `engine/diff-line-validator.ts`); `engine/submit.ts` POSTs the payload via `gh api repos/.../pulls/<n>/reviews`. No retries.
+   - `agent/pi.ts` — `pi --mode json …`; ticks once per JSON event; `formatPiEvent` converts events to human-readable transcript lines (assistant text, tool calls, final result).
+8. **Parse findings** — `engine/findings-watcher.ts` uses `chokidar` on `<workdir>/findings.json`. `engine/findings-parser.ts` validates entries against the zod schema in `src/shared/findings-schema.ts` and dedupes by `(file, line, title)`. New rows go through `db/findings.ts` and get broadcast on the SSE bus.
+9. **Submit** — `engine/payload-builder.ts` separates inline-eligible findings from PR-wide / off-diff ones (validated by `engine/diff-line-validator.ts`); `engine/submit-dedup.ts` skips findings whose `(file, line, title)` we already posted in a prior submission (using `db/submission-comments.ts`); `engine/submit.ts` POSTs the payload via `gh api repos/.../pulls/<n>/reviews`. No retries. Successful submissions also write a row per posted GitHub comment into `submission_comments` for future dedup + prior-context recovery.
+10. **Rerun** — `rerun-session.ts` archives the previous session (status → `archived`, all its findings → `archived=1`) and calls `startSession` with the same PR target plus the previous `extraPrompt` (unless overridden). The fresh session gets a new id and goes through the full prep pipeline; the round number is derived in the UI by counting prior archived sessions for the same PR.
+11. **GC** — `gc.ts` runs on daemon boot and removes per-PR workdirs older than `perPRGCDays`. An idempotent `git worktree prune` sweep runs in parallel to clean up orphan registry entries from prior crashes.
 
 ### Module map
 
@@ -79,32 +86,65 @@ Source: `src/server/start-session.ts` plus `src/server/engine/`.
 src/
   cli/            commander entrypoint + daemon health-probe / detached spawn
   shared/         zod schemas + cross-cutting types (used by web AND server)
+                  export-renderer.ts, findings-{schema,sort}.ts, types.ts
   server/
-    index.ts          startDaemon(): wires deps, opens Hono, manages idle shutdown
+    index.ts          startDaemon(): wires deps, opens Hono; daemon is resident (no idle shutdown)
     start-session.ts  factory that closes over deps and returns startSession()
+    rerun-session.ts  archives prior session + dispatches a fresh startSession
+    cancel-session.ts SIGTERM/SIGKILL the runner for a given session id
+    delete-session.ts removes DB rows + session workdir + worktree (if any)
+    gc.ts             boot-time garbage collection of stale per-PR workdirs
     paths.ts          ~/.better-review path resolution; honors BETTER_REVIEW_HOME
-    config.ts         loads/validates config.json with defaults
+    config.ts         loads/validates config.json (zod); detectSystemLanguage()
     api/
       app.ts            Hono app + middleware composition
-      routes/           sessions, findings, submit, prompts, events (SSE), health
-      middleware/       origin guard (rejects non-localhost), activity bump
+      routes/           sessions, findings, submit, prompts, events (SSE), health,
+                        config, fs (folder picker), recent-repos
+      middleware/       origin guard (rejects non-localhost)
     engine/           agent lifecycle, findings ingestion, submit payload
-      agent/          ReviewAgent abstraction + claude / codex provider implementations
-    github/           gh CLI wrapper, PR-target parser, error normalisation
+      agent/          ReviewAgent abstraction + codex / claude / pi implementations
+      prep-logger.ts  per-session JSONL prep.log writer + AsyncLocalStorage phase tag
+      runner.ts       spawns agent under queue, owns watchdog
+      runner-registry.ts  session-id → handle map (for cancel-session)
+      rerun-context.ts    loads prior submission body + inline comments + replies + PR thread
+      diff-{annotator,incremental,line-validator}.ts
+      payload-builder.ts  splits findings into inline / body
+      submit-dedup.ts     skip findings already posted as comments
+      submit.ts           posts the review via gh api
+      findings-{parser,watcher}.ts
+      stream-json.ts      shared claude stream-json line iterator
+      queue.ts            concurrency-limit FIFO
+      events.ts           in-memory SSE bus
+    github/           gh CLI wrapper, PR-target parser, typed error normalisation
+                      gh-client.ts also provides withGhCallRecorder for prep capture
+    git/              source-prep.ts orchestrator + worktree.ts + snapshot.ts
+    fs/               folder-picker.ts (native chooser when available)
     db/               better-sqlite3; migrations in db/migrations/*.sql
-    prompts/          three-tier resolver, mustache-style renderer, file store
+                      sessions, findings, submissions, submission_comments
+    prompts/          three-tier resolver, mustache-style renderer with conditional blocks,
+                      language-paired builtin loader, per-scope file store
   web/              React + Vite SPA
-    pages/, components/, lib/  (router-based, TanStack Query against /api/*)
+    pages/            Home, PRDetail, PromptEditor, Settings
+    components/       ActivityBar, Sidebar, RunStrip, FindingsWorkspace, FindingList,
+                      FindingRow, FindingDetailPanel/Drawer, TranscriptDrawer,
+                      TranscriptStream, PrepPhasesPanel, SubmitDrawer, ExportPopover,
+                      DaemonStatus, AgentList, LanguageSwitcher, ThemeToggle,
+                      DiffViewer, CodeBlock, files-changed/* (FileTree, FileDiffPane,
+                      InlineFindingCard, AddFindingForm), ui/* primitives
+    lib/              api client, queryClient, sse, selection context, toast,
+                      diff-utils + diff-line-check, file-tree, shiki helpers,
+                      use-resizable, theme, lang-from-file, export-clipboard
+    i18n/             react-i18next setup + en/zh-CN dictionaries
 ```
 
-The daemon depends on these shell tools at runtime: at least one review agent CLI (`claude` and/or `codex`, resolved once at startup via `which`), `gh`, and `node` itself. The `/api/health` endpoint reports presence per agent under `agents.<kind>` and the configured `defaultAgent` — UI banner only fires red when the **default** agent is missing; non-default agents that are missing show as disabled in the Home selector.
+The daemon depends on these shell tools at runtime: at least one review agent CLI (`codex`, `claude`, and/or `pi`, resolved once at startup via `which`), `gh`, and `node` itself. The `/api/health` endpoint reports presence per agent under `agents.<kind>` and the configured `defaultAgent` — UI banner only fires red when the **default** agent is missing; non-default agents that are missing show as disabled in the Home selector.
 
 ## Conventions
 
 ### Tests
 
 - **Don't mock `better-sqlite3`.** Every server test opens a real DB at a temp path. The migrations module is the source of truth for schema; tests run it on init.
-- **Don't mock agent CLIs or `gh`.** Use the existing shims at `tests/fixtures/fake-claude.sh`, `tests/fixtures/fake-codex.sh`, and `tests/fixtures/fake-gh.sh` — they emit deterministic stream-json / line-oriented / JSON output and are exercised end-to-end. The runner test parameterizes over both agents via `describe.each`. Add new fixture behaviour to those scripts rather than introducing in-process mocks.
+- **Don't mock agent CLIs or `gh`.** Use the existing shims at `tests/fixtures/fake-codex.sh`, `tests/fixtures/fake-claude.sh`, and `tests/fixtures/fake-gh.sh` — they emit deterministic line-oriented / stream-json / JSON output and are exercised end-to-end. The runner test parameterizes over the agents via `describe.each`. Add new fixture behaviour to those scripts rather than introducing in-process mocks.
 - Vitest server config is single-fork; assume tests share process state and clean up explicitly.
 - TDD is the working style for routes and engine code: failing test → implementation → commit. Reflect that in PRs.
 
@@ -137,14 +177,24 @@ Conventional Commits, lowercase imperative mood: `feat(scope): …`, `fix(scope)
 `~/.better-review/` (override with `BETTER_REVIEW_HOME`):
 
 ```
-config.json    state.db    daemon.log    server.json
-review.md                              (global prompt)
+config.json    state.db    daemon.log    daemon-stderr.log    server.json
+review.md                                                     (global prompt)
 sessions/pr-<owner>-<repo>-<n>-<short>/
-  diff.cache  findings.json  agent.log  prompt.txt
+  diff.cache       (raw unified diff fetched by `gh pr diff`)
+  findings.json    (the agent writes here; watched by chokidar)
+  agent.log        (raw agent stdout — line-oriented for codex, stream-json for claude, JSON for pi)
+  prompt.txt       (the full rendered prompt sent to the agent)
+  prep.log         (JSONL: `phase` markers + captured `gh` calls during prep)
+  source/          (per-session git worktree at PR head — only when localRepoPath is pinned)
+  snapshot/        (per-session partial files snapshot — only when no localRepoPath)
 ```
 
-The session log is named `agent.log` regardless of which agent ran (its content shape varies — stream-json lines for claude, plain stdout for codex).
+The session log is named `agent.log` regardless of which agent ran (its content shape varies).
 
-Config keys worth knowing: `defaultAgent` (`"claude"` | `"codex"`), `stallMinutes` (replaces the deprecated `claudeStallMinutes`, which is still read for backward compatibility — emits a warn log on load).
+Config keys worth knowing: `defaultAgent` (`"codex"` | `"claude"` | `"pi"`, default `"codex"`; auto-falls-back to first installed when not explicit in `config.json`), `stallMinutes` (replaces the deprecated `claudeStallMinutes`, which is still read for backward compatibility — emits a warn log on load), `language` (`"en" | "zh-CN"`, auto-detected from `LC_ALL` / `LANG` / ICU on first boot).
 
 `server.json` is the daemon's liveness file — the CLI uses it to decide whether to spawn. Don't change its shape (`{pid, port, startedAt}`) without updating `cli/daemon-launcher.ts` in the same change.
+
+### Scratch / mockup output
+
+When you generate HTML mockups, draft files, or other throwaway artifacts during a task, write them into `./tmp/` at the repo root — **do not** create a new sibling directory or switch your cwd elsewhere. `./tmp/` is already in `.gitignore`, so files there are safe and easy to clean up. Reuse the same path across iterations (e.g. `./tmp/files-changed-v3.html`) rather than spawning new locations.

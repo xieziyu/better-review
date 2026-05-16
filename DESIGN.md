@@ -138,19 +138,20 @@ components:
 
 **Creative North Star: "Workbench / IDE-native"**
 
-`better-review` 的 UI 是一台只为评审 PR 而存在的小型 IDE：极窄的 ActivityBar 承担一级导航，Sidebar 列出所有 review session，主区是 editor canvas，右侧 Inspector 抽屉式呈现选中 finding 的详情。整套布局 在 VS Code / JetBrains 旁边并排打开时不应显得「外来」——它继承同一族层级语言，但不复刻其皮肤。
+`better-review` 的 UI 是一台只为评审 PR 而存在的小型 IDE：极窄的 ActivityBar 承担一级导航，Sidebar 列出所有 review session，主区是 editor canvas，PR 详情页默认进入 **Files changed** tab——左侧是路径压缩的层级文件树、右侧是 diff，finding 卡片直接内联到对应 hunk 上；切到 **Findings** tab 时主区进入「列表 + 详情面板」的并排布局，宽屏并排、窄屏抽屉化。整套布局在 VS Code / JetBrains 旁边并排打开时不应显得「外来」——它继承同一族层级语言，但不复刻其皮肤。
 
-色彩策略是 **Quiet by default, considered when not**：中性色全部贴 cool slate（hue 240）一线，深浅两套都几乎无饱和；主品牌色 `--brand` 用 hue 245 的板岩蓝，与中性同家族但拉高 chroma，作为「值得被看见」的瞬间标记——primary 按钮的描边、active nav 的 2px 强调、focus ring、SubmitDrawer 顶部的 brand 线。`--brand` 不铺底，不染大面积。
+色彩策略是 **Quiet by default, considered when not**：中性色全部贴 cool slate（hue 240）一线，深浅两套都几乎无饱和；主品牌色 `--brand` 用 hue 245 的板岩蓝，与中性同家族但拉高 chroma，作为「值得被看见」的瞬间标记——primary 按钮的描边、active nav 的 2px 强调、focus ring、SubmitDrawer 顶部的 brand 线、活跃 tab 下沿的 2px 强调。`--brand` 不铺底，不染大面积。
 
 明确拒绝的样子：Vercel / Linear 那种 chartreuse-on-black、shadcn 默认皮肤、GitHub 行政化的灰、SaaS hero metric template、AI workflow tool 通用模板（白底浅紫圆角卡片+dot grid）、Cursor / Warp 那种「重设计的终端」。同时 **不一比一复刻 VS Code Dark+**：Workbench 是 IDE-native，但不是 VS Code 的 reskin。
 
 **Key Characteristics:**
 
-- 四栏 Workbench 布局（ActivityBar / Sidebar / Main / Inspector），不是单页 hero。
+- 三段式 Workbench 布局：56px ActivityBar + 300px Sidebar + Main（PR 详情页内部再切 Files / Findings 双 tab）。Inspector 不是常驻第四栏，而是 Findings tab 的右半（宽屏并排 / 窄屏 drawer）。
 - 双 theme 同等精修：light 是「冷纸 Cool Paper」（hue 240），dark 是「暮光 Dusk」（hue 240，L 0.16–0.22）。dark 默认 0.20 canvas，main 区最深 0.16，raised 上抬到 0.22；light 镜像反过来（main 0.985 最亮、raised 0.955 略压暗）。
 - Severity 用 inline `→ CAPS` 词组传达（替代旧的 64px 垂直 wordmark），色彩降为辅助信号。
-- Findings 是表格行，不是卡片；详情迁到 Inspector，按文件分组的卡片堆叠是被显式删除的反模式。
-- 键盘 affordance 显式可见：高频快捷键（`e` 编辑、`⌘S` 保存、`⌘⏎` 提交）都通过 `<KbdHint>` / `<KbdTooltip>` 露出。
+- Findings 在 Findings tab 里是扁平的表格行；在 Files changed tab 里是内联在 diff hunk 上的小卡片（这是 file 维度的 affordance，不是被禁的「按文件分组的卡片堆叠」反模式）。
+- 双语 + 双 theme 双轴对等：UI 文案与 agent prompt 都成对维护中英文，ActivityBar 底部的 ThemeToggle / LanguageSwitcher / DaemonStatus 三按钮统一以浮层菜单挂出。
+- 键盘 affordance 显式可见：高频快捷键（`e` 编辑、`⌘S` 保存、`⌘⏎` 提交、`⌘J` 切换 transcript drawer、`⌘E` 导出）都通过 `<KbdHint>` / `<KbdTooltip>` 露出。
 
 ## 2. Colors: The Slate-on-Cool-Paper Palette
 
@@ -223,7 +224,7 @@ primary 按钮单独用一组 token，与 `--brand` **解耦**——理由是按
 
 56px 竖向条：品牌 mark → 路由图标（Sessions `/` / Prompt `/prompt` / Settings `/settings`）→ flex spacer → ThemeToggle / LanguageSwitcher / DaemonStatus。每个 nav 图标在选中时左缘出现 2px brand strip + `bg-canvas` 高亮（VS Code 同款 affordance），未选中时透明。整体 `bg-raised`，与 Sidebar 在同一 chrome 层。
 
-底部三个工具按钮的浮层（语言菜单、daemon 状态）**统一锚点到自身右侧** —— `absolute left-[calc(100%+8px)] bottom-0`，避免在屏幕左下角向下/向左展开时被裁切。
+底部三个工具按钮的浮层（主题菜单、语言菜单、daemon 状态）**统一锚点到自身右侧** —— `absolute left-[calc(100%+8px)] bottom-0`，避免在屏幕左下角向下/向左展开时被裁切。LanguageSwitcher 提供 `en` / `zh-CN` 两项，写入即生效（同时改 i18n 与 server 端 `config.language`）。
 
 ### Sidebar
 
@@ -239,22 +240,24 @@ primary 按钮单独用一组 token，与 `--brand` **解耦**——理由是按
 
 **反模式更新**：原本的 active 行 2px brand 左边框被显式删除——选中态只用 `bg-canvas` 表示。运行中的会话仍保留左缘 1px `accent-running` 脉冲线（这是「有事在跑」的环境信号，不可删）。
 
-### Main + MainTabs
+### PR detail header
 
-`main` 元素铺满 `bg-main`，是整个 UI 中唯一与 chrome 不同色的表面。`PRDetail` 在 main 内 mount `<MainTabs>`：顶部 `[Findings] [Transcript]` 二选一切换，下沿 1px rule 分隔。
+`main` 元素铺满 `bg-main`。`PRDetail` 顶部固定的 header 块从上到下三层：状态徽章行（status `<Tag>` + Round 轮次 tag + `owner/repo#n` + `@author` + GitHub 外链 + 可选本地仓库路径 + Source kind 徽章 `worktree` / `snapshot`）→ display 体量的 PR title → 操作行（Agent segmented selector + Cancel/Delete/Rerun + ExportPopover + primary Submit 按钮）。Submit 按钮上的计数后缀（`Submit · 7`）实时反映勾选数；归档轮次（`status === 'archived'`）会隐藏 Submit、并在 header 下方挂一个只读 banner。
 
-- 选中 tab：`text-ink-primary` + 2px brand 下沿。
-- Findings tab：渲染 `<FindingList>`（扁平表格行）+ PR-wide 段落分隔。
-- Transcript tab：渲染 `<AgentOutputPanel>`（full-pane，**不再**用 `<details>` 折叠）。Streaming 时 Transcript tab 标签旁出现 `accent-running` 1.5px 脉冲圆点。
+### RunStrip
 
-tab 选中态用 URL search param 持久化（`?tab=transcript`），方便分享与刷新。
+PR detail header 与 tab strip 之间夹一条 40px 高的 live status 行（`bg-sunken/60` + 1px rule 上下分隔）。三种模式：`prep` / `reviewing` / `review`，前两种带 `accent-active` 脉冲圆点 + 不定进度感 + 弹性计时器；`review` 是静态的，只为整条状态行在生命周期里保持视觉连续。右端是 `Transcript` toggle，点击或 `⌘J` 唤起 TranscriptDrawer。生命周期到达 submitted / archived / failed / cancelled 后 RunStrip 自动消失。
 
-### Inspector + InspectorDock
+### Main tabs
 
-360px 右侧栏，`bg-raised`。`<InspectorDock>` 用 `matchMedia('(min-width: 1280px)')` 判断：
+RunStrip 下方是 PR detail 的 tab strip：`[Findings] [Files changed]`（不是早期的 `[Findings] [Transcript]` —— Transcript 已搬到独立的 drawer），各 tab 标签后接一个小 mono 圆角徽章显示当前计数。选中 tab：`text-ink-primary` + 绝对定位的 2px brand 下沿。默认进入 Files changed 以便在 prep 完成后立即看 diff，即使 agent 还在流式输出。
 
-- ≥1280px：常驻为右侧第四列。
-- <1280px：当前先不渲染（后续 phase 可补 drawer 模式）。
+### FindingsWorkspace（Findings tab body）
+
+由 `<FindingsWorkspace>` 包住，内部组合扁平 `<FindingList>`（左半 ListColumn）+ `<FindingDetailPanel>`（右半，宽屏并排）或 `<FindingDetailDrawer>`（窄屏抽屉）。响应式断点 `(min-width: 1280px)`：
+
+- ≥1280px：list 宽度可拖拽（min 320 / default 380 / max 560，localStorage key `better-review:findings-list-width:v1`），右半是 `FindingDetailPanel`。未选中 finding 时只渲染 list。
+- <1280px：底部抽屉化为 `FindingDetailDrawer`，list 占满高度。
 
 未选中 finding 时显示 `EmptyState`。选中后渲染 `<FindingDetailPanel>`，它通过 TanStack Query 共享 PRDetail 的 session/diff 缓存。结构：
 
@@ -268,15 +271,33 @@ SECTION Suggestion    (code block 或 "No suggestion provided.")
 SECTION Source        (DiffViewer，仅当 line 已知)
 ─────────────────────────
 sticky footer:
-  [Submit review]    [Edit]  [Discard]
+  [Include / Included]    [Edit]  [Discard]
   (edit 模式) [Cancel] [Save]
 ```
+
+### FilesChangedView（Files changed tab body）
+
+由 `<FilesChangedView>` 包住，内部组合 `<FileTree>`（左）+ `<FileDiffPane>`（右）。`FileTree` 用 path-compressed 的层级树（共同前缀目录折叠成一行），每一行带：finding 计数小徽章 + 严重度色点；顶部有 `filter files…` 输入与 `Only with findings` 切换。右侧 `<FileDiffPane>` 用 react-diff-view 渲染选中文件的 hunks，并在对应行内联 `<InlineFindingCard>`；finding card 自带 include 勾选、edit、delete affordance，与 FindingDetailPanel 的契约一致。Files tab 还能用 `<AddFindingForm>` 直接**手动新增 finding**，severity / category / title / body / suggestion 与 agent 产出的 finding 同 schema。
+
+历史轮次（archived）下，所有 mutation affordance 在两个 tab 里都被 `readOnly` flag 收掉。
+
+### TranscriptDrawer
+
+底栏抽屉，默认折叠。`⌘J` / `Ctrl+J` 或 RunStrip 末尾的 Transcript toggle 唤起，开关状态与高度（min 120 / default 240 / max 480）都持久化到 localStorage（`better-review:transcript-drawer:open:v1` / `:height:v1`）。内容分两段：上半段 `PrepPhasesPanel` 列出 prep 各阶段（`prep:fetching-pr` / `prep:fetching-diff` / `prep:loading-prior-review` / `prep:preparing-source:worktree|snapshot` / `prep:rendering-prompt`）和被 capture 的 `gh` 调用（exit code / stdout 长度 / stderr 长度 / 耗时）；下半段 `TranscriptStream` 流式渲染 agent stdout（codex 是按行，claude 是 stream-json 已格式化），右下角浮一个 `ScrollPin` 控制 follow / unpin。Streaming 时 drawer 把手徽章会出现 `accent-running` 脉冲点。
 
 ### FindingRow
 
 扁平行：`[checkbox] · → SEVERITY · title · path:line · category` + 可选 `edited` 图标。点击行体（非 checkbox）通过 `SelectionContext` 设置 `selectedFindingDbId`；checkbox 独立 stopPropagation，专门用于 select/unselect。
 
-active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edit/delete 按钮 —— 这些动作只在 Inspector CTA 区域出现，行本身保持一致的稠密性。
+active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edit/delete 按钮 —— 这些动作只在 FindingDetailPanel / FindingDetailDrawer 的 CTA 区域出现，行本身保持一致的稠密性。
+
+### ExportPopover
+
+PR detail header 操作行里的 `Export ▾`（`⌘E` / `Ctrl+E`）。pop 出一个小面板：Scope（Selected / All，零选中时自动切 All）+ Format（Markdown / JSON）+ Copy / Download 两个动作。纯前端，不发请求、不改 finding 状态。
+
+### Toast
+
+`useToast` 在 PRDetail 挂载期间监听 SSE：当用户在 Files changed tab 上、agent 又把新 finding 落在「不是当前选中文件」的位置时，弹一条带 severity 文字色 + 文件名 + 行号的小 toast，点一下跳到对应文件。`must` 级别的 toast 不自动消失。
 
 ### Button (`primary` / `ghost` / `danger`)
 
@@ -326,7 +347,7 @@ active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edi
 - 用 `→ CAPS` 表达 severity，让色彩降为辅助信号。
 - 让 `--brand` 出现在「值得被看见」的瞬间：ActivityBar/Sidebar 选中态、MainTabs 选中下沿、focus ring、SubmitDrawer 顶横线、Tag `tone="brand"`。
 - primary 按钮用 B4 token 而非 `--brand` 铺底 —— 描边响亮 + 底色安静，避免 SaaS CTA 反射。
-- 显式露出键盘 affordance：`<KbdHint>`、`<KbdTooltip>`、Inspector 的 `e` / `⌘⏎` / `Esc`。
+- 显式露出键盘 affordance：`<KbdHint>`、`<KbdTooltip>`、Findings detail 面板的 `e` / `⌘⏎` / `Esc`，ExportPopover 的 `⌘E`，TranscriptDrawer 的 `⌘J`。
 - light 默认冷纸（不要纯白），dark 默认 dusk 0.20 / main 0.16（不要纯黑）。所有中性色 chroma ≥ 0.003。
 - 遵守 `prefers-reduced-motion`：sidebar pulse、Transcript tab 脉冲、drawer transition 在 reduce 下退化为 instant。
 
@@ -344,7 +365,7 @@ active 行用 `bg-canvas` + 左缘 2px brand strip 标记。**没有** hover edi
 - **不要** 渐变 icon。
 - **不要** 在 light 用 `#ffffff`，在 dark 用 `#000000`。
 - **不要** 用颜色作为 severity 的 _唯一_ 信号。`→ CAPS` 文字始终是首要载体；颜色是辅助。
-- **不要** nested cards 或按文件分组的卡片堆叠 —— findings 已扁平化为表格行，详情在 Inspector。
+- **不要** 把 Findings tab 的列表退化成「按文件分组的卡片堆叠」——那是早期反模式，findings 在 Findings tab 里始终是扁平表格行 + 右半详情面板。Files changed tab 里的内联 finding 卡片是 file 维度的内联 affordance，不是同一种东西。
 
 ## 7. Accessibility & Inclusion
 
