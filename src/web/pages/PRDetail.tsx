@@ -19,7 +19,7 @@ import {
   Square,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -672,6 +672,19 @@ export function PRDetail() {
     },
   })
 
+  // Memoize by `unifiedDiff` so SSE-driven rerenders during streaming don't
+  // reparse the entire diff each tick. Kept above the early return below so
+  // hook order stays stable across the loading→loaded transition.
+  const unifiedDiff = sessionDiff ?? null
+  const parsedFiles = useMemo(
+    () => (unifiedDiff ? parseFileList(unifiedDiff) : []),
+    [unifiedDiff],
+  )
+  const fileAliasMap = useMemo(() => buildFileAliasMap(parsedFiles), [parsedFiles])
+  // Keep the alias-map ref in sync with the latest diff so the SSE callback
+  // (which holds the ref) sees fresh data without re-subscribing.
+  fileAliasMapRef.current = fileAliasMap
+
   if (isLoading || !data) {
     return (
       <div className="px-8 py-10 max-w-3xl space-y-4" aria-label={t('prdetail.loadingAriaLabel')}>
@@ -711,12 +724,7 @@ export function PRDetail() {
       ).length
     : 1
 
-  const unifiedDiff = sessionDiff ?? null
-  const parsedFiles = unifiedDiff ? parseFileList(unifiedDiff) : []
   const fileCount = parsedFiles.length
-  // Keep the alias-map ref in sync with the latest diff so the SSE callback
-  // (which holds the ref) sees fresh data without re-subscribing.
-  fileAliasMapRef.current = buildFileAliasMap(parsedFiles)
 
   const emptyFindingsCopy: { title: string; body: string } | null =
     activeFindings.length === 0

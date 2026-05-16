@@ -113,6 +113,7 @@ export function InlineFindingCard({ finding, session, expanded, onToggle, onOpen
                 <input
                   type="checkbox"
                   checked={finding.selected}
+                  disabled={select.isPending}
                   onChange={(e) => select.mutate(e.target.checked)}
                   aria-label={t('filesChanged.includeInReview')}
                 />

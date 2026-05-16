@@ -138,8 +138,11 @@ export class FindingsRepo {
     }
     if (input.startLine !== undefined) item.startLine = input.startLine
     if (input.suggestion !== undefined) item.suggestion = input.suggestion
-    const [inserted] = this.insertMany(sessionId, [item], 'manual')
-    return inserted!
+    const inserted = this.insertMany(sessionId, [item], 'manual')[0]
+    if (!inserted) {
+      throw new Error(`insertManual failed for session ${sessionId}`)
+    }
+    return inserted
   }
 
   listBySession(sessionId: string, opts: { includeArchived?: boolean } = {}): Finding[] {
