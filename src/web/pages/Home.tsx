@@ -83,10 +83,6 @@ export function Home() {
     },
   })
 
-  useEffect(() => {
-    if (agent === null && health) setAgent(health.defaultAgent)
-  }, [agent, health])
-
   const trimmed = input.trim()
   const target = useMemo(() => parsePrTarget(trimmed), [trimmed])
   const { data: recentRepos } = useQuery({
@@ -114,7 +110,18 @@ export function Home() {
   }, [recentRepos, target, localRepoTouched, autoFilledFor])
 
   const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3)
-  const effectiveAgent = agent ?? health?.defaultAgent ?? 'codex'
+  // Fallback chain when the user hasn't explicitly clicked an agent button:
+  // configured default if it's installed → first installed in AGENT_KINDS
+  // order → configured default as a last resort (keeps the disabled-default
+  // UX intact when nothing is installed). Without this, a stale config that
+  // pins an uninstalled agent would leave the new-session form unusable.
+  const effectiveAgent: AgentKind =
+    agent ??
+    (health
+      ? health.agents[health.defaultAgent].found
+        ? health.defaultAgent
+        : (AGENT_KINDS.find((k) => health.agents[k].found) ?? health.defaultAgent)
+      : 'codex')
   const showAutoFillHint =
     !localRepoTouched && target && autoFilledFor === `${target.owner}/${target.repo}`
   const folderPickerSupported = health?.fs?.folderPicker?.supported ?? false

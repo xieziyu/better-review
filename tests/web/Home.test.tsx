@@ -6,16 +6,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { Home } from '@/pages/Home'
 
-function withClient(ui: React.ReactNode, sessions: PRSession[] = []) {
+type HealthOverride = {
+  defaultAgent?: 'codex' | 'claude' | 'pi'
+  agents?: Partial<Record<'codex' | 'claude' | 'pi', { found: boolean; path?: string }>>
+}
+
+function withClient(
+  ui: React.ReactNode,
+  sessions: PRSession[] = [],
+  healthOverride: HealthOverride = {},
+) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   qc.setQueryData(['sessions'], sessions)
   qc.setQueryData(['health'], {
     ok: true,
-    defaultAgent: 'claude',
+    defaultAgent: healthOverride.defaultAgent ?? 'claude',
     agents: {
       claude: { found: true, path: '/usr/bin/claude' },
       codex: { found: true, path: '/usr/bin/codex' },
       pi: { found: true, path: '/usr/bin/pi' },
+      ...healthOverride.agents,
     },
   })
   return (
@@ -84,6 +94,43 @@ describe('Home', () => {
   it('marks the default agent with parenthesized copy', () => {
     render(withClient(<Home />))
     expect(screen.getByRole('button', { name: /claude \(default\)/i })).toBeInTheDocument()
+  })
+
+  it('selects the first installed agent when the configured default is missing', () => {
+    render(
+      withClient(<Home />, [], {
+        defaultAgent: 'codex',
+        agents: { codex: { found: false } },
+      }),
+    )
+    // codex is still flagged as the configured default (with the suffix) and
+    // remains disabled; the form falls back to claude (next in AGENT_KINDS).
+    const codexBtn = screen.getByRole('button', { name: /codex \(default\)/i })
+    expect(codexBtn).toBeDisabled()
+    expect(codexBtn).toHaveAttribute('aria-pressed', 'false')
+    const claudeBtn = screen.getByRole('button', { name: /^claude$/i })
+    expect(claudeBtn).not.toBeDisabled()
+    expect(claudeBtn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps the configured default selected when nothing is installed', () => {
+    render(
+      withClient(<Home />, [], {
+        defaultAgent: 'codex',
+        agents: {
+          codex: { found: false },
+          claude: { found: false },
+          pi: { found: false },
+        },
+      }),
+    )
+    // No fallback target available — leave the configured default selected so
+    // the existing "no agent installed" UX (red banner / disabled submit) still
+    // surfaces the underlying problem.
+    expect(screen.getByRole('button', { name: /codex \(default\)/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('hides the extra-context textarea by default and reveals it on click', () => {
