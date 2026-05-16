@@ -1,16 +1,37 @@
 {
-  "name": "better-review",
+  "name": "@xieziyu/better-review",
   "version": "0.1.0",
-  "description": "Local PR review helper combining claude CLI + gh CLI with a browser UI.",
+  "description": "Local PR review helper combining a review-agent CLI (codex / claude / pi) and gh CLI with a browser UI.",
   "license": "GPL-3.0-or-later",
+  "author": "xieziyu <rainnyxzy@outlook.com>",
+  "homepage": "https://github.com/xieziyu/better-review#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xieziyu/better-review.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xieziyu/better-review/issues"
+  },
+  "keywords": [
+    "pr-review",
+    "code-review",
+    "github",
+    "claude",
+    "codex",
+    "cli",
+    "local-first"
+  ],
   "bin": {
     "better-review": "dist/cli/index.js"
   },
   "files": [
     "dist",
-    "prompts",
-    "README.md"
+    "README.md",
+    "README.zh-CN.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "scripts": {
     "build": "npm run build:server && npm run build:web && node scripts/copy-assets.mjs",
@@ -24,7 +45,9 @@
     "e2e": "playwright test",
     "lint": "oxlint",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
