@@ -4,7 +4,14 @@ import { join } from 'node:path'
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-import { loadConfig, defaultConfig, detectSystemLanguage } from '../../src/server/config'
+import {
+  defaultConfig,
+  detectSystemLanguage,
+  loadConfig,
+  loadConfigWithWarnings,
+  pickEffectiveDefaultAgent,
+} from '../../src/server/config'
+import type { AgentKind } from '../../src/shared/types'
 
 describe('loadConfig', () => {
   let home: string
@@ -73,5 +80,56 @@ describe('detectSystemLanguage', () => {
     process.env.LC_ALL = 'zh_CN.UTF-8'
     process.env.LANG = 'en_US.UTF-8'
     expect(detectSystemLanguage()).toBe('zh-CN')
+  })
+})
+
+describe('loadConfigWithWarnings — defaultAgentExplicit', () => {
+  let home: string
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'br-cfg-explicit-'))
+  })
+  it('is false when config.json is missing', () => {
+    expect(loadConfigWithWarnings(home).defaultAgentExplicit).toBe(false)
+  })
+  it('is false when config.json omits defaultAgent', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ language: 'en' }))
+    expect(loadConfigWithWarnings(home).defaultAgentExplicit).toBe(false)
+  })
+  it('is true when config.json sets defaultAgent', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ defaultAgent: 'claude' }))
+    const r = loadConfigWithWarnings(home)
+    expect(r.defaultAgentExplicit).toBe(true)
+    expect(r.config.defaultAgent).toBe('claude')
+  })
+})
+
+describe('pickEffectiveDefaultAgent', () => {
+  const paths = (
+    overrides: Partial<Record<AgentKind, string | null>>,
+  ): Record<AgentKind, string | null> => ({
+    codex: null,
+    claude: null,
+    pi: null,
+    ...overrides,
+  })
+
+  it('keeps the configured agent when its CLI is installed', () => {
+    expect(pickEffectiveDefaultAgent('codex', paths({ codex: '/usr/bin/codex' }))).toBe('codex')
+  })
+  it('falls back through AGENT_KINDS order when configured is missing', () => {
+    // configured=pi missing; claude installed; codex missing → 'claude'.
+    expect(pickEffectiveDefaultAgent('pi', paths({ claude: '/usr/bin/claude' }))).toBe('claude')
+  })
+  it('prefers earlier AGENT_KINDS entries even when later ones are also available', () => {
+    // codex and claude both installed; configured=pi → 'codex' (priority, not first non-configured).
+    expect(
+      pickEffectiveDefaultAgent(
+        'pi',
+        paths({ codex: '/usr/bin/codex', claude: '/usr/bin/claude' }),
+      ),
+    ).toBe('codex')
+  })
+  it('returns the configured value unchanged when nothing is installed', () => {
+    expect(pickEffectiveDefaultAgent('claude', paths({}))).toBe('claude')
   })
 })

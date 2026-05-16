@@ -10,7 +10,7 @@ import { AGENT_KINDS } from '../shared/types'
 import { createApp, type AppDeps } from './api/app'
 import { makeCancelSession } from './cancel-session'
 import type { Config } from './config'
-import { loadConfigWithWarnings } from './config'
+import { loadConfigWithWarnings, pickEffectiveDefaultAgent } from './config'
 import { openDatabase } from './db/connection'
 import { FindingsRepo } from './db/findings'
 import { SessionsRepo } from './db/sessions'
@@ -50,7 +50,11 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
 
   const log = createLogger(paths.daemonLog)
   log.info('startup begin', { pid: process.pid, home: paths.home })
-  const { config: initialConfig, warnings } = loadConfigWithWarnings(paths.home)
+  const {
+    config: initialConfig,
+    warnings,
+    defaultAgentExplicit,
+  } = loadConfigWithWarnings(paths.home)
   for (const w of warnings) log.warn(w)
   // Mutable so PUT /api/config can hot-reload most keys (defaultAgent,
   // stallMinutes, perPRGCDays). `port` and `maxConcurrentReviews` are bound
@@ -85,6 +89,23 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   const agentPaths = Object.fromEntries(
     AGENT_KINDS.map((k) => [k, getAgent(k).findExecutable()]),
   ) as Record<AgentKind, string | null>
+
+  // If the user never wrote `defaultAgent` to config.json, the value is just
+  // the schema default ('codex') — fall back to the first installed agent so a
+  // claude-only or pi-only machine works out of the box. Memory-only on
+  // purpose: next boot recomputes, so installing a higher-priority agent later
+  // takes effect automatically.
+  if (!defaultAgentExplicit) {
+    const effective = pickEffectiveDefaultAgent(configState.defaultAgent, agentPaths)
+    if (effective !== configState.defaultAgent) {
+      log.info('defaultAgent auto-switched', {
+        from: configState.defaultAgent,
+        to: effective,
+        reason: 'configured CLI not found and defaultAgent not explicit in config.json',
+      })
+      configState = { ...configState, defaultAgent: effective }
+    }
+  }
 
   const resolveAgent = (kind: AgentKind): ResolvedAgent => {
     const agent: ReviewAgent = getAgent(kind)
