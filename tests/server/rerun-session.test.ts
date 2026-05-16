@@ -224,4 +224,17 @@ describe('makeRerunSession', () => {
     })
     await expect(rerun('missing')).rejects.toThrow('not found')
   })
+
+  it('throws "already archived" when the session is already archived', async () => {
+    // Archived sessions are frozen historical snapshots; rerunning one would
+    // double-archive its findings and detach the chain from the live head.
+    const { sessions, findings } = makeRepos()
+    insertSubmitted(sessions, 's1')
+    sessions.setStatus('s1', 'archived')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+    await expect(rerun('s1')).rejects.toThrow('already archived')
+    expect(startSession).not.toHaveBeenCalled()
+  })
 })

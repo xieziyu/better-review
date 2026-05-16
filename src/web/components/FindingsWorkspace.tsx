@@ -28,9 +28,17 @@ interface Props {
   /** Pre-fetched diff from PRDetail's main session query, when available. */
   unifiedDiff: string | null
   selectedCount: number
+  /** Historical (archived) round — hide mutation affordances. */
+  readOnly?: boolean | undefined
 }
 
-export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCount }: Props) {
+export function FindingsWorkspace({
+  findings,
+  session,
+  unifiedDiff,
+  selectedCount,
+  readOnly,
+}: Props) {
   const { t } = useTranslation()
   const { selectedFindingDbId, setSelectedFindingDbId } = useSelectedFinding()
   const [wide, setWide] = useState<boolean>(() => readWide())
@@ -43,8 +51,11 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
     return () => mql.removeEventListener('change', onChange)
   }, [])
 
+  // In normal sessions, archived findings are stale rows that shouldn't open.
+  // For a historical (archived) round, every row is archived — relax the
+  // filter so the detail panel still opens.
   const finding = selectedFindingDbId
-    ? findings.find((f) => f.dbId === selectedFindingDbId && !f.archived)
+    ? findings.find((f) => f.dbId === selectedFindingDbId && (readOnly || !f.archived))
     : undefined
 
   const { data: diffFallback } = useQuery({
@@ -71,13 +82,19 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
   if (!wide) {
     return (
       <div className="flex flex-col min-h-0 flex-1">
-        <ListColumn findings={findings} session={session} selectedCount={selectedCount} />
+        <ListColumn
+          findings={findings}
+          session={session}
+          selectedCount={selectedCount}
+          readOnly={readOnly}
+        />
         {finding ? (
           <FindingDetailDrawer
             finding={finding}
             session={session}
             unifiedDiff={diff}
             onClose={() => setSelectedFindingDbId(null)}
+            readOnly={readOnly}
           />
         ) : null}
       </div>
@@ -87,7 +104,12 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
   if (!finding) {
     return (
       <div className="flex min-h-0 flex-1">
-        <ListColumn findings={findings} session={session} selectedCount={selectedCount} />
+        <ListColumn
+          findings={findings}
+          session={session}
+          selectedCount={selectedCount}
+          readOnly={readOnly}
+        />
       </div>
     )
   }
@@ -98,7 +120,12 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
         style={{ width }}
         className="relative shrink-0 border-r border-rule flex flex-col min-h-0"
       >
-        <ListColumn findings={findings} session={session} selectedCount={selectedCount} />
+        <ListColumn
+          findings={findings}
+          session={session}
+          selectedCount={selectedCount}
+          readOnly={readOnly}
+        />
         <div
           {...separatorProps}
           className={cn(
@@ -109,7 +136,12 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
         />
       </div>
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-        <FindingDetailPanel finding={finding} session={session} unifiedDiff={diff} />
+        <FindingDetailPanel
+          finding={finding}
+          session={session}
+          unifiedDiff={diff}
+          readOnly={readOnly}
+        />
       </div>
     </div>
   )
@@ -119,16 +151,17 @@ interface ListColumnProps {
   findings: Finding[]
   session: PRSession
   selectedCount: number
+  readOnly?: boolean | undefined
 }
 
-function ListColumn({ findings, session, selectedCount }: ListColumnProps) {
+function ListColumn({ findings, session, selectedCount, readOnly }: ListColumnProps) {
   const { t } = useTranslation()
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <FindingList findings={findings} session={session} />
+        <FindingList findings={findings} session={session} readOnly={readOnly} />
       </div>
-      {selectedCount > 0 ? (
+      {selectedCount > 0 && !readOnly ? (
         <div className="shrink-0 border-t border-rule px-5 py-2 bg-raised/40">
           <span className="text-caps tracking-caps text-ink-secondary uppercase">
             {t('prdetail.selectedCount', { count: selectedCount })}

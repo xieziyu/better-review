@@ -377,4 +377,52 @@ describe('PRDetail', () => {
       expect(deleteCalls).toHaveLength(0)
     })
   })
+
+  describe('archived (historical) view', () => {
+    const archivedSession: PRSession = { ...session, status: 'archived' }
+    const archivedFinding: Finding = { ...finding, archived: true }
+
+    it('renders historical findings even though all rows are archived', async () => {
+      const user = userEvent.setup()
+      render(
+        withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
+      // Page lands on Files changed by default — switch to Findings to see
+      // the list. The archived row would normally be filtered, but historical
+      // sessions surface every entry.
+      await user.click(screen.getByRole('tab', { name: /Findings/i }))
+      expect(screen.getByText('Test finding')).toBeInTheDocument()
+    })
+
+    it('shows the historical banner', () => {
+      render(
+        withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
+      expect(screen.getByText(/Historical view/i)).toBeInTheDocument()
+    })
+
+    it('hides Submit and Rerun buttons', () => {
+      render(
+        withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
+      expect(screen.queryByRole('button', { name: /^Submit/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Rerun$/i })).not.toBeInTheDocument()
+    })
+
+    it('keeps the Delete session button available', () => {
+      render(
+        withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
+      expect(screen.getByRole('button', { name: /Delete session/i })).toBeInTheDocument()
+    })
+
+    it('hides the extra-context add affordance', () => {
+      render(
+        withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
+      expect(
+        screen.queryByRole('button', { name: /Add extra context for rerun/i }),
+      ).not.toBeInTheDocument()
+    })
+  })
 })

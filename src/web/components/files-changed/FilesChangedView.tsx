@@ -26,6 +26,8 @@ interface Props {
   onSelectPath: (path: string | null) => void
   /** Called when the user requests the full editor for a finding (switches tab + selects). */
   onOpenFindingInPanel: (dbId: string) => void
+  /** Historical (archived) round — hide "add finding" affordances and inline mutations. */
+  readOnly?: boolean | undefined
 }
 
 const TREE_DEFAULT = 280
@@ -73,6 +75,7 @@ export function FilesChangedView({
   selectedPath,
   onSelectPath,
   onOpenFindingInPanel,
+  readOnly,
 }: Props) {
   const { t } = useTranslation()
   const { setSelectedFindingDbId } = useSelectedFinding()
@@ -185,6 +188,7 @@ export function FilesChangedView({
             onToggleFinding={toggleFinding}
             onOpenInPanel={openInPanel}
             fileUrl={githubFileLink(session)}
+            readOnly={readOnly}
           />
         ) : null}
       </div>

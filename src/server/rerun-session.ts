@@ -26,6 +26,10 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
   return async function rerunSession(id, opts) {
     const s = deps.sessions.getById(id)
     if (!s) throw new Error('not found')
+    // Re-running an already-archived round would double-archive its findings
+    // and reset the chain pointer; the user wants to rerun from the current
+    // (non-archived) head, not a frozen historical snapshot.
+    if (s.status === 'archived') throw new Error('already archived')
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
     const startInput: {

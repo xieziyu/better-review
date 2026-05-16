@@ -77,6 +77,8 @@ interface PRHeaderProps {
   // first rerun = 2, …). Computed by the parent from archived sessions
   // older than this one for the same PR.
   roundNumber: number
+  // True when viewing an archived (historical) round — hides Submit/Rerun.
+  isHistorical: boolean
   onRerun: () => void
   onSubmit: () => void
   onDelete: () => void
@@ -95,6 +97,7 @@ function PRHeader({
   findings,
   selectedCount,
   roundNumber,
+  isHistorical,
   onRerun,
   onSubmit,
   onDelete,
@@ -249,53 +252,57 @@ function PRHeader({
               </Button>
             )}
           </ConfirmAction>
-          <span className="h-5 w-px bg-rule" aria-hidden="true" />
-          {session.status === 'running' ? (
-            <ConfirmAction
-              title={t('prdetail.rerunRunningTitle')}
-              description={t('prdetail.rerunRunningDesc')}
-              confirmLabel={t('prdetail.rerunConfirm')}
-              onConfirm={onRerun}
-              disabled={rerunPending}
-            >
-              {(requestConfirm) => (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={requestConfirm}
-                  disabled={rerunPending}
-                >
-                  <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
-                  {t('prdetail.rerun')}
-                </Button>
-              )}
-            </ConfirmAction>
-          ) : (
+          {!isHistorical ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
+          {!isHistorical ? (
+            session.status === 'running' ? (
+              <ConfirmAction
+                title={t('prdetail.rerunRunningTitle')}
+                description={t('prdetail.rerunRunningDesc')}
+                confirmLabel={t('prdetail.rerunConfirm')}
+                onConfirm={onRerun}
+                disabled={rerunPending}
+              >
+                {(requestConfirm) => (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={requestConfirm}
+                    disabled={rerunPending}
+                  >
+                    <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
+                    {t('prdetail.rerun')}
+                  </Button>
+                )}
+              </ConfirmAction>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRerun}
+                disabled={rerunPending}
+              >
+                <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
+                {t('prdetail.rerun')}
+              </Button>
+            )
+          ) : null}
+          <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
+          {!isHistorical ? (
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onRerun}
-              disabled={rerunPending}
+              variant="primary"
+              size="md"
+              onClick={onSubmit}
+              disabled={selectedCount === 0}
+              title={selectedCount === 0 ? t('prdetail.submitTitleZero') : undefined}
             >
-              <RotateCw size={12} className={rerunPending ? 'animate-spin' : undefined} />
-              {t('prdetail.rerun')}
+              {selectedCount > 0
+                ? `${t('prdetail.submit')} · ${selectedCount}`
+                : t('prdetail.submit')}
             </Button>
-          )}
-          <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={onSubmit}
-            disabled={selectedCount === 0}
-            title={selectedCount === 0 ? t('prdetail.submitTitleZero') : undefined}
-          >
-            {selectedCount > 0
-              ? `${t('prdetail.submit')} · ${selectedCount}`
-              : t('prdetail.submit')}
-          </Button>
+          ) : null}
         </div>
       </div>
     </header>
@@ -307,6 +314,8 @@ interface ExtraContextPanelProps {
   draft: string | null
   editing: boolean
   expanded: boolean
+  // Read-only: hide affordances that would mutate the rerun's extraPrompt.
+  readOnly?: boolean | undefined
   onToggleExpanded: () => void
   onStartEdit: () => void
   onCancelEdit: () => void
@@ -319,6 +328,7 @@ function ExtraContextPanel({
   draft,
   editing,
   expanded,
+  readOnly,
   onToggleExpanded,
   onStartEdit,
   onCancelEdit,
@@ -331,6 +341,7 @@ function ExtraContextPanel({
   const draftValue = draft ?? base ?? ''
 
   if (!hasBase && !editing && draft === null) {
+    if (readOnly) return null
     return (
       <button
         type="button"
@@ -409,14 +420,16 @@ function ExtraContextPanel({
             </span>
           ) : null}
         </button>
-        <button
-          type="button"
-          onClick={onStartEdit}
-          aria-label={t('prdetail.extraContext.editAriaLabel')}
-          className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-        >
-          {t('prdetail.extraContext.edit')}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={onStartEdit}
+            aria-label={t('prdetail.extraContext.editAriaLabel')}
+            className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+          >
+            {t('prdetail.extraContext.edit')}
+          </button>
+        ) : null}
       </div>
       {expanded && hasBase ? (
         <pre className="px-3 pb-3 pt-0 font-mono text-code text-ink-secondary whitespace-pre-wrap break-words">
@@ -730,7 +743,12 @@ export function PRDetail() {
       : diskTranscript?.truncated
         ? [t('transcriptDrawer.truncatedNotice'), ...replayChunks]
         : replayChunks
-  const activeFindings = findings.filter((f) => !f.archived)
+  // Archived sessions are read-only historical snapshots. Their findings all
+  // carry archived=true (rerun-session.ts archives them in lockstep), so the
+  // normal !archived filter would render an empty list. Surface the full set
+  // instead and let the UI gate mutations via isHistorical below.
+  const isHistorical = session.status === 'archived'
+  const activeFindings = isHistorical ? findings : findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
   // Round N = 1 + (archived sessions older than this one for the same PR).
@@ -809,6 +827,7 @@ export function PRDetail() {
         session={session}
         unifiedDiff={unifiedDiff}
         selectedCount={selectedCount}
+        readOnly={isHistorical}
       />
     )
 
@@ -823,6 +842,7 @@ export function PRDetail() {
         setSelectedFindingDbId(dbId)
         setActiveTab('findings')
       }}
+      readOnly={isHistorical}
     />
   )
 
@@ -851,6 +871,7 @@ export function PRDetail() {
           findings={activeFindings}
           selectedCount={selectedCount}
           roundNumber={roundNumber}
+          isHistorical={isHistorical}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
           onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
@@ -864,11 +885,21 @@ export function PRDetail() {
           justSwitched={justSwitched}
         />
 
+        {isHistorical ? (
+          <div
+            role="note"
+            className="rounded-md border border-rule bg-raised/60 px-3 py-2 text-meta text-ink-secondary"
+          >
+            {t('prdetail.historicalArchivedBanner')}
+          </div>
+        ) : null}
+
         <ExtraContextPanel
           base={session.extraPrompt}
           draft={extraDraft}
           editing={extraEditing}
           expanded={extraExpanded}
+          readOnly={isHistorical}
           onToggleExpanded={() => setExtraExpanded((v) => !v)}
           onStartEdit={() => {
             setExtraDraft(extraDraft ?? session.extraPrompt ?? '')

@@ -9,9 +9,10 @@ import { EmptyState } from '@/components/ui'
 interface Props {
   findings: Finding[]
   session: PRSession
+  readOnly?: boolean | undefined
 }
 
-export function FindingList({ findings, session }: Props) {
+export function FindingList({ findings, session, readOnly }: Props) {
   const { t } = useTranslation()
   const { fileScoped, prWide } = useMemo(() => {
     const scoped: Finding[] = []
@@ -39,7 +40,7 @@ export function FindingList({ findings, session }: Props) {
     <div role="list" className="border-t border-rule">
       <div className="divide-y divide-rule">
         {fileScoped.map((f) => (
-          <FindingRow key={f.dbId} finding={f} sessionId={session.id} />
+          <FindingRow key={f.dbId} finding={f} sessionId={session.id} readOnly={readOnly} />
         ))}
       </div>
       {prWide.length > 0 ? (
@@ -55,7 +56,7 @@ export function FindingList({ findings, session }: Props) {
           </h2>
           <div className="divide-y divide-rule border-t border-rule">
             {prWide.map((f) => (
-              <FindingRow key={f.dbId} finding={f} sessionId={session.id} />
+              <FindingRow key={f.dbId} finding={f} sessionId={session.id} readOnly={readOnly} />
             ))}
           </div>
         </section>

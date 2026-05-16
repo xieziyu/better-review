@@ -6,10 +6,18 @@ import type { AppDeps } from '../app'
 
 export function findingsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
+  // Archived sessions are read-only historical snapshots. Reject any mutation
+  // whose owning session is archived so a stale tab can't silently overwrite
+  // history after a rerun.
+  const sessionArchived = (sessionId: string): boolean => {
+    const s = deps.sessions.getById(sessionId)
+    return s?.status === 'archived'
+  }
   r.patch('/findings/:id', async (c) => {
     const id = c.req.param('id')
     const cur = deps.findings.getById(id)
     if (!cur) return c.json({ error: 'not found' }, 404)
+    if (sessionArchived(cur.sessionId)) return c.json({ error: 'session archived' }, 409)
     const patch = (await c.req.json()) as UpdateFindingPatch
     deps.findings.update(id, patch)
     const next = deps.findings.getById(id)!
@@ -20,6 +28,7 @@ export function findingsRoutes(deps: AppDeps): Hono {
     const id = c.req.param('id')
     const cur = deps.findings.getById(id)
     if (!cur) return c.json({ error: 'not found' }, 404)
+    if (sessionArchived(cur.sessionId)) return c.json({ error: 'session archived' }, 409)
     const { selected } = await c.req.json<{ selected: boolean }>()
     deps.findings.setSelected(id, !!selected)
     const next = deps.findings.getById(id)!
@@ -27,13 +36,18 @@ export function findingsRoutes(deps: AppDeps): Hono {
     return c.json(next)
   })
   r.delete('/findings/:id', (c) => {
-    deps.findings.delete(c.req.param('id'))
+    const id = c.req.param('id')
+    const cur = deps.findings.getById(id)
+    if (!cur) return c.body(null, 204)
+    if (sessionArchived(cur.sessionId)) return c.json({ error: 'session archived' }, 409)
+    deps.findings.delete(id)
     return c.body(null, 204)
   })
   r.post('/sessions/:id/findings/manual', async (c) => {
     const sessionId = c.req.param('id')
     const session = deps.sessions.getById(sessionId)
     if (!session) return c.json({ error: 'not found' }, 404)
+    if (session.status === 'archived') return c.json({ error: 'session archived' }, 409)
     let raw: unknown
     try {
       raw = await c.req.json()
