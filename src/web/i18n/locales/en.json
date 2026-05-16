@@ -109,8 +109,9 @@
       "saving": "Saving…"
     },
     "toast": {
-      "newFindingOther": "New finding in {{file}}",
-      "newFindingOtherAction": "Jump"
+      "jump": "Jump",
+      "clickHint": "Click to jump",
+      "dismiss": "Dismiss"
     }
   },
   "common": {

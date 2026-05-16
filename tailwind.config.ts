@@ -94,12 +94,17 @@ export default {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(400%)' },
         },
+        'peek-in': {
+          from: { transform: 'translate(8px, 4px)', opacity: '0' },
+          to: { transform: 'translate(0, 0)', opacity: '1' },
+        },
       },
       animation: {
         'running-pulse': 'running-pulse 2.4s ease-in-out infinite',
         'fade-in': 'fade-in 180ms cubic-bezier(0.25, 1, 0.5, 1)',
         'slide-in-right': 'slide-in-right 180ms cubic-bezier(0.25, 1, 0.5, 1)',
         'progress-indeterminate': 'progress-indeterminate 1.6s ease-in-out infinite',
+        'peek-in': 'peek-in 220ms cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

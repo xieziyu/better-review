@@ -560,9 +560,12 @@ export function PRDetail() {
       const canonical = canonicalFilePath(fileAliasMapRef.current, e.finding.file)
       if (canonical !== selectedFileRef.current) {
         toast.push({
-          message: t('filesChanged.toast.newFindingOther', { file: canonical }),
-          actionLabel: t('filesChanged.toast.newFindingOtherAction'),
-          onAction: () => setFilesTabSelectedPath(canonical),
+          title: e.finding.title,
+          file: canonical,
+          ...(e.finding.line != null ? { line: e.finding.line } : {}),
+          severity: e.finding.severity,
+          onClick: () => setFilesTabSelectedPath(canonical),
+          persistent: e.finding.severity === 'must',
         })
       }
     }

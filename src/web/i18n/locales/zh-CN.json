@@ -109,8 +109,9 @@
       "saving": "保存中…"
     },
     "toast": {
-      "newFindingOther": "{{file}} 新增了 finding",
-      "newFindingOtherAction": "跳转"
+      "jump": "跳转",
+      "clickHint": "点击跳转",
+      "dismiss": "关闭"
     }
   },
   "common": {
