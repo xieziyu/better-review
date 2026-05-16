@@ -26,13 +26,24 @@
 | 工具                               | 版本                      | 说明                                                                                                                                       |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | [Node.js](https://nodejs.org)      | ≥ 20                      | daemon 与构建都需要                                                                                                                        |
+| C/C++ 工具链                       | 各平台默认                | 安装时 `better-sqlite3` 会本地构建 native 模块，因此需要：macOS — Xcode Command Line Tools（`xcode-select --install`）；Linux — `build-essential` + `python3`；Windows — `npm install --global windows-build-tools`（或手动装 Visual Studio Build Tools）。 |
 | [`gh` CLI](https://cli.github.com) | 任意近期版本              | 必须先 `gh auth login`                                                                                                                     |
 | Review agent CLI                   | 至少装一个                | [`codex`](https://github.com/openai/codex)、[`claude`](https://docs.anthropic.com/en/docs/claude-code) 或 `pi`，需在 `PATH` 中可用 |
 | 浏览器                             | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>`                                                                                                          |
 
 ## 安装
 
-目前从源码安装（暂未发布到 npm）：
+```bash
+npm install -g @xieziyu/better-review
+```
+
+验证：
+
+```bash
+better-review --help
+```
+
+想从源码构建（hack 用）：
 
 ```bash
 git clone https://github.com/xieziyu/better-review.git
@@ -40,12 +51,6 @@ cd better-review
 pnpm install
 pnpm run build
 npm install -g .         # 或：pnpm link --global
-```
-
-验证：
-
-```bash
-better-review --help
 ```
 
 不想全局安装的话，`pnpm run build` 完成后用 `node dist/cli/index.js …` 替代下文所有 `better-review …` 命令即可。
