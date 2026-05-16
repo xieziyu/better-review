@@ -27,6 +27,7 @@ function f(over: Partial<Finding>): Finding {
     edited: false,
     archived: false,
     createdAt: 1,
+    source: 'agent',
     ...over,
   }
 }

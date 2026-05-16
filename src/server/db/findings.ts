@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import type Database from 'better-sqlite3'
 
-import type { FindingFromAgent } from '../../shared/findings-schema'
-import type { Finding } from '../../shared/types'
+import type { FindingFromAgent, ManualFindingInput } from '../../shared/findings-schema'
+import type { Finding, FindingSource } from '../../shared/types'
 
 interface Row {
   id: string
@@ -21,6 +21,7 @@ interface Row {
   edited: number
   archived: number
   created_at: number
+  source: string | null
 }
 
 function rowToFinding(r: Row, agentId: string): Finding {
@@ -39,6 +40,7 @@ function rowToFinding(r: Row, agentId: string): Finding {
     edited: r.edited === 1,
     archived: r.archived === 1,
     createdAt: r.created_at,
+    source: (r.source as FindingSource | null) ?? 'agent',
   }
   if (r.suggestion !== null) f.suggestion = r.suggestion
   if (r.start_line !== null) f.startLine = r.start_line
@@ -58,11 +60,15 @@ export interface UpdateFindingPatch {
 export class FindingsRepo {
   constructor(private db: Database.Database) {}
 
-  insertMany(sessionId: string, items: FindingFromAgent[]): Finding[] {
+  insertMany(
+    sessionId: string,
+    items: FindingFromAgent[],
+    source: FindingSource = 'agent',
+  ): Finding[] {
     const now = Date.now()
     const insert = this.db.prepare(`
-      INSERT INTO findings (id, session_id, ord, severity, category, file, line, start_line, title, body, suggestion, selected, edited, archived, created_at)
-      VALUES (@id, @sessionId, @ord, @severity, @category, @file, @line, @startLine, @title, @body, @suggestion, 1, 0, 0, @now)
+      INSERT INTO findings (id, session_id, ord, severity, category, file, line, start_line, title, body, suggestion, selected, edited, archived, created_at, source)
+      VALUES (@id, @sessionId, @ord, @severity, @category, @file, @line, @startLine, @title, @body, @suggestion, 1, 0, 0, @now, @source)
     `)
     const inserted: Finding[] = []
     this.db.transaction(() => {
@@ -89,6 +95,7 @@ export class FindingsRepo {
           body: it.body,
           suggestion: it.suggestion ?? null,
           now,
+          source,
         })
         const f: Finding = {
           dbId,
@@ -105,6 +112,7 @@ export class FindingsRepo {
           edited: false,
           archived: false,
           createdAt: now,
+          source,
         }
         if (it.suggestion !== undefined) f.suggestion = it.suggestion
         if (it.startLine !== undefined) f.startLine = it.startLine
@@ -112,6 +120,26 @@ export class FindingsRepo {
       })
     })()
     return inserted
+  }
+
+  // Insert one user-authored finding. Manual findings always carry file+line
+  // (guaranteed by manualFindingInputSchema) and get a synthetic agent-side id
+  // for parity with agent-produced rows.
+  insertManual(sessionId: string, input: ManualFindingInput): Finding {
+    const agentId = 'M' + randomUUID().slice(0, 8)
+    const item: FindingFromAgent = {
+      id: agentId,
+      severity: input.severity,
+      category: input.category,
+      file: input.file,
+      line: input.line,
+      title: input.title,
+      body: input.body,
+    }
+    if (input.startLine !== undefined) item.startLine = input.startLine
+    if (input.suggestion !== undefined) item.suggestion = input.suggestion
+    const [inserted] = this.insertMany(sessionId, [item], 'manual')
+    return inserted!
   }
 
   listBySession(sessionId: string, opts: { includeArchived?: boolean } = {}): Finding[] {

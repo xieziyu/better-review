@@ -1,3 +1,4 @@
+import type { ManualFindingInput } from '@shared/findings-schema'
 import type {
   AppConfig,
   PRSession,
@@ -79,6 +80,13 @@ export const api = {
     const init: RequestInit = { method: 'POST' }
     if (body) init.body = JSON.stringify(body)
     return req(`/api/sessions/${id}/rerun`, init)
+  },
+  createManualFinding: async (sessionId: string, b: ManualFindingInput): Promise<Finding> => {
+    const r = await req<{ finding: Finding }>(`/api/sessions/${sessionId}/findings/manual`, {
+      method: 'POST',
+      body: JSON.stringify(b),
+    })
+    return r.finding
   },
   updateFinding: (id: string, b: UpdateFindingRequest): Promise<Finding> =>
     req(`/api/findings/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),

@@ -58,6 +58,8 @@ export interface RecentRepo {
   matchedCurrentRepo: boolean
 }
 
+export type FindingSource = 'agent' | 'manual'
+
 export interface Finding extends FindingFromAgent {
   dbId: string
   sessionId: string
@@ -66,6 +68,7 @@ export interface Finding extends FindingFromAgent {
   edited: boolean
   archived: boolean
   createdAt: number
+  source: FindingSource
 }
 
 export type ReviewEvent = 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'

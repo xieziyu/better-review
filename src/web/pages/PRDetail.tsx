@@ -23,14 +23,17 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ExportPopover } from '@/components/ExportPopover'
+import { FilesChangedView } from '@/components/files-changed/FilesChangedView'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
 import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
+import { parseFileList } from '@/lib/diff-utils'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
 import { useSSE } from '@/lib/sse'
+import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'danger' | 'neutral'> =
@@ -423,6 +426,44 @@ function ExtraContextPanel({
   )
 }
 
+function TabButton({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+  count: number
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'relative px-4 py-2.5 text-meta font-medium flex items-center gap-2 transition-colors duration-180 ease-out-quart',
+        active ? 'text-ink-primary' : 'text-ink-secondary hover:text-ink-primary',
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          'inline-flex items-center justify-center rounded-full px-1.5 min-w-[18px] text-[10.5px] font-mono tabular-nums border',
+          active ? 'border-brand text-brand bg-canvas' : 'border-rule text-ink-muted bg-raised',
+        )}
+      >
+        {count}
+      </span>
+      {active ? (
+        <span aria-hidden="true" className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand" />
+      ) : null}
+    </button>
+  )
+}
+
 export function PRDetail() {
   const { t } = useTranslation()
   const { id = '' } = useParams()
@@ -431,6 +472,7 @@ export function PRDetail() {
   const submitDrawer = useSubmitDrawer()
   const transcriptDrawer = useTranscriptDrawer()
   const { setSelectedFindingDbId } = useSelectedFinding()
+  const toast = useToast()
   const topStackRef = useRef<HTMLDivElement | null>(null)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
@@ -441,11 +483,35 @@ export function PRDetail() {
   const [extraDraft, setExtraDraft] = useState<string | null>(null)
   const [extraEditing, setExtraEditing] = useState(false)
   const [extraExpanded, setExtraExpanded] = useState(false)
+  // Files-changed tab state. Default to 'files' so users can preview the diff
+  // immediately once prep completes, even while the agent is still streaming.
+  const [activeTab, setActiveTab] = useState<'findings' | 'files'>('files')
+  const [filesTabSelectedPath, setFilesTabSelectedPath] = useState<string | null>(null)
+  // Mirror to a ref so the SSE callback can read the latest value without
+  // re-subscribing on every state change.
+  const selectedFileRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedFileRef.current = filesTabSelectedPath
+  }, [filesTabSelectedPath])
+  const activeTabRef = useRef<'findings' | 'files'>(activeTab)
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
     queryFn: () => api.getSession(id),
     enabled: !!id,
+  })
+
+  // Lift diff fetching so both tabs (Findings detail pane + Files changed
+  // tree/diff) share a single response. Enabled once prep is done — the
+  // diff.cache file is written before the agent runs.
+  const { data: sessionDiff } = useQuery({
+    queryKey: ['session', id, 'diff'] as const,
+    queryFn: () => api.getSessionDiff(id),
+    enabled: !!id && !!data && data.session.status !== 'pending',
+    retry: false,
   })
 
   const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
@@ -481,6 +547,21 @@ export function PRDetail() {
       const step: PrepStep = { phase: e.phase, ts: Date.now() }
       if (e.detail !== undefined) step.detail = e.detail
       setPrepSteps((prev) => [...prev, step])
+    }
+    // While the user is on the Files changed tab, notify when a new finding
+    // lands in a file they're not currently viewing so they can jump to it.
+    if (
+      e.type === 'finding-added' &&
+      activeTabRef.current === 'files' &&
+      e.finding.file &&
+      e.finding.file !== selectedFileRef.current
+    ) {
+      const file = e.finding.file
+      toast.push({
+        message: t('filesChanged.toast.newFindingOther', { file }),
+        actionLabel: t('filesChanged.toast.newFindingOtherAction'),
+        onAction: () => setFilesTabSelectedPath(file),
+      })
     }
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
@@ -590,7 +671,10 @@ export function PRDetail() {
       ).length
     : 1
 
-  const findingsBody =
+  const unifiedDiff = sessionDiff ?? null
+  const fileCount = unifiedDiff ? parseFileList(unifiedDiff).length : 0
+
+  const findingsTabBody =
     session.status === 'ready' && activeFindings.length === 0 ? (
       <div className="px-8 py-10">
         <EmptyState
@@ -609,14 +693,52 @@ export function PRDetail() {
           }
         />
       </div>
+    ) : activeFindings.length === 0 ? (
+      <div className="px-8 py-10">
+        <EmptyState
+          title={t('prdetail.findingsStreamingTitle')}
+          body={t('prdetail.findingsStreamingBody')}
+        />
+      </div>
     ) : (
       <FindingsWorkspace
         findings={activeFindings}
         session={session}
-        unifiedDiff={data.diff ?? null}
+        unifiedDiff={unifiedDiff}
         selectedCount={selectedCount}
       />
     )
+
+  const filesTabBody = (
+    <FilesChangedView
+      session={session}
+      findings={activeFindings}
+      unifiedDiff={unifiedDiff}
+      selectedPath={filesTabSelectedPath}
+      onSelectPath={setFilesTabSelectedPath}
+      onOpenFindingInPanel={(dbId) => {
+        setSelectedFindingDbId(dbId)
+        setActiveTab('findings')
+      }}
+    />
+  )
+
+  const tabsBar = (
+    <div className="shrink-0 flex items-stretch border-b border-rule bg-main px-2">
+      <TabButton
+        active={activeTab === 'findings'}
+        onClick={() => setActiveTab('findings')}
+        label={t('filesChanged.tabFindings')}
+        count={activeFindings.length}
+      />
+      <TabButton
+        active={activeTab === 'files'}
+        onClick={() => setActiveTab('files')}
+        label={t('filesChanged.tabFiles')}
+        count={fileCount}
+      />
+    </div>
+  )
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -694,7 +816,11 @@ export function PRDetail() {
         onToggleTranscript={transcriptDrawer.toggle}
       />
 
-      <div className="flex-1 min-h-0 flex flex-col">{findingsBody}</div>
+      {tabsBar}
+
+      <div className="flex-1 min-h-0 flex flex-col">
+        {activeTab === 'findings' ? findingsTabBody : filesTabBody}
+      </div>
 
       <TranscriptDrawer
         chunks={transcriptChunks}

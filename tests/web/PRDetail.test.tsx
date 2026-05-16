@@ -78,6 +78,7 @@ const finding: Finding = {
   edited: false,
   archived: false,
   createdAt: 0,
+  source: 'agent',
 }
 
 describe('PRDetail', () => {

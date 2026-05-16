@@ -46,6 +46,7 @@ const mkFinding = (overrides: Partial<Finding> = {}): Finding => ({
   edited: false,
   archived: false,
   createdAt: 0,
+  source: 'agent',
   ...overrides,
 })
 
@@ -161,10 +162,12 @@ beforeEach(() => {
 })
 
 describe('FindingsWorkspace', () => {
-  it('returns null when there are no findings (RunStrip carries the signal)', () => {
+  it('renders the FindingList empty state when there are no findings (parent handles outer empty)', () => {
     installMatchMedia(true)
-    const { container } = render(wrapped(<Harness findings={[]} />))
-    expect(container).toBeEmptyDOMElement()
+    render(wrapped(<Harness findings={[]} />))
+    // FindingList carries its own empty-state copy; PRDetail wraps this with a
+    // higher-level EmptyState for the "no findings yet" tab body.
+    expect(screen.getByText(/No findings/i)).toBeInTheDocument()
   })
 
   it('wide mode without selection renders only the list (no separator, no detail pane)', () => {

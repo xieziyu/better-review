@@ -68,8 +68,6 @@ export function FindingsWorkspace({ findings, session, unifiedDiff, selectedCoun
     ariaLabel: t('findingsWorkspace.resizeAria'),
   })
 
-  if (findings.length === 0) return null
-
   if (!wide) {
     return (
       <div className="flex flex-col min-h-0 flex-1">

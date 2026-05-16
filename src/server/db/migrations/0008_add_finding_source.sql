@@ -1,0 +1,1 @@
+ALTER TABLE findings ADD COLUMN source TEXT NOT NULL DEFAULT 'agent';
