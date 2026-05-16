@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { findNewSideChange, isLineOnNewSide, parseFileList } from '@/lib/diff-utils'
+import {
+  buildFileAliasMap,
+  canonicalFilePath,
+  findNewSideChange,
+  isLineOnNewSide,
+  parseFileList,
+} from '@/lib/diff-utils'
 
 const DIFF = `diff --git a/src/foo.ts b/src/foo.ts
 --- a/src/foo.ts
@@ -74,5 +80,34 @@ describe('findNewSideChange / isLineOnNewSide', () => {
     const removed = parseFileList(DIFF).find((f) => f.path === 'src/removed.ts')!
     // Deleted files have no new-side lines.
     expect(isLineOnNewSide(removed.hunks, 1)).toBe(false)
+  })
+})
+
+const RENAME_DIFF = `diff --git a/src/old.ts b/src/new.ts
+similarity index 90%
+rename from src/old.ts
+rename to src/new.ts
+--- a/src/old.ts
++++ b/src/new.ts
+@@ -1,3 +1,4 @@
+ const a = 1
++const b = 2
+ const c = 3
+ const d = 4
+`
+
+describe('buildFileAliasMap / canonicalFilePath', () => {
+  it('maps old and new paths of a rename to the same canonical entry', () => {
+    const files = parseFileList(RENAME_DIFF)
+    const map = buildFileAliasMap(files)
+    // The display path on a rename is the new path.
+    expect(canonicalFilePath(map, 'src/old.ts')).toBe('src/new.ts')
+    expect(canonicalFilePath(map, 'src/new.ts')).toBe('src/new.ts')
+  })
+
+  it('returns the input unchanged for unknown files', () => {
+    const files = parseFileList(DIFF)
+    const map = buildFileAliasMap(files)
+    expect(canonicalFilePath(map, 'src/unknown.ts')).toBe('src/unknown.ts')
   })
 })

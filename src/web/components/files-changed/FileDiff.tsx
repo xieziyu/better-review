@@ -13,6 +13,7 @@ import { inferLangFromFile } from '@/lib/lang-from-file'
 import { getHighlighter } from '@/lib/shiki'
 import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
 
+import 'react-diff-view/style/index.css'
 import '../DiffViewer.css'
 import './FileDiff.css'
 

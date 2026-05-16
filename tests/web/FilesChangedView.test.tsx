@@ -203,4 +203,55 @@ describe('FilesChangedView', () => {
     )
     expect(screen.getByText(/Loading diff/i)).toBeInTheDocument()
   })
+
+  it('surfaces rename-file findings under the new (canonical) path', () => {
+    const RENAME_DIFF = `diff --git a/src/old.ts b/src/new.ts
+similarity index 90%
+rename from src/old.ts
+rename to src/new.ts
+--- a/src/old.ts
++++ b/src/new.ts
+@@ -1,3 +1,4 @@
+ a
++b
+ c
+ d
+`
+    const renameFinding: Finding = {
+      id: 'R3',
+      dbId: 'd3',
+      sessionId: 's1',
+      ord: 3,
+      severity: 'must',
+      category: 'C',
+      // Agent recorded the finding against the OLD path — this is the case
+      // the bug was about. It should still surface in the tree (severity dot,
+      // count) under the canonical display path (newPath).
+      file: 'src/old.ts',
+      line: 2,
+      title: 'rename issue',
+      body: 'b',
+      selected: true,
+      edited: false,
+      archived: false,
+      createdAt: 0,
+      source: 'agent',
+    }
+    render(
+      withProviders(
+        <FilesChangedView
+          session={session}
+          findings={[renameFinding]}
+          unifiedDiff={RENAME_DIFF}
+          selectedPath={null}
+          onSelectPath={() => {}}
+          onOpenFindingInPanel={() => {}}
+        />,
+      ),
+    )
+    const newRow = screen.getByRole('option', { name: /src\/new\.ts/ })
+    // Finding count rendered inside the row → proves bucketing landed under
+    // newPath, not oldPath.
+    expect(newRow).toHaveTextContent('1')
+  })
 })

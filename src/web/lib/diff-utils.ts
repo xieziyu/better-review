@@ -73,6 +73,26 @@ export function getFileHunks(diff: string, path: string): HunkData[] {
 }
 
 /**
+ * Map every alias (`path`, `newPath`, `oldPath`) to the canonical display path.
+ * Renames are the reason this exists: findings written against the old path
+ * must surface under the new path that's shown in the file tree.
+ */
+export function buildFileAliasMap(files: FileSummary[]): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const f of files) {
+    map.set(f.path, f.path)
+    if (f.newPath) map.set(f.newPath, f.path)
+    if (f.oldPath) map.set(f.oldPath, f.path)
+  }
+  return map
+}
+
+/** Resolve an arbitrary file path to its canonical display path, if known. */
+export function canonicalFilePath(aliasMap: Map<string, string>, file: string): string {
+  return aliasMap.get(file) ?? file
+}
+
+/**
  * Strict anchor check: is the given new-side line number rendered as part of
  * any hunk in `hunks`? Returns the change so callers can use it to look up
  * react-diff-view's `getChangeKey` for widget mounting; null otherwise.

@@ -30,7 +30,7 @@ import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
-import { parseFileList } from '@/lib/diff-utils'
+import { buildFileAliasMap, canonicalFilePath, parseFileList } from '@/lib/diff-utils'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
 import { useSSE } from '@/lib/sse'
 import { useToast } from '@/lib/toast'
@@ -493,6 +493,10 @@ export function PRDetail() {
   useEffect(() => {
     selectedFileRef.current = filesTabSelectedPath
   }, [filesTabSelectedPath])
+  // Rename-aware path map, kept in a ref so the SSE handler can normalize an
+  // incoming finding's `file` (which may be the old path) before comparing it
+  // to the currently-selected canonical path.
+  const fileAliasMapRef = useRef<Map<string, string>>(new Map())
   const activeTabRef = useRef<'findings' | 'files'>(activeTab)
   useEffect(() => {
     activeTabRef.current = activeTab
@@ -550,18 +554,17 @@ export function PRDetail() {
     }
     // While the user is on the Files changed tab, notify when a new finding
     // lands in a file they're not currently viewing so they can jump to it.
-    if (
-      e.type === 'finding-added' &&
-      activeTabRef.current === 'files' &&
-      e.finding.file &&
-      e.finding.file !== selectedFileRef.current
-    ) {
-      const file = e.finding.file
-      toast.push({
-        message: t('filesChanged.toast.newFindingOther', { file }),
-        actionLabel: t('filesChanged.toast.newFindingOtherAction'),
-        onAction: () => setFilesTabSelectedPath(file),
-      })
+    // Normalize through the alias map first so rename-file findings (which
+    // may carry the old path) compare against the canonical display path.
+    if (e.type === 'finding-added' && activeTabRef.current === 'files' && e.finding.file) {
+      const canonical = canonicalFilePath(fileAliasMapRef.current, e.finding.file)
+      if (canonical !== selectedFileRef.current) {
+        toast.push({
+          message: t('filesChanged.toast.newFindingOther', { file: canonical }),
+          actionLabel: t('filesChanged.toast.newFindingOtherAction'),
+          onAction: () => setFilesTabSelectedPath(canonical),
+        })
+      }
     }
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
@@ -672,7 +675,41 @@ export function PRDetail() {
     : 1
 
   const unifiedDiff = sessionDiff ?? null
-  const fileCount = unifiedDiff ? parseFileList(unifiedDiff).length : 0
+  const parsedFiles = unifiedDiff ? parseFileList(unifiedDiff) : []
+  const fileCount = parsedFiles.length
+  // Keep the alias-map ref in sync with the latest diff so the SSE callback
+  // (which holds the ref) sees fresh data without re-subscribing.
+  fileAliasMapRef.current = buildFileAliasMap(parsedFiles)
+
+  const emptyFindingsCopy: { title: string; body: string } | null =
+    activeFindings.length === 0
+      ? session.status === 'running' || session.status === 'pending'
+        ? {
+            title: t('prdetail.findingsStreamingTitle'),
+            body: t('prdetail.findingsStreamingBody'),
+          }
+        : session.status === 'failed'
+          ? {
+              title: t('prdetail.findingsFailedTitle'),
+              body: t('prdetail.findingsFailedBody'),
+            }
+          : session.status === 'cancelled'
+            ? {
+                title: t('prdetail.findingsCancelledTitle'),
+                body: t('prdetail.findingsCancelledBody'),
+              }
+            : session.status === 'submitted'
+              ? {
+                  title: t('prdetail.findingsSubmittedTitle'),
+                  body: t('prdetail.findingsSubmittedBody'),
+                }
+              : session.status === 'archived'
+                ? {
+                    title: t('prdetail.findingsArchivedTitle'),
+                    body: t('prdetail.findingsArchivedBody'),
+                  }
+                : null
+      : null
 
   const findingsTabBody =
     session.status === 'ready' && activeFindings.length === 0 ? (
@@ -693,12 +730,9 @@ export function PRDetail() {
           }
         />
       </div>
-    ) : activeFindings.length === 0 ? (
+    ) : emptyFindingsCopy ? (
       <div className="px-8 py-10">
-        <EmptyState
-          title={t('prdetail.findingsStreamingTitle')}
-          body={t('prdetail.findingsStreamingBody')}
-        />
+        <EmptyState title={emptyFindingsCopy.title} body={emptyFindingsCopy.body} />
       </div>
     ) : (
       <FindingsWorkspace

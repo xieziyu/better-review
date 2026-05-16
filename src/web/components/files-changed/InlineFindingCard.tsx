@@ -2,9 +2,9 @@ import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { isValidElement, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 
 import { CodeBlock } from '@/components/CodeBlock'
 import { Button, ConfirmAction, SeverityLabel } from '@/components/ui'
@@ -49,6 +49,25 @@ export function InlineFindingCard({ finding, session, expanded, onToggle, onOpen
   const sourceLabel =
     finding.source === 'manual' ? t('filesChanged.sourceManual') : t('filesChanged.sourceAgent')
 
+  // Route fenced code blocks through CodeBlock (shiki), but keep inline `code`
+  // as a normal inline element. react-markdown v9 wraps fenced code in <pre>,
+  // so we override <pre> rather than <code>.
+  const fallbackFile = finding.file
+  const markdownComponents = useMemo<Components>(
+    () => ({
+      pre({ children, ...rest }) {
+        if (isValidElement(children) && children.type === 'code') {
+          const codeProps = children.props as { className?: string; children?: unknown }
+          const m = /language-([\w+#-]+)/.exec(codeProps.className ?? '')
+          const text = String(codeProps.children ?? '').replace(/\n$/, '')
+          return <CodeBlock code={text} lang={m?.[1] ?? null} fallbackFile={fallbackFile} />
+        }
+        return <pre {...rest}>{children}</pre>
+      },
+    }),
+    [fallbackFile],
+  )
+
   return (
     <div
       className={cn(
@@ -78,15 +97,15 @@ export function InlineFindingCard({ finding, session, expanded, onToggle, onOpen
         </button>
         {expanded ? (
           <div className="px-3 pb-3 space-y-3">
-            <div className="prose-finding text-body text-ink-secondary leading-relaxed">
-              <ReactMarkdown components={{ code: CodeBlock }}>{finding.body}</ReactMarkdown>
+            <div className="prose prose-sm max-w-none text-body text-ink-secondary leading-relaxed prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
+              <ReactMarkdown components={markdownComponents}>{finding.body}</ReactMarkdown>
             </div>
             {finding.suggestion ? (
               <div className="space-y-1">
                 <div className="text-caps tracking-caps text-ink-muted uppercase">
                   {t('filesChanged.suggestion')}
                 </div>
-                <CodeBlock>{finding.suggestion}</CodeBlock>
+                <CodeBlock code={finding.suggestion} fallbackFile={finding.file} />
               </div>
             ) : null}
             <div className="flex items-center gap-2 pt-1 border-t border-rule">

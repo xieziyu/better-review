@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { EmptyState } from '@/components/ui'
-import { parseFileList, type FileSummary } from '@/lib/diff-utils'
+import {
+  buildFileAliasMap,
+  canonicalFilePath,
+  parseFileList,
+  type FileSummary,
+} from '@/lib/diff-utils'
 import { useSelectedFinding } from '@/lib/selection'
 import { useResizable } from '@/lib/use-resizable'
 import { cn } from '@/lib/utils'
@@ -28,7 +33,10 @@ const TREE_MIN = 220
 const TREE_MAX = 480
 const TREE_KEY = 'better-review:files-tree-width:v1'
 
-function indexFindings(findings: Finding[]): {
+function indexFindings(
+  findings: Finding[],
+  aliasMap: Map<string, string>,
+): {
   byFile: Map<string, Finding[]>
   severitiesByFile: Map<string, Set<Severity>>
   countsByFile: Map<string, number>
@@ -38,20 +46,24 @@ function indexFindings(findings: Finding[]): {
   const countsByFile = new Map<string, number>()
   for (const f of findings) {
     if (!f.file) continue
-    const arr = byFile.get(f.file) ?? []
+    const key = canonicalFilePath(aliasMap, f.file)
+    const arr = byFile.get(key) ?? []
     arr.push(f)
-    byFile.set(f.file, arr)
-    const sevs = severitiesByFile.get(f.file) ?? new Set<Severity>()
+    byFile.set(key, arr)
+    const sevs = severitiesByFile.get(key) ?? new Set<Severity>()
     sevs.add(f.severity)
-    severitiesByFile.set(f.file, sevs)
-    countsByFile.set(f.file, (countsByFile.get(f.file) ?? 0) + 1)
+    severitiesByFile.set(key, sevs)
+    countsByFile.set(key, (countsByFile.get(key) ?? 0) + 1)
   }
   return { byFile, severitiesByFile, countsByFile }
 }
 
-function githubFileLink(session: PRSession, file: string): string | null {
+// GitHub's per-file anchor on /pull/N/files is a hash derived server-side
+// (`diff-<sha>`), not a path-encoded slug. We can't reconstruct it from the
+// client, so just deep-link to the Files tab and let the user scroll.
+function githubFileLink(session: PRSession): string | null {
   if (!session.url) return null
-  return `${session.url}/files#diff-${encodeURIComponent(file)}`
+  return `${session.url}/files`
 }
 
 export function FilesChangedView({
@@ -66,18 +78,24 @@ export function FilesChangedView({
   const { setSelectedFindingDbId } = useSelectedFinding()
 
   const files = useMemo(() => parseFileList(unifiedDiff ?? ''), [unifiedDiff])
+  const aliasMap = useMemo(() => buildFileAliasMap(files), [files])
   const { byFile, severitiesByFile, countsByFile } = useMemo(
-    () => indexFindings(findings),
-    [findings],
+    () => indexFindings(findings, aliasMap),
+    [findings, aliasMap],
   )
   const [expandedFindingIds, setExpandedFindingIds] = useState<Set<string>>(() => new Set())
 
   // Pin the selection to a valid file when the diff arrives or the file list
-  // changes. `files` length === 0 is handled below.
+  // changes. `files` length === 0 is handled below. Normalize through the
+  // alias map so a request to select an old (rename) path resolves to the
+  // canonical display entry.
   const effectivePath: string | null = useMemo(() => {
-    if (selectedPath && files.some((f) => f.path === selectedPath)) return selectedPath
+    if (selectedPath) {
+      const canonical = canonicalFilePath(aliasMap, selectedPath)
+      if (files.some((f) => f.path === canonical)) return canonical
+    }
     return files[0]?.path ?? null
-  }, [selectedPath, files])
+  }, [selectedPath, files, aliasMap])
 
   // Reflect the resolved path back so PRDetail can compare against incoming
   // SSE events (toast on cross-file new findings).
@@ -165,7 +183,7 @@ export function FilesChangedView({
             expandedFindingIds={expandedFindingIds}
             onToggleFinding={toggleFinding}
             onOpenInPanel={openInPanel}
-            fileUrl={githubFileLink(session, selectedFile.path)}
+            fileUrl={githubFileLink(session)}
           />
         ) : null}
       </div>
