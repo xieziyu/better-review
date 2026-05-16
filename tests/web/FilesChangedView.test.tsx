@@ -155,7 +155,7 @@ describe('FilesChangedView', () => {
     )
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-file', 'src/foo.ts')
     const barRow = screen.getByRole('treeitem', { name: /bar\.ts/ })
-    fireEvent.click(within(barRow).getByRole('button'))
+    fireEvent.click(barRow)
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
     rerender(
       withProviders(

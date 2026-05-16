@@ -74,8 +74,7 @@ function getFolderItem(path: string): HTMLElement {
   const items = screen.getAllByRole('treeitem')
   for (const item of items) {
     if (item.getAttribute('aria-expanded') == null) continue
-    const button = within(item).getByRole('button')
-    const label = button.getAttribute('aria-label') ?? ''
+    const label = item.getAttribute('aria-label') ?? ''
     if (label.includes(path)) return item
   }
   throw new Error(`folder treeitem with path "${path}" not found`)
@@ -90,8 +89,8 @@ describe('FileTree path compression', () => {
     const folder = getFolderItem('src/web/components/files-changed')
     expect(folder).toHaveAttribute('aria-expanded', 'true')
     expect(folder).toHaveAttribute('aria-level', '1')
-    expect(within(folder).getByRole('button').textContent).toContain('files-changed')
-    expect(within(folder).getByRole('button').textContent).toContain('src')
+    expect(folder.textContent).toContain('files-changed')
+    expect(folder.textContent).toContain('src')
     // The two file rows live at the next level.
     const fileButtons = screen
       .getAllByRole('treeitem')
@@ -107,7 +106,7 @@ describe('FileTree path compression', () => {
     expect(items).toHaveLength(1)
     const leaf = items[0]!
     expect(leaf).toHaveAttribute('aria-level', '1')
-    const text = within(leaf).getByRole('button').textContent ?? ''
+    const text = leaf.textContent ?? ''
     expect(text).toContain('lib/')
     expect(text).toContain('diff-utils.ts')
   })
@@ -118,7 +117,33 @@ describe('FileTree path compression', () => {
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveAttribute('aria-level', '1')
     expect(items[0]!.getAttribute('aria-expanded')).toBeNull()
-    expect(within(items[0]!).getByRole('button').textContent).toContain('README.md')
+    expect(items[0]!.textContent).toContain('README.md')
+  })
+
+  it('keeps a file and a folder with the same segment side by side', () => {
+    // A refactor that deletes a file and adds a directory of the same name
+    // produces a diff with both paths. The previous Map<string, RawNode>
+    // would silently overwrite one with the other; here we assert both are
+    // visible after the build.
+    renderTree([
+      mkFile('Makefile', { status: 'delete', deletions: 12 }),
+      mkFile('Makefile/build.mk', { status: 'add', additions: 18 }),
+      mkFile('Makefile/test.mk', { status: 'add', additions: 7 }),
+    ])
+    const items = screen.getAllByRole('treeitem')
+    // 1 folder row (Makefile/) + 2 file rows under it + 1 standalone file row.
+    expect(items).toHaveLength(4)
+    const labels = items.map((i) => i.getAttribute('aria-label'))
+    expect(labels).toContain('Makefile, folder')
+    // The standalone file row has no aria-label; verify by text content.
+    const standaloneFile = items.find(
+      (i) =>
+        i.getAttribute('aria-expanded') == null && (i.textContent ?? '').endsWith('−12'),
+    )
+    expect(standaloneFile).toBeDefined()
+    expect(standaloneFile!.textContent).toContain('Makefile')
+    expect(screen.getByText('build.mk')).toBeInTheDocument()
+    expect(screen.getByText('test.mk')).toBeInTheDocument()
   })
 })
 
@@ -131,7 +156,7 @@ describe('FileTree collapse persistence', () => {
     // src/a/ merges into a single folder row with two children.
     const folder = getFolderItem('src/a')
     expect(folder).toHaveAttribute('aria-expanded', 'true')
-    fireEvent.click(within(folder).getByRole('button'))
+    fireEvent.click(folder)
     expect(folder).toHaveAttribute('aria-expanded', 'false')
     const stored = window.localStorage.getItem(STORAGE_KEY)
     expect(stored).not.toBeNull()
@@ -150,7 +175,7 @@ describe('FileTree collapse persistence', () => {
       [mkFile('src/a/A.tsx'), mkFile('src/a/B.tsx')],
       { sessionId: 'session-A' },
     )
-    fireEvent.click(within(getFolderItem('src/a')).getByRole('button'))
+    fireEvent.click(getFolderItem('src/a'))
     expect(getFolderItem('src/a')).toHaveAttribute('aria-expanded', 'false')
     unmount()
     renderTree([mkFile('src/a/A.tsx'), mkFile('src/a/B.tsx')], { sessionId: 'session-B' })
@@ -203,9 +228,9 @@ describe('FileTree collapsed folder aggregates', () => {
     renderTree(files, { countsByFile: counts, severitiesByFile: sevs })
 
     const folder = getFolderItem('pkg')
-    fireEvent.click(within(folder).getByRole('button'))
+    fireEvent.click(folder)
     const collapsed = getFolderItem('pkg')
-    const text = within(collapsed).getByRole('button').textContent ?? ''
+    const text = collapsed.textContent ?? ''
     expect(text).toContain('3')
     expect(text).toContain('+15')
     expect(text).toContain('−3')

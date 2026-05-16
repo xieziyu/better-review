@@ -128,8 +128,11 @@ export function FileTree({
           </li>
         ) : (
           visibleRows.map((row) => (
+            // Namespace the key by row kind so a folder and a file with the
+            // same path (rare but possible: a refactor that deletes a file
+            // and adds a same-named directory) don't collide as React keys.
             <Row
-              key={row.node.path}
+              key={`${row.kind}:${row.node.path}`}
               row={row}
               selectedPath={selectedPath}
               onSelectFile={onSelect}
@@ -265,14 +268,13 @@ function FolderRowItem({
       : t('filesChanged.tree.ariaFolderEmpty', { path: node.path })
 
   return (
-    <li
-      role="treeitem"
-      aria-expanded={isOpen}
-      aria-selected={false}
-      aria-level={node.depth + 1}
-    >
+    <li role="none">
       <button
         type="button"
+        role="treeitem"
+        aria-expanded={isOpen}
+        aria-selected={false}
+        aria-level={node.depth + 1}
         onClick={onToggle}
         aria-label={buttonLabel}
         title={isOpen ? t('filesChanged.tree.ariaToggleCollapse', { path: node.path }) : t('filesChanged.tree.ariaToggleExpand', { path: node.path })}
@@ -308,9 +310,12 @@ function FileRowItem({
   const { file, aggregate } = node
   const paddingLeft = node.depth * INDENT_PX + ROW_BASE_PX
   return (
-    <li role="treeitem" aria-selected={isSelected} aria-level={node.depth + 1}>
+    <li role="none">
       <button
         type="button"
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-level={node.depth + 1}
         onClick={onSelect}
         className={cn(
           'w-full py-1.5 pr-3 flex items-center gap-2 text-left transition-colors duration-180 ease-out-quart',

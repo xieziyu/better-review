@@ -41,7 +41,12 @@ interface RawFolder {
   kind: 'folder'
   segment: string
   path: string
-  children: Map<string, RawNode>
+  // Two separate namespaces — a file and a folder may share the same segment
+  // within a single PR diff (e.g. a refactor that deletes `Makefile` and adds
+  // `Makefile/something.mk`). Keeping them in the same Map would silently
+  // overwrite one with the other.
+  folders: Map<string, RawFolder>
+  files: Map<string, RawFile>
   aggregate: Aggregate
 }
 
@@ -63,38 +68,74 @@ function mergeAggregate(into: Aggregate, file: FileSummary, ctx: BuildTreeContex
   if (sevs) for (const s of sevs) into.severities.add(s)
 }
 
-function insertFile(roots: Map<string, RawNode>, file: FileSummary, ctx: BuildTreeContext): void {
+function getOrCreateFolder(
+  parentFolders: Map<string, RawFolder>,
+  segment: string,
+  path: string,
+): RawFolder {
+  const existing = parentFolders.get(segment)
+  if (existing) return existing
+  const next: RawFolder = {
+    kind: 'folder',
+    segment,
+    path,
+    folders: new Map(),
+    files: new Map(),
+    aggregate: emptyAggregate(),
+  }
+  parentFolders.set(segment, next)
+  return next
+}
+
+interface Roots {
+  folders: Map<string, RawFolder>
+  files: Map<string, RawFile>
+}
+
+function insertFile(roots: Roots, file: FileSummary, ctx: BuildTreeContext): void {
   const segments = file.path.split('/').filter((s) => s.length > 0)
   if (segments.length === 0) return
-  let parent = roots
+  let parentFolders = roots.folders
+  let parentFiles = roots.files
   let pathSoFar = ''
   for (let i = 0; i < segments.length - 1; i++) {
     const seg = segments[i]!
     pathSoFar = pathSoFar ? `${pathSoFar}/${seg}` : seg
-    let node = parent.get(seg)
-    if (!node || node.kind !== 'folder') {
-      node = {
-        kind: 'folder',
-        segment: seg,
-        path: pathSoFar,
-        children: new Map(),
-        aggregate: emptyAggregate(),
-      }
-      parent.set(seg, node)
-    }
-    mergeAggregate(node.aggregate, file, ctx)
-    parent = node.children
+    const folder = getOrCreateFolder(parentFolders, seg, pathSoFar)
+    mergeAggregate(folder.aggregate, file, ctx)
+    parentFolders = folder.folders
+    parentFiles = folder.files
   }
   const leafSeg = segments[segments.length - 1]!
   const leafPath = pathSoFar ? `${pathSoFar}/${leafSeg}` : leafSeg
   const leafAgg = emptyAggregate()
   mergeAggregate(leafAgg, file, ctx)
-  parent.set(leafSeg, { kind: 'file', segment: leafSeg, path: leafPath, file, aggregate: leafAgg })
+  parentFiles.set(leafSeg, {
+    kind: 'file',
+    segment: leafSeg,
+    path: leafPath,
+    file,
+    aggregate: leafAgg,
+  })
 }
 
-function compareRaw(a: RawNode, b: RawNode): number {
-  if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1
-  return a.segment.localeCompare(b.segment)
+function singleChild(folder: RawFolder): RawNode | undefined {
+  if (folder.folders.size + folder.files.size !== 1) return undefined
+  const subfolder = folder.folders.values().next()
+  if (!subfolder.done) return subfolder.value
+  const subfile = folder.files.values().next()
+  if (!subfile.done) return subfile.value
+  return undefined
+}
+
+function emitChildren(folder: RawFolder, depth: number): TreeNode[] {
+  const folderChildren = [...folder.folders.values()].sort((a, b) =>
+    a.segment.localeCompare(b.segment),
+  )
+  const fileChildren = [...folder.files.values()].sort((a, b) =>
+    a.segment.localeCompare(b.segment),
+  )
+  return [...folderChildren, ...fileChildren].map((c) => compress(c, depth, []))
 }
 
 function compress(raw: RawNode, depth: number, prefixSegments: string[]): TreeNode {
@@ -109,23 +150,21 @@ function compress(raw: RawNode, depth: number, prefixSegments: string[]): TreeNo
       file: raw.file,
     }
   }
-  // raw folder
-  if (raw.children.size === 1) {
-    const [onlyChild] = raw.children.values()
+  const sole = singleChild(raw)
+  if (sole) {
     // Absorb segment into the chain and recurse on the sole child. The
     // resulting node uses the deepest node's `path` (file or folder leaf of
     // the chain) so React keys, selection, and collapse state align with
     // what's actually visible.
-    return compress(onlyChild!, depth, merged)
+    return compress(sole, depth, merged)
   }
-  const children = [...raw.children.values()].sort(compareRaw).map((c) => compress(c, depth + 1, []))
   return {
     kind: 'folder',
     path: raw.path,
     displaySegments: merged,
     depth,
     aggregate: raw.aggregate,
-    children,
+    children: emitChildren(raw, depth + 1),
   }
 }
 
@@ -142,9 +181,13 @@ function compress(raw: RawNode, depth: number, prefixSegments: string[]): TreeNo
  * in a single descent pass and preserved through compression.
  */
 export function buildFileTree(files: FileSummary[], ctx: BuildTreeContext): TreeNode[] {
-  const roots = new Map<string, RawNode>()
+  const roots: Roots = { folders: new Map(), files: new Map() }
   for (const f of files) insertFile(roots, f, ctx)
-  return [...roots.values()].sort(compareRaw).map((r) => compress(r, 0, []))
+  const folderRoots = [...roots.folders.values()].sort((a, b) =>
+    a.segment.localeCompare(b.segment),
+  )
+  const fileRoots = [...roots.files.values()].sort((a, b) => a.segment.localeCompare(b.segment))
+  return [...folderRoots, ...fileRoots].map((r) => compress(r, 0, []))
 }
 
 /**
