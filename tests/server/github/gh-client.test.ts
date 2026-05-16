@@ -10,7 +10,11 @@ import {
   GhPRNotFoundError,
   GhSubmitError,
 } from '../../../src/server/github/errors'
-import { GhClient } from '../../../src/server/github/gh-client'
+import {
+  GhClient,
+  withGhCallRecorder,
+  type GhCallRecord,
+} from '../../../src/server/github/gh-client'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const FAKE = resolve(here, '../../fixtures/fake-gh.sh')
@@ -227,5 +231,51 @@ describe('GhClient', () => {
     await expect(
       c.compareCommits({ owner: 'o', repo: 'r' }, 'oldsha', 'newsha'),
     ).rejects.toBeInstanceOf(GhFileNotFoundError)
+  })
+
+  describe('withGhCallRecorder', () => {
+    it('records command, stdout, stderr, and exit code for every gh call inside the scope', async () => {
+      const recorded: GhCallRecord[] = []
+      const c = new GhClient({ ghPath: FAKE })
+      await withGhCallRecorder(
+        (rec) => recorded.push(rec),
+        async () => {
+          await c.prView({ owner: 'o', repo: 'r', number: 1 })
+          await c.prDiff({ owner: 'o', repo: 'r', number: 1 })
+        },
+      )
+      expect(recorded).toHaveLength(2)
+      expect(recorded[0]?.command[0]).toBe('gh')
+      expect(recorded[0]?.command).toContain('view')
+      expect(recorded[0]?.stdout).toContain('"number":1')
+      expect(recorded[0]?.exitCode).toBe(0)
+      expect(recorded[0]?.durationMs).toBeGreaterThanOrEqual(0)
+      expect(recorded[1]?.command).toContain('diff')
+      expect(recorded[1]?.stdout).toContain('diff --git')
+    })
+
+    it('records failed gh calls (non-zero exit) with stderr populated', async () => {
+      process.env.FAKE_GH_NOTFOUND = '1'
+      const recorded: GhCallRecord[] = []
+      const c = new GhClient({ ghPath: FAKE })
+      await withGhCallRecorder(
+        (rec) => recorded.push(rec),
+        async () => {
+          await expect(c.prView({ owner: 'o', repo: 'r', number: 1 })).rejects.toBeInstanceOf(
+            GhPRNotFoundError,
+          )
+        },
+      )
+      expect(recorded).toHaveLength(1)
+      expect(recorded[0]?.exitCode).not.toBe(0)
+      expect(recorded[0]?.stderr).toContain('Could not resolve')
+    })
+
+    it('does not record gh calls outside the scope', async () => {
+      const recorded: GhCallRecord[] = []
+      const c = new GhClient({ ghPath: FAKE })
+      await c.prView({ owner: 'o', repo: 'r', number: 1 })
+      expect(recorded).toHaveLength(0)
+    })
   })
 })

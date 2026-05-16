@@ -484,6 +484,93 @@ describe('sessions API', () => {
     expect(res.status).toBe(404)
   })
 
+  it('GET /api/sessions/:id/prep-log parses phase + call entries from prep.log', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-prep-'))
+    writeFileSync(
+      join(wd, 'prep.log'),
+      [
+        JSON.stringify({ kind: 'phase', phase: 'prep:fetching-pr', ts: 1 }),
+        JSON.stringify({
+          kind: 'call',
+          phase: 'prep:fetching-pr',
+          command: ['gh', 'pr', 'view', '12'],
+          stdout: '{"number":12}',
+          stderr: '',
+          exitCode: 0,
+          durationMs: 42,
+          ts: 2,
+        }),
+        '',
+        'not-json',
+        JSON.stringify({ kind: 'phase', phase: 'prep:fetching-diff', ts: 3 }),
+      ].join('\n'),
+    )
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/prep-log')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as {
+      phases: Array<{ phase: string }>
+      calls: Array<{ phase: string; command: string[] }>
+      truncated: boolean
+    }
+    expect(j.phases.map((p) => p.phase)).toEqual(['prep:fetching-pr', 'prep:fetching-diff'])
+    expect(j.calls).toHaveLength(1)
+    expect(j.calls[0]?.command).toEqual(['gh', 'pr', 'view', '12'])
+    expect(j.truncated).toBe(false)
+  })
+
+  it('GET /api/sessions/:id/prep-log returns empty payload when prep.log missing', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-prep-empty-'))
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'pending',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/prep-log')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { phases: unknown[]; calls: unknown[]; truncated: boolean }
+    expect(j.phases).toEqual([])
+    expect(j.calls).toEqual([])
+    expect(j.truncated).toBe(false)
+  })
+
+  it('GET /api/sessions/:id/prep-log returns 404 when session unknown', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing/prep-log')
+    expect(res.status).toBe(404)
+  })
+
   it('POST /api/sessions/:id/rerun calls rerunSession and returns fresh id', async () => {
     let receivedId: string | null = null
     let receivedOpts: { agent?: string; extraPrompt?: string } | undefined

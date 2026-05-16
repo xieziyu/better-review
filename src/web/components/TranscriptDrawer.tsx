@@ -1,8 +1,9 @@
-import type { SessionStatus } from '@shared/types'
+import type { PrepCall, PrepStep, SessionStatus } from '@shared/types'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PrepPhasesPanel } from '@/components/PrepPhasesPanel'
 import { TranscriptStream } from '@/components/TranscriptStream'
 import { useResizable } from '@/lib/use-resizable'
 import { cn } from '@/lib/utils'
@@ -52,6 +53,8 @@ export function useTranscriptDrawer(): UseTranscriptDrawerResult {
 
 interface TranscriptDrawerProps {
   chunks: string[]
+  prepSteps: PrepStep[]
+  prepCalls: PrepCall[]
   status: SessionStatus
   open: boolean
   onToggle: () => void
@@ -62,6 +65,8 @@ const DRAWER_BODY_ID = 'transcript-drawer-body'
 
 export function TranscriptDrawer({
   chunks,
+  prepSteps,
+  prepCalls,
   status,
   open,
   onToggle,
@@ -70,9 +75,17 @@ export function TranscriptDrawer({
   const { t } = useTranslation()
 
   const isRunning = status === 'running'
-  // Mirrors the original AgentOutputPanel rule: avoid leaving a 32 px handle
-  // hanging at the bottom of completed sessions that have nothing to show.
-  if (!isRunning && chunks.length === 0) return null
+  const isPending = status === 'pending'
+  const hasPrep = prepSteps.length > 0 || prepCalls.length > 0
+  // Mirrors the original AgentOutputPanel rule: don't render the drawer
+  // handle if there's literally nothing to show. With prep observability,
+  // an active prep phase counts as "something to show" even before the
+  // agent starts streaming.
+  if (!isRunning && !isPending && chunks.length === 0 && !hasPrep) return null
+
+  const linesLabel = hasPrep
+    ? t('transcriptDrawer.linesAndPrep', { lines: chunks.length, prep: prepSteps.length })
+    : t('transcriptDrawer.linesLabel', { count: chunks.length })
 
   return (
     <DrawerShell
@@ -80,14 +93,19 @@ export function TranscriptDrawer({
       onToggle={onToggle}
       onClose={onClose}
       handleLabel={t('transcriptDrawer.handleLabel')}
-      linesLabel={t('transcriptDrawer.linesLabel', { count: chunks.length })}
-      streaming={isRunning}
+      linesLabel={linesLabel}
+      streaming={isRunning || isPending}
       streamingLabel={t('transcriptDrawer.streaming')}
       openAria={t('transcriptDrawer.openAria')}
       closeAria={t('transcriptDrawer.closeAria')}
       resizeAria={t('transcriptDrawer.resizeAria')}
     >
-      <TranscriptStream chunks={chunks} status={status} />
+      <div className="flex flex-col min-h-0 h-full w-full">
+        {hasPrep ? <PrepPhasesPanel steps={prepSteps} calls={prepCalls} /> : null}
+        <div className="flex-1 min-h-0">
+          <TranscriptStream chunks={chunks} status={status} />
+        </div>
+      </div>
     </DrawerShell>
   )
 }

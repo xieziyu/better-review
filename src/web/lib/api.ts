@@ -5,6 +5,8 @@ import type {
   Finding,
   HealthStatus,
   CreateSessionRequest,
+  PrepCall,
+  PrepStep,
   RecentRepo,
   SubmitRequest,
   UpdateFindingRequest,
@@ -68,6 +70,10 @@ export const api = {
   },
   getSessionTranscript: (id: string): Promise<{ chunks: string[]; truncated: boolean }> =>
     req(`/api/sessions/${id}/transcript`),
+  getSessionPrepLog: (
+    id: string,
+  ): Promise<{ phases: PrepStep[]; calls: PrepCall[]; truncated: boolean }> =>
+    req(`/api/sessions/${id}/prep-log`),
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> => req(`/api/sessions/${id}`, { method: 'DELETE' }),
@@ -147,6 +153,7 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
   sessionTranscript: (id: string) => ['session-transcript', id] as const,
+  sessionPrepLog: (id: string) => ['session-prep-log', id] as const,
   // Base key for invalidating every per-repo prompt query at once.
   promptsBase: ['prompts'] as const,
   prompts: (repo: string | null) => ['prompts', repo] as const,

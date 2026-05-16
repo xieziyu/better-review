@@ -42,6 +42,7 @@
     "handleLabel": "Transcript",
     "streaming": "streaming",
     "linesLabel": "{{count}} lines",
+    "linesAndPrep": "{{lines}} lines · {{prep}} prep",
     "transcriptAria": "Agent transcript",
     "resizeAria": "Resize transcript drawer height",
     "waiting": "Waiting for agent output…",
@@ -49,7 +50,12 @@
     "followAria": "follow stream to bottom",
     "openAria": "Open transcript drawer",
     "closeAria": "Close transcript drawer",
-    "truncatedNotice": "… earlier output truncated"
+    "truncatedNotice": "… earlier output truncated",
+    "prepEyebrow": "Prep phases",
+    "prepNoOutput": "no captured output",
+    "prepCallsCount_one": "{{count}} call",
+    "prepCallsCount_other": "{{count}} calls",
+    "prepCallSummary": "exit {{exit}} · stdout {{stdout}} · stderr {{stderr}} · {{ms}}ms"
   },
   "inspector": {
     "section": {

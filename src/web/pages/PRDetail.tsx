@@ -2,6 +2,7 @@ import type {
   AgentKind,
   Finding,
   HealthStatus,
+  PrepCall,
   PrepStep,
   PRSession,
   SessionStatus,
@@ -478,6 +479,7 @@ export function PRDetail() {
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
   const [prepSteps, setPrepSteps] = useState<PrepStep[]>([])
+  const [prepCalls, setPrepCalls] = useState<PrepCall[]>([])
   // null = no override → server carries the previous session's extraPrompt as-is.
   // string (including '') = explicit override sent on rerun.
   const [extraDraft, setExtraDraft] = useState<string | null>(null)
@@ -539,6 +541,25 @@ export function PRDetail() {
       data.session.status !== 'pending',
   })
 
+  // Replay prep.log on mount / id change so refresh during or after prep
+  // shows the phase timeline + captured gh stdout. Cached per session id so
+  // tab switches don't refetch. Backfill only seeds state when the local
+  // SSE-driven state is still empty (live events take precedence).
+  const { data: diskPrepLog } = useQuery({
+    queryKey: queryKeys.sessionPrepLog(id),
+    queryFn: () => api.getSessionPrepLog(id),
+    enabled: !!data,
+  })
+  useEffect(() => {
+    if (!diskPrepLog) return
+    if (Array.isArray(diskPrepLog.phases)) {
+      setPrepSteps((prev) => (prev.length === 0 ? diskPrepLog.phases : prev))
+    }
+    if (Array.isArray(diskPrepLog.calls)) {
+      setPrepCalls((prev) => (prev.length === 0 ? diskPrepLog.calls : prev))
+    }
+  }, [diskPrepLog])
+
   useSSE(`/api/sessions/${id}/events`, (e) => {
     if (e.type === 'agent-output') {
       setAgentChunks((prev) => [...prev, e.chunk])
@@ -551,6 +572,18 @@ export function PRDetail() {
       const step: PrepStep = { phase: e.phase, ts: Date.now() }
       if (e.detail !== undefined) step.detail = e.detail
       setPrepSteps((prev) => [...prev, step])
+    }
+    if (e.type === 'prep-output') {
+      const call: PrepCall = {
+        phase: e.phase,
+        command: e.command,
+        stdout: e.stdout,
+        stderr: e.stderr,
+        exitCode: e.exitCode,
+        durationMs: e.durationMs,
+        ts: e.ts,
+      }
+      setPrepCalls((prev) => [...prev, call])
     }
     // While the user is on the Files changed tab, notify when a new finding
     // lands in a file they're not currently viewing so they can jump to it.
@@ -582,6 +615,7 @@ export function PRDetail() {
     setSelectedFindingDbId(null)
     setAgentChunks([])
     setPrepSteps([])
+    setPrepCalls([])
     setExtraDraft(null)
     setExtraEditing(false)
     setExtraExpanded(false)
@@ -861,6 +895,8 @@ export function PRDetail() {
 
       <TranscriptDrawer
         chunks={transcriptChunks}
+        prepSteps={prepSteps}
+        prepCalls={prepCalls}
         status={session.status}
         open={transcriptDrawer.open}
         onToggle={transcriptDrawer.toggle}

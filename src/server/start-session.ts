@@ -11,12 +11,13 @@ import type { SubmissionsRepo } from './db/submissions'
 import type { ReviewAgent } from './engine/agent'
 import { annotateDiffWithIncremental, extractNewHunks } from './engine/diff-incremental'
 import type { EventBus } from './engine/events'
+import { PrepLogger, withCurrentPhase } from './engine/prep-logger'
 import type { ConcurrencyQueue } from './engine/queue'
 import { loadPriorReviewContext, type PriorReviewContext } from './engine/rerun-context'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
 import { prepareSourceContext } from './git/source-prep'
-import type { GhClient } from './github/gh-client'
+import { withGhCallRecorder, type GhClient } from './github/gh-client'
 import { parsePRTarget, type PRTarget } from './github/pr-target-parser'
 import type { Logger } from './logger'
 import { resolveLocalRepoPath } from './paths'
@@ -146,15 +147,21 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
 
     void deps.queue.run(id, async () => {
       try {
-        const prep = await prepareReview({
-          deps,
-          id,
-          workdir,
-          sessionShort,
-          target,
-          localRepoPath,
-          extraPrompt,
-        })
+        const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
+        const prep = await withGhCallRecorder(
+          (rec) => prepLogger.recordCall(rec),
+          () =>
+            prepareReview({
+              deps,
+              id,
+              workdir,
+              sessionShort,
+              target,
+              localRepoPath,
+              extraPrompt,
+              prepLogger,
+            }),
+        )
         const runArgs: Parameters<typeof runReview>[0] = {
           sessionId: id,
           workdir,
@@ -191,6 +198,7 @@ interface PrepareReviewArgs {
   target: PRTarget
   localRepoPath: string | null
   extraPrompt: string | null
+  prepLogger: PrepLogger
 }
 
 interface PrepareReviewResult {
@@ -199,13 +207,9 @@ interface PrepareReviewResult {
 }
 
 async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResult> {
-  const { deps, id, workdir, sessionShort, target, localRepoPath, extraPrompt } = args
+  const { deps, id, workdir, sessionShort, target, localRepoPath, extraPrompt, prepLogger } = args
 
-  deps.bus.emit({
-    type: 'progress',
-    sessionId: id,
-    phase: PREP_PHASES.fetchingPR,
-  })
+  prepLogger.markPhase(PREP_PHASES.fetchingPR)
   const meta = await deps.gh.prView(target)
   // Backfill the row so the UI shows title/author as soon as we know them
   // (it's polling the session via React Query + SSE invalidation).
@@ -218,50 +222,46 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     headSha: meta.headSha,
   })
 
-  deps.bus.emit({
-    type: 'progress',
-    sessionId: id,
-    phase: PREP_PHASES.fetchingDiff,
-  })
+  prepLogger.markPhase(PREP_PHASES.fetchingDiff)
   const diff = await deps.gh.prDiff(target)
   writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
 
   // Prior review context + source prep are independent: kick them off in
   // parallel. priorContext internally fans out 3-4 gh api calls; source
   // prep typically spins up a git worktree or fetches a contents snapshot.
-  deps.bus.emit({
-    type: 'progress',
-    sessionId: id,
-    phase: PREP_PHASES.loadingPriorReview,
-  })
-  deps.bus.emit({
-    type: 'progress',
-    sessionId: id,
-    phase: localRepoPath
-      ? PREP_PHASES.preparingSourceWorktree
-      : PREP_PHASES.preparingSourceSnapshot,
-  })
+  // Each branch wraps its body in `withCurrentPhase` so the AsyncLocalStorage-
+  // scoped phase tag stays correct even though both branches run concurrently
+  // and `prepLogger.currentPhase` would otherwise race.
+  const sourcePhase = localRepoPath
+    ? PREP_PHASES.preparingSourceWorktree
+    : PREP_PHASES.preparingSourceSnapshot
+  prepLogger.markPhase(PREP_PHASES.loadingPriorReview)
+  prepLogger.markPhase(sourcePhase)
   const [priorCtxResult, sourceResult] = await Promise.allSettled([
-    loadPriorReviewContext(
-      {
-        sessions: deps.sessions,
-        submissions: deps.submissions,
-        submissionComments: deps.submissionComments,
-        gh: deps.gh,
-        log: deps.log,
-      },
-      { target, currentHeadSha: meta.headSha, prAuthor: meta.author },
+    withCurrentPhase(PREP_PHASES.loadingPriorReview, () =>
+      loadPriorReviewContext(
+        {
+          sessions: deps.sessions,
+          submissions: deps.submissions,
+          submissionComments: deps.submissionComments,
+          gh: deps.gh,
+          log: deps.log,
+        },
+        { target, currentHeadSha: meta.headSha, prAuthor: meta.author },
+      ),
     ),
-    prepareSourceContext({
-      localRepoPath,
-      gh: deps.gh,
-      target,
-      headSha: meta.headSha,
-      unifiedDiff: diff.unifiedDiff,
-      sessionWorkdir: workdir,
-      sessionShort,
-      log: deps.log,
-    }),
+    withCurrentPhase(sourcePhase, () =>
+      prepareSourceContext({
+        localRepoPath,
+        gh: deps.gh,
+        target,
+        headSha: meta.headSha,
+        unifiedDiff: diff.unifiedDiff,
+        sessionWorkdir: workdir,
+        sessionShort,
+        log: deps.log,
+      }),
+    ),
   ])
   const priorCtx: PriorReviewContext | null =
     priorCtxResult.status === 'fulfilled' ? priorCtxResult.value : null
@@ -277,11 +277,9 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   }
   const source = sourceResult.value
 
-  deps.bus.emit({
-    type: 'progress',
-    sessionId: id,
-    phase: priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
-  })
+  prepLogger.markPhase(
+    priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
+  )
   const incremental =
     priorCtx && priorCtx.compare && !priorCtx.isForcePushed
       ? extractNewHunks(priorCtx.compare)
