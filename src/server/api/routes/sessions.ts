@@ -3,7 +3,12 @@ import { join } from 'node:path'
 
 import { Hono } from 'hono'
 
-import { AGENT_KINDS, type AgentKind } from '../../../shared/types'
+import {
+  AGENT_KINDS,
+  type AgentKind,
+  type PrepCall,
+  type PrepStep,
+} from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
 import type { AppDeps } from '../app'
 
@@ -14,6 +19,12 @@ function isAgentKind(value: unknown): value is AgentKind {
 // Cap how much of agent.log we replay into a completed session's transcript.
 // stream-json logs can run to MBs; the tail is what's worth showing.
 const TRANSCRIPT_TAIL_LINES = 2000
+
+// Cap how many gh-call entries we replay from prep.log. Each call carries the
+// full untruncated stdout/stderr; a misbehaving session with hundreds of
+// paginated `gh api` calls would otherwise serialize a multi-MB JSON body.
+// Phase markers are never dropped — only `kind:'call'` entries get tail-capped.
+const PREP_LOG_TAIL_CALLS = 200
 
 export function sessionsRoutes(deps: AppDeps): Hono {
   const r = new Hono()
@@ -85,6 +96,51 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const tail = truncated ? lines.slice(-TRANSCRIPT_TAIL_LINES) : lines
     const chunks = getAgent(s.agent).parseLog(tail.join('\n'))
     return c.json({ chunks, truncated })
+  })
+  // Replay the persisted prep.log so refresh during prep does not lose the
+  // phase timeline or any captured gh stdout/stderr. Mirrors /transcript.
+  r.get('/sessions/:id/prep-log', (c) => {
+    const id = c.req.param('id')
+    const s = deps.sessions.getById(id)
+    if (!s) return c.json({ error: 'not found' }, 404)
+    const logPath = join(s.workdir, 'prep.log')
+    if (!existsSync(logPath)) {
+      return c.json({ phases: [], calls: [], truncated: false })
+    }
+    const phases: PrepStep[] = []
+    const calls: PrepCall[] = []
+    const lines = readFileSync(logPath, 'utf8').split('\n')
+    for (const line of lines) {
+      if (line.length === 0) continue
+      let entry: unknown
+      try {
+        entry = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (!entry || typeof entry !== 'object') continue
+      const e = entry as { kind?: unknown }
+      if (e.kind === 'phase') {
+        const p = entry as { phase: string; ts: number; detail?: string }
+        const step: PrepStep = { phase: p.phase, ts: p.ts }
+        if (p.detail !== undefined) step.detail = p.detail
+        phases.push(step)
+      } else if (e.kind === 'call') {
+        const call = entry as PrepCall & { kind: string }
+        calls.push({
+          phase: call.phase,
+          command: call.command,
+          stdout: call.stdout,
+          stderr: call.stderr,
+          exitCode: call.exitCode,
+          durationMs: call.durationMs,
+          ts: call.ts,
+        })
+      }
+    }
+    const truncated = calls.length > PREP_LOG_TAIL_CALLS
+    const tailCalls = truncated ? calls.slice(-PREP_LOG_TAIL_CALLS) : calls
+    return c.json({ phases, calls: tailCalls, truncated })
   })
   r.delete('/sessions/:id', async (c) => {
     try {

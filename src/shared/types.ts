@@ -58,6 +58,8 @@ export interface RecentRepo {
   matchedCurrentRepo: boolean
 }
 
+export type FindingSource = 'agent' | 'manual'
+
 export interface Finding extends FindingFromAgent {
   dbId: string
   sessionId: string
@@ -66,6 +68,7 @@ export interface Finding extends FindingFromAgent {
   edited: boolean
   archived: boolean
   createdAt: number
+  source: FindingSource
 }
 
 export type ReviewEvent = 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
@@ -128,6 +131,17 @@ export interface AppConfig {
 export type SSEEvent =
   | { type: 'progress'; sessionId: string; phase: string; detail?: string }
   | { type: 'agent-output'; sessionId: string; chunk: string; ts: number }
+  | {
+      type: 'prep-output'
+      sessionId: string
+      phase: string
+      command: string[]
+      stdout: string
+      stderr: string
+      exitCode: number | null
+      durationMs: number
+      ts: number
+    }
   | { type: 'finding-added'; sessionId: string; finding: Finding }
   | { type: 'finding-updated'; sessionId: string; finding: Finding }
   | { type: 'status-changed'; sessionId: string; status: SessionStatus; error?: string }
@@ -143,6 +157,22 @@ export type SSEEvent =
 export interface PrepStep {
   phase: string
   detail?: string
+  ts: number
+}
+
+/**
+ * One captured `gh` invocation that occurred during prep, tagged with the
+ * active prep phase. Mirrors the `prep-output` SSE event payload so the same
+ * shape works for live append AND for the `/api/sessions/:id/prep-log`
+ * backfill on refresh. Stored in `<workdir>/prep.log` as JSONL.
+ */
+export interface PrepCall {
+  phase: string
+  command: string[]
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  durationMs: number
   ts: number
 }
 

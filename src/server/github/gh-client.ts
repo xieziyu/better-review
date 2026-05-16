@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -13,6 +14,32 @@ import {
   GhSubmitError,
 } from './errors'
 import type { PRTarget } from './pr-target-parser'
+
+// Per-call observation hook scoped via AsyncLocalStorage. When set (by
+// `withGhCallRecorder(...)` higher up the call stack), every `gh` invocation
+// inside `GhClient` reports its outcome. Outside that scope, the client
+// behaves exactly as it always did. The shared `deps.gh` singleton is reused
+// across concurrently running sessions, so per-instance state would race —
+// ALS scopes correctly across await boundaries.
+export interface GhCallRecord {
+  command: string[]
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  durationMs: number
+  ts: number
+}
+
+type GhCallRecorder = (rec: GhCallRecord) => void
+
+const callRecorder = new AsyncLocalStorage<GhCallRecorder>()
+
+export function withGhCallRecorder<T>(
+  recorder: GhCallRecorder,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return callRecorder.run(recorder, fn)
+}
 
 export interface PRMeta {
   number: number
@@ -151,9 +178,35 @@ export class GhClient {
     this.gh = opts.ghPath ?? 'gh'
   }
 
+  private async run(
+    args: string[],
+    opts: { input?: string } = {},
+  ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+    const t0 = Date.now()
+    const r =
+      opts.input !== undefined
+        ? await execa(this.gh, args, { reject: false, input: opts.input })
+        : await execa(this.gh, args, { reject: false })
+    const stdout = String(r.stdout ?? '')
+    const stderr = String(r.stderr ?? '')
+    const exitCode = typeof r.exitCode === 'number' ? r.exitCode : null
+    const recorder = callRecorder.getStore()
+    if (recorder) {
+      recorder({
+        command: ['gh', ...args],
+        stdout,
+        stderr,
+        exitCode,
+        durationMs: Date.now() - t0,
+        ts: Date.now(),
+      })
+    }
+    return { stdout, stderr, exitCode }
+  }
+
   async authStatus(): Promise<boolean> {
     try {
-      const r = await execa(this.gh, ['auth', 'status'], { reject: false })
+      const r = await this.run(['auth', 'status'])
       return r.exitCode === 0
     } catch (e) {
       const err = e as NodeJS.ErrnoException
@@ -172,7 +225,7 @@ export class GhClient {
       '--json',
       'number,title,author,body,url,baseRefName,headRefName,baseRefOid,headRefOid',
     ]
-    const r = await execa(this.gh, args, { reject: false })
+    const r = await this.run(args)
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       if (/not found|could not resolve|no .*access|Not Found/i.test(txt)) {
@@ -205,9 +258,7 @@ export class GhClient {
     ref: string
   }): Promise<string> {
     const url = `repos/${args.owner}/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`
-    const r = await execa(this.gh, ['api', url, '-H', 'Accept: application/vnd.github+json'], {
-      reject: false,
-    })
+    const r = await this.run(['api', url, '-H', 'Accept: application/vnd.github+json'])
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       if (/HTTP 404|Not Found/i.test(txt)) {
@@ -236,11 +287,7 @@ export class GhClient {
   }
 
   async prDiff(t: PRTarget): Promise<DiffResult> {
-    const r = await execa(
-      this.gh,
-      ['pr', 'diff', String(t.number), '--repo', `${t.owner}/${t.repo}`],
-      { reject: false },
-    )
+    const r = await this.run(['pr', 'diff', String(t.number), '--repo', `${t.owner}/${t.repo}`])
     if (r.exitCode !== 0) throw new Error(`gh pr diff failed: ${String(r.stderr).slice(0, 500)}`)
     return { unifiedDiff: String(r.stdout) }
   }
@@ -250,7 +297,7 @@ export class GhClient {
   // context path treats absence of prior reviews as "no context").
   async listReviews(t: PRTarget): Promise<GhReview[]> {
     const url = `repos/${t.owner}/${t.repo}/pulls/${t.number}/reviews?per_page=100`
-    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    const r = await this.run(['api', '--paginate', url])
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       if (/HTTP 404|Not Found/i.test(txt))
@@ -265,7 +312,7 @@ export class GhClient {
   // at the original via `in_reply_to_id`. Threading is left to the caller.
   async listAllPRComments(t: PRTarget): Promise<GhReviewComment[]> {
     const url = `repos/${t.owner}/${t.repo}/pulls/${t.number}/comments?per_page=100`
-    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    const r = await this.run(['api', '--paginate', url])
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       if (/HTTP 404|Not Found/i.test(txt))
@@ -285,7 +332,7 @@ export class GhClient {
   // replies here ("已修", "不打算改") rather than under each inline thread.
   async listIssueComments(t: PRTarget): Promise<GhIssueComment[]> {
     const url = `repos/${t.owner}/${t.repo}/issues/${t.number}/comments?per_page=100`
-    const r = await execa(this.gh, ['api', '--paginate', url], { reject: false })
+    const r = await this.run(['api', '--paginate', url])
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       if (/HTTP 404|Not Found/i.test(txt))
@@ -305,9 +352,7 @@ export class GhClient {
     head: string,
   ): Promise<GhCompare> {
     const url = `repos/${t.owner}/${t.repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
-    const r = await execa(this.gh, ['api', url, '-H', 'Accept: application/vnd.github+json'], {
-      reject: false,
-    })
+    const r = await this.run(['api', url, '-H', 'Accept: application/vnd.github+json'])
     if (r.exitCode !== 0) {
       const txt = String(r.stderr || '') + String(r.stdout || '')
       // 404 here usually means the base sha is no longer reachable (force
@@ -340,18 +385,14 @@ export class GhClient {
   ): Promise<{ html_url: string; id: number }> {
     const tmpFile = join(tmpdir(), `br-payload-${randomUUID()}.json`)
     writeFileSync(tmpFile, JSON.stringify(payload))
-    const r = await execa(
-      this.gh,
-      [
-        'api',
-        `repos/${t.owner}/${t.repo}/pulls/${t.number}/reviews`,
-        '-X',
-        'POST',
-        '--input',
-        tmpFile,
-      ],
-      { reject: false },
-    )
+    const r = await this.run([
+      'api',
+      `repos/${t.owner}/${t.repo}/pulls/${t.number}/reviews`,
+      '-X',
+      'POST',
+      '--input',
+      tmpFile,
+    ])
     if (r.exitCode !== 0) throw new GhSubmitError(String(r.stderr || 'unknown'))
     const j = JSON.parse(String(r.stdout))
     return { html_url: j.html_url, id: j.id }

@@ -44,6 +44,7 @@ const mkFinding = (overrides: Partial<Finding> = {}): Finding => ({
   edited: false,
   archived: false,
   createdAt: 0,
+  source: 'agent',
   ...overrides,
 })
 

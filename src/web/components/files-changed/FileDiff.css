@@ -1,0 +1,45 @@
+/* The + button that appears in the gutter on row hover to start a manual
+ * finding at that line. Hidden by default; opacity is controlled per-row by
+ * a parent :hover selector so it only shows where the cursor actually is. */
+.file-diff-gutter-cell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.file-diff-add {
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--brand);
+  color: var(--brand-ink, white);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+}
+
+.diff-line:hover .file-diff-add {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.file-diff-add:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--anchor);
+  outline-offset: 1px;
+}

@@ -2,6 +2,7 @@ import type {
   AgentKind,
   Finding,
   HealthStatus,
+  PrepCall,
   PrepStep,
   PRSession,
   SessionStatus,
@@ -18,19 +19,22 @@ import {
   Square,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ExportPopover } from '@/components/ExportPopover'
+import { FilesChangedView } from '@/components/files-changed/FilesChangedView'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
 import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
 import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
+import { buildFileAliasMap, canonicalFilePath, parseFileList } from '@/lib/diff-utils'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
 import { useSSE } from '@/lib/sse'
+import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'danger' | 'neutral'> =
@@ -423,6 +427,44 @@ function ExtraContextPanel({
   )
 }
 
+function TabButton({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+  count: number
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'relative px-4 py-2.5 text-meta font-medium flex items-center gap-2 transition-colors duration-180 ease-out-quart',
+        active ? 'text-ink-primary' : 'text-ink-secondary hover:text-ink-primary',
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          'inline-flex items-center justify-center rounded-full px-1.5 min-w-[18px] text-[10.5px] font-mono tabular-nums border',
+          active ? 'border-brand text-brand bg-canvas' : 'border-rule text-ink-muted bg-raised',
+        )}
+      >
+        {count}
+      </span>
+      {active ? (
+        <span aria-hidden="true" className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand" />
+      ) : null}
+    </button>
+  )
+}
+
 export function PRDetail() {
   const { t } = useTranslation()
   const { id = '' } = useParams()
@@ -431,21 +473,51 @@ export function PRDetail() {
   const submitDrawer = useSubmitDrawer()
   const transcriptDrawer = useTranscriptDrawer()
   const { setSelectedFindingDbId } = useSelectedFinding()
+  const toast = useToast()
   const topStackRef = useRef<HTMLDivElement | null>(null)
   const [rerunAgent, setRerunAgent] = useState<AgentKind | null>(null)
   const [justSwitched, setJustSwitched] = useState(false)
   const [agentChunks, setAgentChunks] = useState<string[]>([])
   const [prepSteps, setPrepSteps] = useState<PrepStep[]>([])
+  const [prepCalls, setPrepCalls] = useState<PrepCall[]>([])
   // null = no override → server carries the previous session's extraPrompt as-is.
   // string (including '') = explicit override sent on rerun.
   const [extraDraft, setExtraDraft] = useState<string | null>(null)
   const [extraEditing, setExtraEditing] = useState(false)
   const [extraExpanded, setExtraExpanded] = useState(false)
+  // Files-changed tab state. Default to 'files' so users can preview the diff
+  // immediately once prep completes, even while the agent is still streaming.
+  const [activeTab, setActiveTab] = useState<'findings' | 'files'>('files')
+  const [filesTabSelectedPath, setFilesTabSelectedPath] = useState<string | null>(null)
+  // Mirror to a ref so the SSE callback can read the latest value without
+  // re-subscribing on every state change.
+  const selectedFileRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedFileRef.current = filesTabSelectedPath
+  }, [filesTabSelectedPath])
+  // Rename-aware path map, kept in a ref so the SSE handler can normalize an
+  // incoming finding's `file` (which may be the old path) before comparing it
+  // to the currently-selected canonical path.
+  const fileAliasMapRef = useRef<Map<string, string>>(new Map())
+  const activeTabRef = useRef<'findings' | 'files'>(activeTab)
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.session(id),
     queryFn: () => api.getSession(id),
     enabled: !!id,
+  })
+
+  // Lift diff fetching so both tabs (Findings detail pane + Files changed
+  // tree/diff) share a single response. Enabled once prep is done — the
+  // diff.cache file is written before the agent runs.
+  const { data: sessionDiff } = useQuery({
+    queryKey: ['session', id, 'diff'] as const,
+    queryFn: () => api.getSessionDiff(id),
+    enabled: !!id && !!data && data.session.status !== 'pending',
+    retry: false,
   })
 
   const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: api.health })
@@ -469,6 +541,47 @@ export function PRDetail() {
       data.session.status !== 'pending',
   })
 
+  // Replay prep.log on mount / id change so refresh during or after prep
+  // shows the phase timeline + captured gh stdout. Cached per session id so
+  // tab switches don't refetch. Backfill only seeds state when the local
+  // SSE-driven state is still empty (live events take precedence).
+  const { data: diskPrepLog } = useQuery({
+    queryKey: queryKeys.sessionPrepLog(id),
+    queryFn: () => api.getSessionPrepLog(id),
+    enabled: !!data,
+  })
+  useEffect(() => {
+    if (!diskPrepLog) return
+    // Merge persisted entries into the head of local state. Without this merge,
+    // a single SSE tick arriving before the query resolves would make prev
+    // non-empty and discard all earlier persisted history on refresh.
+    if (Array.isArray(diskPrepLog.phases)) {
+      const persisted = diskPrepLog.phases
+      setPrepSteps((prev) => {
+        // Server `markPhase` fires each phase once per session, so phase+detail
+        // is a stable dedupe key. ts can't be used here because the SSE handler
+        // synthesizes ts via Date.now() (the `progress` event doesn't carry one).
+        const live = new Set(prev.map((s) => `${s.phase} ${s.detail ?? ''}`))
+        const missing = persisted.filter(
+          (s) => !live.has(`${s.phase} ${s.detail ?? ''}`),
+        )
+        return missing.length === 0 ? prev : [...missing, ...prev]
+      })
+    }
+    if (Array.isArray(diskPrepLog.calls)) {
+      const persisted = diskPrepLog.calls
+      setPrepCalls((prev) => {
+        // ts comes from the server for both disk and SSE (`prep-output` carries it),
+        // so ts+command uniquely identifies a call across the two paths.
+        const live = new Set(prev.map((c) => `${c.ts} ${c.command.join(' ')}`))
+        const missing = persisted.filter(
+          (c) => !live.has(`${c.ts} ${c.command.join(' ')}`),
+        )
+        return missing.length === 0 ? prev : [...missing, ...prev]
+      })
+    }
+  }, [diskPrepLog])
+
   useSSE(`/api/sessions/${id}/events`, (e) => {
     if (e.type === 'agent-output') {
       setAgentChunks((prev) => [...prev, e.chunk])
@@ -481,6 +594,35 @@ export function PRDetail() {
       const step: PrepStep = { phase: e.phase, ts: Date.now() }
       if (e.detail !== undefined) step.detail = e.detail
       setPrepSteps((prev) => [...prev, step])
+    }
+    if (e.type === 'prep-output') {
+      const call: PrepCall = {
+        phase: e.phase,
+        command: e.command,
+        stdout: e.stdout,
+        stderr: e.stderr,
+        exitCode: e.exitCode,
+        durationMs: e.durationMs,
+        ts: e.ts,
+      }
+      setPrepCalls((prev) => [...prev, call])
+    }
+    // While the user is on the Files changed tab, notify when a new finding
+    // lands in a file they're not currently viewing so they can jump to it.
+    // Normalize through the alias map first so rename-file findings (which
+    // may carry the old path) compare against the canonical display path.
+    if (e.type === 'finding-added' && activeTabRef.current === 'files' && e.finding.file) {
+      const canonical = canonicalFilePath(fileAliasMapRef.current, e.finding.file)
+      if (canonical !== selectedFileRef.current) {
+        toast.push({
+          title: e.finding.title,
+          file: canonical,
+          ...(e.finding.line != null ? { line: e.finding.line } : {}),
+          severity: e.finding.severity,
+          onClick: () => setFilesTabSelectedPath(canonical),
+          persistent: e.finding.severity === 'must',
+        })
+      }
     }
     void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
   })
@@ -495,9 +637,12 @@ export function PRDetail() {
     setSelectedFindingDbId(null)
     setAgentChunks([])
     setPrepSteps([])
+    setPrepCalls([])
     setExtraDraft(null)
     setExtraEditing(false)
     setExtraExpanded(false)
+    setActiveTab('files')
+    setFilesTabSelectedPath(null)
   }, [id])
 
   useEffect(() => {
@@ -551,6 +696,19 @@ export function PRDetail() {
     },
   })
 
+  // Memoize by `unifiedDiff` so SSE-driven rerenders during streaming don't
+  // reparse the entire diff each tick. Kept above the early return below so
+  // hook order stays stable across the loading→loaded transition.
+  const unifiedDiff = sessionDiff ?? null
+  const parsedFiles = useMemo(
+    () => (unifiedDiff ? parseFileList(unifiedDiff) : []),
+    [unifiedDiff],
+  )
+  const fileAliasMap = useMemo(() => buildFileAliasMap(parsedFiles), [parsedFiles])
+  // Keep the alias-map ref in sync with the latest diff so the SSE callback
+  // (which holds the ref) sees fresh data without re-subscribing.
+  fileAliasMapRef.current = fileAliasMap
+
   if (isLoading || !data) {
     return (
       <div className="px-8 py-10 max-w-3xl space-y-4" aria-label={t('prdetail.loadingAriaLabel')}>
@@ -590,7 +748,39 @@ export function PRDetail() {
       ).length
     : 1
 
-  const findingsBody =
+  const fileCount = parsedFiles.length
+
+  const emptyFindingsCopy: { title: string; body: string } | null =
+    activeFindings.length === 0
+      ? session.status === 'running' || session.status === 'pending'
+        ? {
+            title: t('prdetail.findingsStreamingTitle'),
+            body: t('prdetail.findingsStreamingBody'),
+          }
+        : session.status === 'failed'
+          ? {
+              title: t('prdetail.findingsFailedTitle'),
+              body: t('prdetail.findingsFailedBody'),
+            }
+          : session.status === 'cancelled'
+            ? {
+                title: t('prdetail.findingsCancelledTitle'),
+                body: t('prdetail.findingsCancelledBody'),
+              }
+            : session.status === 'submitted'
+              ? {
+                  title: t('prdetail.findingsSubmittedTitle'),
+                  body: t('prdetail.findingsSubmittedBody'),
+                }
+              : session.status === 'archived'
+                ? {
+                    title: t('prdetail.findingsArchivedTitle'),
+                    body: t('prdetail.findingsArchivedBody'),
+                  }
+                : null
+      : null
+
+  const findingsTabBody =
     session.status === 'ready' && activeFindings.length === 0 ? (
       <div className="px-8 py-10">
         <EmptyState
@@ -609,14 +799,49 @@ export function PRDetail() {
           }
         />
       </div>
+    ) : emptyFindingsCopy ? (
+      <div className="px-8 py-10">
+        <EmptyState title={emptyFindingsCopy.title} body={emptyFindingsCopy.body} />
+      </div>
     ) : (
       <FindingsWorkspace
         findings={activeFindings}
         session={session}
-        unifiedDiff={data.diff ?? null}
+        unifiedDiff={unifiedDiff}
         selectedCount={selectedCount}
       />
     )
+
+  const filesTabBody = (
+    <FilesChangedView
+      session={session}
+      findings={activeFindings}
+      unifiedDiff={unifiedDiff}
+      selectedPath={filesTabSelectedPath}
+      onSelectPath={setFilesTabSelectedPath}
+      onOpenFindingInPanel={(dbId) => {
+        setSelectedFindingDbId(dbId)
+        setActiveTab('findings')
+      }}
+    />
+  )
+
+  const tabsBar = (
+    <div className="shrink-0 flex items-stretch border-b border-rule bg-main px-2">
+      <TabButton
+        active={activeTab === 'findings'}
+        onClick={() => setActiveTab('findings')}
+        label={t('filesChanged.tabFindings')}
+        count={activeFindings.length}
+      />
+      <TabButton
+        active={activeTab === 'files'}
+        onClick={() => setActiveTab('files')}
+        label={t('filesChanged.tabFiles')}
+        count={fileCount}
+      />
+    </div>
+  )
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -694,10 +919,16 @@ export function PRDetail() {
         onToggleTranscript={transcriptDrawer.toggle}
       />
 
-      <div className="flex-1 min-h-0 flex flex-col">{findingsBody}</div>
+      {tabsBar}
+
+      <div className="flex-1 min-h-0 flex flex-col">
+        {activeTab === 'findings' ? findingsTabBody : filesTabBody}
+      </div>
 
       <TranscriptDrawer
         chunks={transcriptChunks}
+        prepSteps={prepSteps}
+        prepCalls={prepCalls}
         status={session.status}
         open={transcriptDrawer.open}
         onToggle={transcriptDrawer.toggle}

@@ -1,8 +1,8 @@
 import type { HunkData } from 'react-diff-view'
 import { describe, expect, it } from 'vitest'
 
-import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
 import type { Highlighter } from '@/lib/shiki'
+import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
 
 // A minimal Highlighter stub. Real Shiki ships WASM that fails under jsdom,
 // so we drive the adapter with a deterministic fake: every line tokenizes to a
@@ -27,7 +27,11 @@ function fakeHighlighter(loaded: string[] = ['typescript']): Highlighter {
   return hi as unknown as Highlighter
 }
 
-function normal(content: string, oldLineNumber: number, newLineNumber: number): HunkData['changes'][number] {
+function normal(
+  content: string,
+  oldLineNumber: number,
+  newLineNumber: number,
+): HunkData['changes'][number] {
   return { type: 'normal', content, oldLineNumber, newLineNumber, isNormal: true } as never
 }
 function ins(content: string, lineNumber: number): HunkData['changes'][number] {

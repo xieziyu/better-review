@@ -52,10 +52,7 @@ export type ResolvedLang = BundledLanguage | 'plaintext'
  * the result straight to `codeToHtml` / `codeToTokensWithThemes` without
  * further checks.
  */
-export async function ensureLang(
-  highlighter: Highlighter,
-  lang: string,
-): Promise<ResolvedLang> {
+export async function ensureLang(highlighter: Highlighter, lang: string): Promise<ResolvedLang> {
   if (lang === 'plaintext' || lang === 'text' || lang === 'plain') {
     return 'plaintext'
   }

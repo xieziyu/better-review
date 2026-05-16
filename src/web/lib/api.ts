@@ -1,9 +1,12 @@
+import type { ManualFindingInput } from '@shared/findings-schema'
 import type {
   AppConfig,
   PRSession,
   Finding,
   HealthStatus,
   CreateSessionRequest,
+  PrepCall,
+  PrepStep,
   RecentRepo,
   SubmitRequest,
   UpdateFindingRequest,
@@ -67,6 +70,10 @@ export const api = {
   },
   getSessionTranscript: (id: string): Promise<{ chunks: string[]; truncated: boolean }> =>
     req(`/api/sessions/${id}/transcript`),
+  getSessionPrepLog: (
+    id: string,
+  ): Promise<{ phases: PrepStep[]; calls: PrepCall[]; truncated: boolean }> =>
+    req(`/api/sessions/${id}/prep-log`),
   createSession: (b: CreateSessionRequest): Promise<{ id: string }> =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify(b) }),
   deleteSession: (id: string): Promise<void> => req(`/api/sessions/${id}`, { method: 'DELETE' }),
@@ -79,6 +86,13 @@ export const api = {
     const init: RequestInit = { method: 'POST' }
     if (body) init.body = JSON.stringify(body)
     return req(`/api/sessions/${id}/rerun`, init)
+  },
+  createManualFinding: async (sessionId: string, b: ManualFindingInput): Promise<Finding> => {
+    const r = await req<{ finding: Finding }>(`/api/sessions/${sessionId}/findings/manual`, {
+      method: 'POST',
+      body: JSON.stringify(b),
+    })
+    return r.finding
   },
   updateFinding: (id: string, b: UpdateFindingRequest): Promise<Finding> =>
     req(`/api/findings/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
@@ -139,6 +153,7 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   session: (id: string) => ['session', id] as const,
   sessionTranscript: (id: string) => ['session-transcript', id] as const,
+  sessionPrepLog: (id: string) => ['session-prep-log', id] as const,
   // Base key for invalidating every per-repo prompt query at once.
   promptsBase: ['prompts'] as const,
   prompts: (repo: string | null) => ['prompts', repo] as const,

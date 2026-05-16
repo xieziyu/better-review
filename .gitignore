@@ -16,4 +16,5 @@ tmp/
 .claude/
 .better-review/
 mocks/
+.mockups/
 .vscode/

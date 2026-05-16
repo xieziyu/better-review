@@ -17,11 +17,7 @@ vi.mock('@/components/CodeBlock', () => ({
     lang?: string | null
     fallbackFile?: string | null
   }) => (
-    <pre
-      data-testid="codeblock"
-      data-lang={lang ?? ''}
-      data-fallback-file={fallbackFile ?? ''}
-    >
+    <pre data-testid="codeblock" data-lang={lang ?? ''} data-fallback-file={fallbackFile ?? ''}>
       <code>{code}</code>
     </pre>
   ),
@@ -81,6 +77,7 @@ const finding: Finding = {
   edited: false,
   archived: false,
   createdAt: 0,
+  source: 'agent',
 }
 
 describe('FindingDetailPanel', () => {
