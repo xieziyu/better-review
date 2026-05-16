@@ -26,13 +26,24 @@
 | Tool                               | Version                   | Notes                                                                                                                                              |
 | ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Node.js](https://nodejs.org)      | ≥ 20                      | Required by the daemon and the build.                                                                                                              |
+| C/C++ toolchain                    | platform default          | Needed at install time to build `better-sqlite3` from source. macOS: Xcode Command Line Tools (`xcode-select --install`). Linux: `build-essential` + `python3`. Windows: `npm install --global windows-build-tools` (or install Visual Studio Build Tools manually). |
 | [`gh` CLI](https://cli.github.com) | recent                    | Must be authenticated (`gh auth login`).                                                                                                           |
 | Review agent CLI                   | at least one              | [`codex`](https://github.com/openai/codex), [`claude`](https://docs.anthropic.com/en/docs/claude-code), or `pi`. Must be on your `PATH`.           |
 | Browser                            | Chrome / Firefox / Safari | UI runs at `http://127.0.0.1:<port>`.                                                                                                              |
 
 ## Install
 
-From source (until this is on npm):
+```bash
+npm install -g @xieziyu/better-review
+```
+
+Verify:
+
+```bash
+better-review --help
+```
+
+Or build from source if you want to hack on it:
 
 ```bash
 git clone https://github.com/xieziyu/better-review.git
@@ -40,12 +51,6 @@ cd better-review
 pnpm install
 pnpm run build
 npm install -g .         # or: pnpm link --global
-```
-
-Verify:
-
-```bash
-better-review --help
 ```
 
 If you'd rather not install globally, run `node dist/cli/index.js …` after `pnpm run build` — every `better-review …` invocation in this README has the same form.
