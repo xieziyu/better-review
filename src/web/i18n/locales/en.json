@@ -295,6 +295,7 @@
     "findingsArchivedTitle": "No findings on this run",
     "findingsArchivedBody": "This archived round produced no findings.",
     "historicalArchivedBanner": "Historical view — this round has been replaced by a newer run. Read-only.",
+    "orphanArchivedBanner": "This round was archived but no replacement run was created. Click Rerun to recover.",
     "rerunWith": "Rerun with {{agent}}",
     "selectedCount": "{{count}} selected",
     "sessionError": "Session error",

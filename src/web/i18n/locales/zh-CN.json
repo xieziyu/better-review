@@ -295,6 +295,7 @@
     "findingsArchivedTitle": "本次运行没有 finding",
     "findingsArchivedBody": "本次归档轮次没有产出 finding。",
     "historicalArchivedBanner": "历史视图 —— 本轮已被新一次运行替代，仅供查看。",
+    "orphanArchivedBanner": "本轮已归档，但没有产生替代运行。点击 Rerun 可恢复。",
     "rerunWith": "用 {{agent}} 重跑",
     "selectedCount": "已选 {{count}} 条",
     "sessionError": "会话错误",

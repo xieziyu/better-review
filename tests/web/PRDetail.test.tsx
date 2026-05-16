@@ -14,6 +14,9 @@ function withRoute(
     session?: PRSession
     findings?: Finding[]
     diff?: string | null
+    // Seed for the global ['sessions'] query so PRDetail can compute
+    // round-number and orphan-archived state without a real fetch.
+    allSessions?: PRSession[]
   },
 ) {
   const qc = new QueryClient({
@@ -25,6 +28,9 @@ function withRoute(
       findings: initial.findings ?? [],
     })
     qc.setQueryData(['session', initial.session.id, 'diff'], initial.diff ?? null)
+  }
+  if (initial?.allSessions !== undefined) {
+    qc.setQueryData(['sessions'], initial.allSessions)
   }
   return (
     <QueryClientProvider client={qc}>
@@ -423,6 +429,57 @@ describe('PRDetail', () => {
       expect(
         screen.queryByRole('button', { name: /Add extra context for rerun/i }),
       ).not.toBeInTheDocument()
+    })
+
+    describe('orphan archived (no live head for this PR)', () => {
+      // allSessions contains only the archived row — no non-archived sibling.
+      // This is the "previous rerun failed before inserting the replacement"
+      // case the server allows recovering from.
+      it('restores the Rerun button so the user can recover', () => {
+        render(
+          withRoute(<PRDetail />, {
+            session: archivedSession,
+            findings: [archivedFinding],
+            allSessions: [archivedSession],
+          }),
+        )
+        expect(screen.getByRole('button', { name: /^Rerun$/i })).toBeInTheDocument()
+      })
+
+      it('shows the orphan banner instead of the historical-replacement banner', () => {
+        render(
+          withRoute(<PRDetail />, {
+            session: archivedSession,
+            findings: [archivedFinding],
+            allSessions: [archivedSession],
+          }),
+        )
+        expect(screen.getByText(/no replacement run was created/i)).toBeInTheDocument()
+        expect(screen.queryByText(/replaced by a newer run/i)).not.toBeInTheDocument()
+      })
+
+      it('still hides Submit even when Rerun is restored', () => {
+        render(
+          withRoute(<PRDetail />, {
+            session: archivedSession,
+            findings: [archivedFinding],
+            allSessions: [archivedSession],
+          }),
+        )
+        expect(screen.queryByRole('button', { name: /^Submit/i })).not.toBeInTheDocument()
+      })
+
+      it('keeps Rerun hidden when a live head exists for the same PR', () => {
+        const liveHead: PRSession = { ...session, id: 's2', status: 'ready' }
+        render(
+          withRoute(<PRDetail />, {
+            session: archivedSession,
+            findings: [archivedFinding],
+            allSessions: [archivedSession, liveHead],
+          }),
+        )
+        expect(screen.queryByRole('button', { name: /^Rerun$/i })).not.toBeInTheDocument()
+      })
     })
   })
 })

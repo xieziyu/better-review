@@ -698,7 +698,7 @@ describe('sessions API', () => {
     expect(res.status).toBe(400)
   })
 
-  it('POST /api/sessions/:id/rerun returns 409 when the session is already archived', async () => {
+  it('POST /api/sessions/:id/rerun returns 409 when a live head already exists for the PR', async () => {
     // Wire the real rerun factory so its archived guard fires; the route
     // translates 'already archived' to 409 (mirrors the cancel 'not running' path).
     const baseDeps = makeTestDeps()
@@ -724,11 +724,59 @@ describe('sessions API', () => {
       localRepoPath: null,
       promptUsed: 'p',
     })
+    // s2 is the current live head for the same PR.
+    deps.sessions.insert({
+      id: 's2',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
     const app = createApp(deps)
     const res = await app.request('/api/sessions/s1/rerun', { method: 'POST' })
     expect(res.status).toBe(409)
     const body = (await res.json()) as { error: string }
     expect(body.error).toBe('already archived')
+  })
+
+  it('POST /api/sessions/:id/rerun recovers an orphan archived session (no live head)', async () => {
+    const baseDeps = makeTestDeps()
+    const realRerun = makeRerunSession({
+      sessions: baseDeps.sessions,
+      findings: baseDeps.findings,
+      startSession: async () => ({ id: 'recovered' }),
+    })
+    const deps = { ...baseDeps, rerunSession: realRerun }
+    deps.sessions.insert({
+      id: 'orphan',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'archived',
+      agent: 'claude',
+      workdir: '/w',
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/orphan/rerun', { method: 'POST' })
+    expect(res.status).toBe(202)
+    const body = (await res.json()) as { freshId: string }
+    expect(body.freshId).toBe('recovered')
   })
 
   it('POST /api/sessions/:id/cancel cancels a running session and writes cancelled status', async () => {

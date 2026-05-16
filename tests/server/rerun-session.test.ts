@@ -225,16 +225,34 @@ describe('makeRerunSession', () => {
     await expect(rerun('missing')).rejects.toThrow('not found')
   })
 
-  it('throws "already archived" when the session is already archived', async () => {
-    // Archived sessions are frozen historical snapshots; rerunning one would
-    // double-archive its findings and detach the chain from the live head.
+  it('throws "already archived" when a live head already exists for the PR', async () => {
+    // Normal case: the archived row is genuinely historical because a newer
+    // (non-archived) session already owns the live head for this PR.
+    const { sessions, findings } = makeRepos()
+    insertSubmitted(sessions, 's1')
+    sessions.setStatus('s1', 'archived')
+    // s2 is the live head for the same PR.
+    insertSubmitted(sessions, 's2')
+    sessions.setStatus('s2', 'ready')
+
+    const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh' }))
+    const rerun = makeRerunSession({ sessions, findings, startSession })
+    await expect(rerun('s1')).rejects.toThrow('already archived')
+    expect(startSession).not.toHaveBeenCalled()
+  })
+
+  it('allows rerun of an orphan archived session (no live head)', async () => {
+    // Orphan recovery: a prior rerun archived this row but startSession threw
+    // before inserting the replacement (e.g. agent CLI not found). With no
+    // live head for the PR, the user must be able to rerun to recover.
     const { sessions, findings } = makeRepos()
     insertSubmitted(sessions, 's1')
     sessions.setStatus('s1', 'archived')
 
     const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh' }))
     const rerun = makeRerunSession({ sessions, findings, startSession })
-    await expect(rerun('s1')).rejects.toThrow('already archived')
-    expect(startSession).not.toHaveBeenCalled()
+    const result = await rerun('s1')
+    expect(result.freshId).toBe('fresh')
+    expect(startSession).toHaveBeenCalledOnce()
   })
 })

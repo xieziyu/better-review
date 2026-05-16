@@ -77,8 +77,12 @@ interface PRHeaderProps {
   // first rerun = 2, …). Computed by the parent from archived sessions
   // older than this one for the same PR.
   roundNumber: number
-  // True when viewing an archived (historical) round — hides Submit/Rerun.
+  // True when viewing an archived (historical) round — hides Submit and
+  // (by default) Rerun.
   isHistorical: boolean
+  // Override the historical Rerun hiding — true for live sessions and for
+  // orphaned archived heads (where the server allows recovery).
+  allowRerun: boolean
   onRerun: () => void
   onSubmit: () => void
   onDelete: () => void
@@ -98,6 +102,7 @@ function PRHeader({
   selectedCount,
   roundNumber,
   isHistorical,
+  allowRerun,
   onRerun,
   onSubmit,
   onDelete,
@@ -252,8 +257,8 @@ function PRHeader({
               </Button>
             )}
           </ConfirmAction>
-          {!isHistorical ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
-          {!isHistorical ? (
+          {allowRerun ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
+          {allowRerun ? (
             session.status === 'running' ? (
               <ConfirmAction
                 title={t('prdetail.rerunRunningTitle')}
@@ -748,6 +753,20 @@ export function PRDetail() {
   // normal !archived filter would render an empty list. Surface the full set
   // instead and let the UI gate mutations via isHistorical below.
   const isHistorical = session.status === 'archived'
+  // Orphan recovery: if a prior rerun archived this row but startSession threw
+  // before inserting the replacement (e.g. agent CLI missing, localRepoPath
+  // vanished), no non-archived session for this PR exists. Surface the Rerun
+  // button so the user can retry from the orphaned head; the server allows it.
+  const isOrphanArchived =
+    isHistorical &&
+    Array.isArray(allSessions) &&
+    !allSessions.some(
+      (s) =>
+        s.owner === session.owner &&
+        s.repo === session.repo &&
+        s.number === session.number &&
+        s.status !== 'archived',
+    )
   const activeFindings = isHistorical ? findings : findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -872,6 +891,7 @@ export function PRDetail() {
           selectedCount={selectedCount}
           roundNumber={roundNumber}
           isHistorical={isHistorical}
+          allowRerun={!isHistorical || !!isOrphanArchived}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
           onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
@@ -890,7 +910,9 @@ export function PRDetail() {
             role="note"
             className="rounded-md border border-rule bg-raised/60 px-3 py-2 text-meta text-ink-secondary"
           >
-            {t('prdetail.historicalArchivedBanner')}
+            {isOrphanArchived
+              ? t('prdetail.orphanArchivedBanner')
+              : t('prdetail.historicalArchivedBanner')}
           </div>
         ) : null}
 
