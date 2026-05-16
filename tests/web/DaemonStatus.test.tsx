@@ -41,22 +41,22 @@ describe('DaemonStatus', () => {
     expect(dot?.className).toMatch(/bg-accent-ready/)
   })
 
-  it('renders a yellow dot when a non-default agent is missing', () => {
+  it('renders a green dot when only one agent is present', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
         agents: {
           claude: { found: true, path: '/x' },
           codex: { found: false },
-          pi: { found: true, path: '/y' },
+          pi: { found: false },
         },
       }),
     )
-    const trigger = screen.getByRole('button', { name: /daemon has warnings/i })
-    expect(trigger.querySelector('span')?.className).toMatch(/bg-severity-should/)
+    const trigger = screen.getByRole('button', { name: /daemon healthy/i })
+    expect(trigger.querySelector('span')?.className).toMatch(/bg-accent-ready/)
   })
 
-  it('renders a red dot when the default agent is missing', () => {
+  it('renders a green dot when the default agent is missing but a fallback agent exists', () => {
     render(
       withClient(<DaemonStatus />, {
         ...healthy,
@@ -64,6 +64,21 @@ describe('DaemonStatus', () => {
           claude: { found: false },
           codex: { found: true, path: '/x' },
           pi: { found: true, path: '/y' },
+        },
+      }),
+    )
+    const trigger = screen.getByRole('button', { name: /daemon healthy/i })
+    expect(trigger.querySelector('span')?.className).toMatch(/bg-accent-ready/)
+  })
+
+  it('renders a red dot when no agent is found', () => {
+    render(
+      withClient(<DaemonStatus />, {
+        ...healthy,
+        agents: {
+          claude: { found: false },
+          codex: { found: false },
+          pi: { found: false },
         },
       }),
     )
