@@ -9,7 +9,7 @@
 ## Features
 
 - **Browser triage** for findings: checkbox / edit / delete each one, with the relevant diff slice expanded inline.
-- **Pluggable agents** — pick `claude` or `codex` per review, or set a default. The agent layer is a small interface; new providers drop into `src/server/engine/agent/`.
+- **Pluggable agents** — pick `claude` or `codex` per review, or set a default.
 - **One-click submission** to GitHub: selected findings become inline comments, off-diff or PR-wide ones fall back to the review body, all via `gh api`.
 - **Multi-PR concurrency** with a session sidebar that updates over SSE; the daemon caps parallel agent processes (configurable).
 - **Three-tier prompt overrides** — project (`<selected-repo>/.better-review/review.md`) → global (`~/.better-review/review.md`) → built-in. First hit wins.
