@@ -1,6 +1,14 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, it, expect } from 'vitest'
 
-import { getBuiltinRules, getFramework } from '../../../src/server/prompts/builtin'
+import {
+  getBuiltinPromptDirs,
+  getBuiltinRules,
+  getFramework,
+} from '../../../src/server/prompts/builtin'
 
 describe('builtin prompt assets', () => {
   it('English framework contains all five placeholders and the suggestion guidance', () => {
@@ -51,6 +59,33 @@ describe('builtin prompt assets', () => {
     expect(r).toContain('`Correctness`')
     expect(r).toContain('`Type Safety`')
     expect(r).not.toContain('{{DIFF}}')
+  })
+
+  it('resolves the published-package layout (dist/prompts/ next to dist/server/prompts/)', () => {
+    // Regression for 0.1.0: the loader only listed `../../../prompts` and
+    // `../../../../prompts`, both of which point ABOVE `dist/` from the compiled
+    // location `dist/server/prompts/builtin.js`. The npm tarball ships assets at
+    // `dist/prompts/`, so the loader must include `../../prompts` as well.
+    const root = mkdtempSync(join(tmpdir(), 'br-builtin-dist-'))
+    const distAssets = join(root, 'dist/prompts')
+    const distModule = join(root, 'dist/server/prompts')
+    mkdirSync(distAssets, { recursive: true })
+    mkdirSync(distModule, { recursive: true })
+    writeFileSync(join(distAssets, 'framework.en.md'), 'sentinel')
+
+    const dirs = getBuiltinPromptDirs(distModule)
+    expect(dirs[0]).toBe(distAssets)
+  })
+
+  it('resolves the dev source-tree layout (src/server/prompts/ → <repo>/prompts/)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'br-builtin-dev-'))
+    const srcModule = join(repo, 'src/server/prompts')
+    const repoAssets = join(repo, 'prompts')
+    mkdirSync(srcModule, { recursive: true })
+    mkdirSync(repoAssets, { recursive: true })
+
+    const dirs = getBuiltinPromptDirs(srcModule)
+    expect(dirs).toContain(repoAssets)
   })
 
   it('caches results per language', () => {

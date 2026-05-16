@@ -1,6 +1,6 @@
 {
   "name": "@xieziyu/better-review",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local PR review helper combining a review-agent CLI (codex / claude / pi) and gh CLI with a browser UI.",
   "license": "GPL-3.0-or-later",
   "author": "xieziyu <rainnyxzy@outlook.com>",
