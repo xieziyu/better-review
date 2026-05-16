@@ -6,14 +6,22 @@ import type { Language } from '../../shared/types'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-function load(name: string): string {
-  const candidates = [
-    resolve(here, '../../../prompts', name),
-    resolve(here, '../../../../prompts', name),
+// Exported for testing. Order matters: dist layout first (where the npm package
+// puts assets at <pkg>/dist/prompts/, with builtin.js at <pkg>/dist/server/prompts/),
+// then dev layout (with this file at <repo>/src/server/prompts/ and assets at
+// <repo>/prompts/), then a legacy fallback one level higher.
+export function getBuiltinPromptDirs(fromDir: string): string[] {
+  return [
+    resolve(fromDir, '../../prompts'),
+    resolve(fromDir, '../../../prompts'),
+    resolve(fromDir, '../../../../prompts'),
   ]
-  for (const c of candidates) {
+}
+
+function load(name: string): string {
+  for (const dir of getBuiltinPromptDirs(here)) {
     try {
-      return readFileSync(c, 'utf8')
+      return readFileSync(resolve(dir, name), 'utf8')
     } catch {
       /* try next */
     }

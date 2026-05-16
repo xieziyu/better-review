@@ -8,6 +8,12 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.1.1] — 2026-05-16
+
+### Fixed
+
+- Built-in prompts could not be located when the package was installed from npm — every review session that didn't have a project- or user-level `review.md` override failed with `builtin prompt asset not found: framework.<lang>.md`. The loader's candidate-path list assumed source layout (`src/server/prompts/` → `<repo>/prompts/`) and missed the dist layout (`dist/server/prompts/` → `dist/prompts/`). Added the dist-aware candidate and a regression test that exercises both layouts.
+
 ## [0.1.0] — 2026-05-16
 
 The shipped 0.1.x line. Feature buckets are grouped by theme rather than by individual commit; see `git log` for fine-grained history. Highlights since the v0.1 initial cut:
