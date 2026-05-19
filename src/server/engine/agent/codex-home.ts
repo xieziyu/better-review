@@ -103,7 +103,11 @@ export function prepareCodexHome(opts: PrepareCodexHomeOptions): void {
       const raw = readFileSync(userConfigPath, 'utf8')
       writeFileSync(destConfigPath, stripProjectSections(raw))
     }
-  } else if (!existsSync(destConfigPath)) {
+  } else if (state.configMtimeMs !== null || !existsSync(destConfigPath)) {
+    // Either the user previously had a config.toml that we synced (and has now
+    // deleted it to revert to defaults), or this is the first run and we need
+    // to seed an empty file. In both cases write empty so codex doesn't keep
+    // running against a stale snapshot of the user's old settings.
     writeFileSync(destConfigPath, '')
   }
 
