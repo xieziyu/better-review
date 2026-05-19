@@ -148,8 +148,11 @@ server.json               # daemon 运行时元数据：{ pid, port, startedAt }
 state.db                  # SQLite — sessions / findings / submissions / submission_comments
 daemon.log                # 后端结构化日志
 review.md                 # 全局 rule 覆盖（可选）
+codex-home/               # 跑 codex 时用的隔离 CODEX_HOME（下文有说明）
 sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、findings.json、agent.log、prompt.txt、prep.log
 ```
+
+**为什么有 `codex-home/`？** codex CLI 每在新目录里跑一次，都会往它的 `config.toml` 追加一条 `[projects."<cwd>"] trust_level = "trusted"`。better-review 每条 review 都用一个新的 workdir，否则你的 `~/.codex/config.toml` 会因此每条 review 多一段（参考上游 issue openai/codex#14601、#15433）。为此，daemon 给 codex 设了 `CODEX_HOME=~/.better-review/codex-home/`，把这些 trust 写入隔离目录，你真正的 `~/.codex` 不被改动。该目录会从你真实的 `~/.codex/config.toml` 派生（剔除 `[projects.*]` 段）；如果存在 `auth.json` 会做软链，文件认证用户无感切换；macOS keychain 用户无需额外配置。
 
 `config.json` 可改字段（全部可选）。**Settings** 页改的就是这个文件，绝大多数字段保存即生效；下表标注 _(需重启)_ 的两项要重启 daemon 才生效。
 

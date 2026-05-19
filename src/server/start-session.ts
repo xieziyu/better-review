@@ -42,7 +42,7 @@ export interface StartSessionDeps {
   // `maxConcurrentReviews` is consumed at queue construction time, so changing
   // it still requires a daemon restart.
   getConfig: () => Config
-  paths: { home: string; sessionsDir: string }
+  paths: { home: string; sessionsDir: string; codexHome: string }
   log: Logger
   // Resolves a kind to a concrete agent + located executable. Throws when the
   // CLI is not installed so the daemon can surface the error to the caller.
@@ -173,6 +173,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
           bus: deps.bus,
           stallMs: deps.getConfig().stallMinutes * 60_000,
           runners: deps.runners,
+          codexHome: deps.paths.codexHome,
         }
         if (prep.sourcePath) runArgs.sourcePath = prep.sourcePath
         await runReview(runArgs)

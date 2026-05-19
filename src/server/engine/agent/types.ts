@@ -16,6 +16,11 @@ export interface AgentSpawnArgs {
   // the writable workdir. When omitted, agents fall back to no source
   // access beyond the diff.
   sourcePath?: string
+  // Isolated CODEX_HOME directory. When set, the codex agent exports this as
+  // CODEX_HOME on the child so codex's per-cwd trust_level writes land here
+  // instead of in the user's real ~/.codex/config.toml. Other agents ignore
+  // it. See engine/agent/codex-home.ts for the rationale and bootstrap logic.
+  codexHome?: string
   // Called whenever the agent emits a heartbeat (stream-json event for claude,
   // stdout line for codex). Each call resets the runner's stall watchdog.
   onProgress: (phase: string, detail?: string) => void

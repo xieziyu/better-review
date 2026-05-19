@@ -12,6 +12,10 @@ export interface Paths {
   promptHome: string
   daemonLog: string
   daemonStderr: string
+  // Isolated CODEX_HOME we pass to the codex CLI so its per-cwd trust_level
+  // writes land here instead of polluting the user's real ~/.codex/config.toml.
+  // See src/server/engine/agent/codex-home.ts for how it is bootstrapped.
+  codexHome: string
 }
 
 export function resolvePaths(home?: string): Paths {
@@ -26,6 +30,7 @@ export function resolvePaths(home?: string): Paths {
     promptHome: join(h, 'review.md'),
     daemonLog: join(h, 'daemon.log'),
     daemonStderr: join(h, 'daemon-stderr.log'),
+    codexHome: join(h, 'codex-home'),
   }
 }
 

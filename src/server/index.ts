@@ -128,7 +128,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     queue,
     runners,
     getConfig,
-    paths: { home: paths.home, sessionsDir: paths.sessionsDir },
+    paths: { home: paths.home, sessionsDir: paths.sessionsDir, codexHome: paths.codexHome },
     log,
     resolveAgent,
   })

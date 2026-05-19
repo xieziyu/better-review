@@ -148,8 +148,11 @@ server.json               # daemon liveness: { pid, port, startedAt }
 state.db                  # SQLite — sessions / findings / submissions / submission_comments
 daemon.log                # structured server logs
 review.md                 # global rule overrides (optional)
+codex-home/               # isolated CODEX_HOME used when running codex (see below)
 sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent.log, prompt.txt, prep.log
 ```
+
+**Why `codex-home/`?** The codex CLI records a `[projects."<cwd>"] trust_level = "trusted"` entry into its `config.toml` every time it runs in a new directory. better-review uses a fresh per-session workdir, which would otherwise grow your real `~/.codex/config.toml` by one block per review. To avoid that, the daemon points codex at `~/.better-review/codex-home/` via the `CODEX_HOME` environment variable — your real `~/.codex` stays untouched. The directory is seeded from your real `~/.codex/config.toml` (minus `[projects.*]` sections); `auth.json` is symlinked when present, so file-based credentials carry over (macOS keychain users need no extra setup).
 
 `config.json` keys (all optional). The **Settings** page edits the same file; most keys hot-reload, the two flagged below need a daemon restart.
 
