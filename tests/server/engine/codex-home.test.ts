@@ -6,6 +6,7 @@ import {
   readFileSync,
   readlinkSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
   utimesSync,
 } from 'node:fs'
@@ -132,6 +133,31 @@ trust_level = "trusted"
     prepareCodexHome({ codexHome, userCodexHome })
     expect(existsSync(join(codexHome, 'config.toml'))).toBe(true)
     expect(readFileSync(join(codexHome, 'config.toml'), 'utf8')).toBe('')
+  })
+
+  it('clears a previously synced config.toml when the user deletes theirs', () => {
+    const userConfigPath = join(userCodexHome, 'config.toml')
+    writeFileSync(userConfigPath, 'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n')
+    prepareCodexHome({ codexHome, userCodexHome })
+    const destConfig = join(codexHome, 'config.toml')
+    expect(readFileSync(destConfig, 'utf8')).toContain('model_reasoning_effort = "high"')
+
+    // Simulate codex appending a trust entry, then user reverting to defaults
+    // by deleting their config.toml.
+    writeFileSync(
+      destConfig,
+      readFileSync(destConfig, 'utf8') + '\n[projects."/x"]\ntrust_level = "trusted"\n',
+    )
+    unlinkSync(userConfigPath)
+
+    prepareCodexHome({ codexHome, userCodexHome })
+    expect(readFileSync(destConfig, 'utf8')).toBe('')
+
+    // And a subsequent rerun (still no user config) must not keep wiping the
+    // file — codex's trust writes between spawns need to persist.
+    writeFileSync(destConfig, '[projects."/y"]\ntrust_level = "trusted"\n')
+    prepareCodexHome({ codexHome, userCodexHome })
+    expect(readFileSync(destConfig, 'utf8')).toContain('[projects."/y"]')
   })
 
   it('repairs a stale auth symlink pointing elsewhere', () => {
