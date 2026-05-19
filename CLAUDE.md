@@ -179,6 +179,7 @@ Conventional Commits, lowercase imperative mood: `feat(scope): …`, `fix(scope)
 ```
 config.json    state.db    daemon.log    daemon-stderr.log    server.json
 review.md                                                     (global prompt)
+codex-home/      (isolated CODEX_HOME — see "codex trust isolation" below)
 sessions/pr-<owner>-<repo>-<n>-<short>/
   diff.cache       (raw unified diff fetched by `gh pr diff`)
   findings.json    (the agent writes here; watched by chokidar)
@@ -190,6 +191,15 @@ sessions/pr-<owner>-<repo>-<n>-<short>/
 ```
 
 The session log is named `agent.log` regardless of which agent ran (its content shape varies).
+
+#### codex trust isolation
+
+The codex CLI appends a `[projects."<cwd>"] trust_level = "trusted"` block to its `config.toml` every time it runs in a new directory. Because we use a fresh per-session workdir, this would grow the user's real `~/.codex/config.toml` by one block per review (upstream issues openai/codex#14601, #15433). To avoid that, the daemon spawns codex with `CODEX_HOME` pointing at `~/.better-review/codex-home/`. The bootstrap (`src/server/engine/agent/codex-home.ts`) is idempotent and runs just before each codex spawn:
+
+- Seeds `codex-home/config.toml` from the user's real `~/.codex/config.toml`, stripped of `[projects.*]` sections. Resyncs only when the user's file mtime changes, so codex's own trust writes inside `codex-home/` are preserved across spawns.
+- Symlinks `codex-home/auth.json` to the user's real `~/.codex/auth.json` when file-based credentials are present. macOS keychain users skip this branch and inherit credentials via the shared keyring.
+
+If the user edits their `~/.codex/config.toml`, the change rolls into `codex-home/config.toml` on the next codex spawn — no daemon restart required.
 
 Config keys worth knowing: `defaultAgent` (`"codex"` | `"claude"` | `"pi"`, default `"codex"`; auto-falls-back to first installed when not explicit in `config.json`), `stallMinutes` (replaces the deprecated `claudeStallMinutes`, which is still read for backward compatibility — emits a warn log on load), `language` (`"en" | "zh-CN"`, auto-detected from `LC_ALL` / `LANG` / ICU on first boot).
 

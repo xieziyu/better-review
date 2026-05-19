@@ -14,6 +14,9 @@ export interface RunReviewArgs {
   // Source tree at PR head — full worktree or partial snapshot. Forwarded to
   // the agent so it can read post-merge files; omitted in diff-only mode.
   sourcePath?: string
+  // Forwarded verbatim to the agent's spawn args. Codex consumes this as its
+  // CODEX_HOME; other agents ignore it. See engine/agent/codex-home.ts.
+  codexHome?: string
   prompt: string
   agent: ReviewAgent
   executable: string
@@ -29,6 +32,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     sessionId,
     workdir,
     sourcePath,
+    codexHome,
     prompt,
     agent,
     executable,
@@ -99,6 +103,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     },
   }
   if (sourcePath !== undefined) spawnArgs.sourcePath = sourcePath
+  if (codexHome !== undefined) spawnArgs.codexHome = codexHome
 
   // Flip status pending → running and announce the agent boundary just before
   // spawn. The synthetic `agent:starting` event is the first non-`prep:`

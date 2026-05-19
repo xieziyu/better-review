@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 
+import { prepareCodexHome } from './codex-home'
 import { consumeLines } from './lines'
 import type { AgentRunHandle, AgentSpawnArgs, ReviewAgent } from './types'
 import { whichBinary } from './which'
@@ -14,7 +15,8 @@ export class CodexAgent implements ReviewAgent {
   }
 
   spawn(args: AgentSpawnArgs): AgentRunHandle {
-    const { executable, prompt, workdir, sourcePath, logPath, onProgress, onOutput } = args
+    const { executable, prompt, workdir, sourcePath, codexHome, logPath, onProgress, onOutput } =
+      args
     // Prompt is fed via stdin to avoid argv length limits with large diffs.
     // Two modes:
     // - No sourcePath (diff-only): cwd=workdir + workspace-write so the
@@ -52,9 +54,19 @@ export class CodexAgent implements ReviewAgent {
           '-',
         ]
       : ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', '--color', 'never', '-']
+    // Redirect codex's per-cwd trust_level writes into an isolated CODEX_HOME
+    // (see codex-home.ts) instead of polluting the user's real ~/.codex.
+    // prepareCodexHome is idempotent and resyncs only when the user's
+    // config.toml has changed, so calling it before every spawn is cheap.
+    let env: NodeJS.ProcessEnv = process.env
+    if (codexHome) {
+      prepareCodexHome({ codexHome })
+      env = { ...process.env, CODEX_HOME: codexHome }
+    }
     const child = spawn(executable, codexArgs, {
       cwd: workdir,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env,
     })
 
     if (child.stdin) {

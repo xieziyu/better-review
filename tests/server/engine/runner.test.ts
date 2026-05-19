@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -358,6 +358,70 @@ describe.each(FIXTURES)('runReview ($kind localRepoPath wiring)', (fx) => {
     } finally {
       delete process.env.BETTER_REVIEW_SPAWN_PROBE
       delete process.env[fx.bodyEnv]
+    }
+  })
+})
+
+describe('runReview (codex CODEX_HOME isolation)', () => {
+  let workdir: string
+  let sessions: SessionsRepo
+  let findings: FindingsRepo
+  let bus: EventBus
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-run-'))
+    const db = openDatabase(join(dir, 's.db'))
+    sessions = new SessionsRepo(db)
+    findings = new FindingsRepo(db)
+    bus = new EventBus()
+    workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    sessions.insert({
+      id: 'codex-home-1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'pending',
+      agent: 'codex',
+      workdir,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+  })
+
+  it('exports codexHome as CODEX_HOME on the codex child and bootstraps the directory', async () => {
+    const codexHome = join(mkdtempSync(join(tmpdir(), 'br-codex-home-')), 'codex-home')
+    const envProbe = join(workdir, '.spawn-env-probe')
+    process.env.BETTER_REVIEW_SPAWN_ENV_PROBE = envProbe
+    process.env.FAKE_CODEX_BODY = '[]'
+    try {
+      const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 'codex-home-1',
+        workdir,
+        prompt: promptText,
+        agent: getAgent('codex'),
+        executable: FAKE_CODEX,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+        runners: new RunnerRegistry(),
+        codexHome,
+      })
+      expect(sessions.getById('codex-home-1')!.status).toBe('ready')
+      const envLines = readFileSync(envProbe, 'utf8').trim().split('\n')
+      const codexHomeLine = envLines.find((l) => l.startsWith('CODEX_HOME='))
+      expect(codexHomeLine).toBe(`CODEX_HOME=${codexHome}`)
+      expect(existsSync(codexHome)).toBe(true)
+      expect(existsSync(join(codexHome, 'config.toml'))).toBe(true)
+    } finally {
+      delete process.env.BETTER_REVIEW_SPAWN_ENV_PROBE
+      delete process.env.FAKE_CODEX_BODY
     }
   })
 })

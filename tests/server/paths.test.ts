@@ -19,6 +19,7 @@ describe('resolvePaths', () => {
     expect(p.sessionsDir).toBe(join(home, 'sessions'))
     expect(p.configFile).toBe(join(home, 'config.json'))
     expect(p.daemonLog).toBe(join(home, 'daemon.log'))
+    expect(p.codexHome).toBe(join(home, 'codex-home'))
   })
   it('uses BETTER_REVIEW_HOME env when no arg', () => {
     process.env.BETTER_REVIEW_HOME = home

@@ -18,6 +18,12 @@ if [[ -n "$BETTER_REVIEW_SPAWN_PROBE" ]]; then
   } > "$BETTER_REVIEW_SPAWN_PROBE"
 fi
 
+# Optional env probe so tests can assert env vars propagated through spawn.
+# Kept separate from the argv probe so existing argv parsing still works.
+if [[ -n "$BETTER_REVIEW_SPAWN_ENV_PROBE" ]]; then
+  printf 'CODEX_HOME=%s\n' "${CODEX_HOME:-}" > "$BETTER_REVIEW_SPAWN_ENV_PROBE"
+fi
+
 # Skip the leading `exec` subcommand and any flags so we behave like the real
 # CLI when invoked as `codex exec --sandbox … -`.
 case "$1" in
