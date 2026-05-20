@@ -150,7 +150,13 @@ export function filterDiffByGlobs(unifiedDiff: string, globs: readonly string[])
   if (starts.length === 0) {
     return { filteredDiff: unifiedDiff, excludedFiles: [], keptFiles: [] }
   }
-  const matchers = globs.map((g) => picomatch(g, { dot: true }))
+  // `nonegate` keeps a leading `!` literal. `reviewExcludeGlobs` is purely
+  // additive — there is no exception semantics — so without this a user who
+  // writes `!src/foo/**` (out of .gitignore habit) would get picomatch's
+  // negation: a matcher that hits every path *outside* that dir, silently
+  // dropping most of the diff. With `nonegate` such a pattern is inert (no
+  // real path starts with `!`).
+  const matchers = globs.map((g) => picomatch(g, { dot: true, nonegate: true }))
   const isExcluded = (path: string): boolean => {
     const base = path.slice(path.lastIndexOf('/') + 1)
     return matchers.some((m) => m(path) || m(base))

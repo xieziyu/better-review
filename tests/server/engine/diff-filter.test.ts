@@ -174,6 +174,16 @@ describe('filterDiffByGlobs', () => {
     expect(out.filteredDiff).toBe('')
   })
 
+  it('treats a leading `!` glob as literal, not picomatch negation', () => {
+    // `reviewExcludeGlobs` is additive-only. A `!`-prefixed pattern must not
+    // invert into "exclude everything else" — it should simply match nothing.
+    const raw = modifyBlock('src/app.ts') + modifyBlock('src/util.ts')
+    const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['!src/generated/**']))
+    expect(out.excludedFiles).toEqual([])
+    expect(out.keptFiles).toEqual(['src/app.ts', 'src/util.ts'])
+    expect(out.filteredDiff).toBe(raw)
+  })
+
   it('honours a user-supplied glob on top of the built-ins', () => {
     const raw = modifyBlock('src/schema.generated.ts') + modifyBlock('src/keep.ts')
     const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['*.generated.ts']))
