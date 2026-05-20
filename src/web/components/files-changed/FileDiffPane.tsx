@@ -19,6 +19,10 @@ interface Props {
   onOpenInPanel: (dbId: string) => void
   /** PR file URL on github, derived once by the parent. */
   fileUrl?: string | null
+  /** Whether the reviewer has marked this file as viewed. */
+  isViewed: boolean
+  /** Toggle the viewed state for this file. */
+  onToggleViewed: () => void
   /** Historical (archived) round — hide the inline "+ add finding" + inline mutations. */
   readOnly?: boolean | undefined
 }
@@ -58,6 +62,8 @@ export function FileDiffPane({
   onToggleFinding,
   onOpenInPanel,
   fileUrl,
+  isViewed,
+  onToggleViewed,
   readOnly,
 }: Props) {
   const { t } = useTranslation()
@@ -136,17 +142,28 @@ export function FileDiffPane({
             {t('filesChanged.fileFindings', { count: findings.length })}
           </span>
         ) : null}
-        {fileUrl ? (
-          <a
-            href={fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto text-meta text-ink-muted hover:text-brand inline-flex items-center gap-1"
-          >
-            <ExternalLink className="h-3 w-3" />
-            {t('filesChanged.openOnGithub')}
-          </a>
-        ) : null}
+        <div className="ml-auto flex items-center gap-3 shrink-0">
+          <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isViewed}
+              disabled={readOnly}
+              onChange={onToggleViewed}
+            />
+            {t('filesChanged.viewed.toggle')}
+          </label>
+          {fileUrl ? (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-meta text-ink-muted hover:text-brand inline-flex items-center gap-1"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {t('filesChanged.openOnGithub')}
+            </a>
+          ) : null}
+        </div>
       </header>
       <OffDiffFindingsSection
         findings={offDiff}

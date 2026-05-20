@@ -1,7 +1,7 @@
 import type { Finding, PRSession } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Stub heavy pieces so jsdom doesn't pull Shiki WASM or actually mount the
 // react-diff-view widgets (which expect a real layout). The test focuses on
@@ -111,6 +111,12 @@ const findings: Finding[] = [
     source: 'agent',
   },
 ]
+
+beforeEach(() => {
+  // Viewed state and collapsed folders are persisted per-session in
+  // localStorage; clear it so cases don't leak through the shared session id.
+  window.localStorage.clear()
+})
 
 describe('FilesChangedView', () => {
   it('renders a file tree row per diff file and selects the first one by default', () => {
@@ -256,5 +262,41 @@ rename to src/new.ts
     // produced a tree miss and no row at all).
     const newRow = screen.getByRole('button', { name: /new\.ts/ })
     expect(newRow).toHaveTextContent('+1')
+  })
+
+  it('auto-advances to the next unviewed file when the current file is marked viewed', () => {
+    const onSelect = vi.fn()
+    render(
+      withProviders(
+        <FilesChangedView
+          session={session}
+          findings={findings}
+          unifiedDiff={DIFF}
+          selectedPath="src/foo.ts"
+          onSelectPath={onSelect}
+          onOpenFindingInPanel={() => {}}
+        />,
+      ),
+    )
+    // The diff-pane header carries the "Viewed" checkbox for the active file.
+    fireEvent.click(screen.getByLabelText('Viewed'))
+    expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
+  })
+
+  it('does not toggle viewed state on a historical (readOnly) round', () => {
+    render(
+      withProviders(
+        <FilesChangedView
+          session={session}
+          findings={findings}
+          unifiedDiff={DIFF}
+          selectedPath="src/foo.ts"
+          onSelectPath={() => {}}
+          onOpenFindingInPanel={() => {}}
+          readOnly
+        />,
+      ),
+    )
+    expect(screen.getByLabelText('Viewed')).toBeDisabled()
   })
 })
