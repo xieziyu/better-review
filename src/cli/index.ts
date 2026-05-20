@@ -129,9 +129,15 @@ async function cmdUpdate(opts: { pm?: string }): Promise<void> {
   process.stdout.write(`updated to v${latest}; restarting daemon…\n`)
   try {
     await execa('better-review', ['restart'], { stdio: 'inherit' })
-  } catch {
-    process.stdout.write(
-      `daemon not restarted automatically — run \`better-review restart\` to use v${latest}\n`,
+  } catch (e) {
+    // The install succeeded but the daemon is still on the old version;
+    // surface the reason and exit non-zero so scripts don't read this as a
+    // clean update.
+    const message = e instanceof Error ? e.message : String(e)
+    process.exitCode = 1
+    process.stderr.write(
+      `daemon not restarted automatically: ${message}\n` +
+        `run \`better-review restart\` to use v${latest}\n`,
     )
   }
 }
