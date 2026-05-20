@@ -1,10 +1,15 @@
 import type { HealthStatus } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DaemonStatus } from '@/components/DaemonStatus'
+import { copyTextToClipboard } from '@/lib/export-clipboard'
+
+vi.mock('@/lib/export-clipboard', () => ({
+  copyTextToClipboard: vi.fn().mockResolvedValue(undefined),
+}))
 
 function withClient(ui: React.ReactNode, health: HealthStatus) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -32,6 +37,10 @@ const healthy: HealthStatus = {
 }
 
 describe('DaemonStatus', () => {
+  beforeEach(() => {
+    vi.mocked(copyTextToClipboard).mockClear()
+  })
+
   it('renders a green dot when default agent + gh are healthy', () => {
     render(withClient(<DaemonStatus />, healthy))
     const trigger = screen.getByRole('button', { name: /daemon healthy/i })
@@ -107,6 +116,20 @@ describe('DaemonStatus', () => {
     expect(popover).toHaveTextContent(/Daemon up 2h/)
     expect(popover).toHaveTextContent('/Users/x/.better-review')
     expect(popover).toHaveTextContent('/Users/x/.better-review/daemon.log')
+  })
+
+  it('copies a path to the clipboard and shows a copied state', async () => {
+    const user = userEvent.setup()
+    render(withClient(<DaemonStatus />, healthy))
+    await user.click(screen.getByRole('button', { name: /daemon healthy/i }))
+    const popover = await screen.findByRole('dialog', { name: /daemon status/i })
+
+    const copyButtons = within(popover).getAllByRole('button', { name: 'Copy' })
+    expect(copyButtons).toHaveLength(2)
+
+    await user.click(copyButtons[0]!)
+    expect(copyTextToClipboard).toHaveBeenCalledWith('/Users/x/.better-review')
+    expect(within(popover).getByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
   it('marks the default agent in the popover', async () => {

@@ -476,7 +476,9 @@
     "authed": "authed",
     "notFound": "(not found)",
     "home": "home",
-    "log": "log"
+    "log": "log",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "prompt": {
     "tabs": {
