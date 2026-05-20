@@ -5,6 +5,8 @@ export interface ServerInfo {
   pid: number
   port: number
   startedAt: number
+  // Absent in server.json written by a daemon started before version tracking.
+  version?: string
 }
 
 export function readServerJson(home: string): ServerInfo | null {

@@ -316,7 +316,7 @@ describe('PRDetail', () => {
               },
               gh: { found: true, authed: true },
               fs: { folderPicker: { supported: false } },
-              daemon: { pid: 1, port: 1, startedAt: 0 },
+              daemon: { pid: 1, port: 1, startedAt: 0, version: '0.0.0' },
             }),
             { status: 200 },
           )

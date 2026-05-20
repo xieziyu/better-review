@@ -31,6 +31,7 @@ const baseHealth: HealthStatus = {
     startedAt: 1700000000000,
     home: '/Users/x/.better-review',
     logPath: '/Users/x/.better-review/daemon.log',
+    version: '0.1.1',
   },
 }
 

@@ -1,14 +1,24 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
-import { mkdirSync, openSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { Command } from 'commander'
+import { execa } from 'execa'
 import open from 'open'
 
 import { resolvePaths, type Paths } from '../server/paths'
+import { getAppVersion, getPackageRoot } from '../server/version'
 import { ensureDaemon, readServerJson, type ServerInfo } from './daemon-launcher'
+import {
+  detectPackageManager,
+  installSpec,
+  isPackageManager,
+  PACKAGE_MANAGERS,
+  PKG_NAME,
+  type PackageManager,
+} from './update'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const daemonScript = join(here, '..', 'server', 'index.js')
@@ -50,14 +60,101 @@ async function cmdStop(): Promise<void> {
 
 function cmdStatus(): void {
   const paths = resolvePaths()
+  const cliVersion = getAppVersion()
   const info = readServerJson(paths.home)
   if (!info) {
-    process.stdout.write('daemon not running\n')
+    process.stdout.write(`daemon not running (cli v${cliVersion})\n`)
     return
   }
+  const daemonVersion = info.version ?? 'unknown'
   process.stdout.write(
-    `pid=${info.pid} port=${info.port} startedAt=${new Date(info.startedAt).toISOString()}\n`,
+    `daemon  pid=${info.pid} port=${info.port} version=${daemonVersion} startedAt=${new Date(info.startedAt).toISOString()}\n`,
   )
+  process.stdout.write(`cli     version=${cliVersion}\n`)
+  if (daemonVersion !== cliVersion) {
+    const detail =
+      daemonVersion === 'unknown' ? 'daemon version is unknown' : 'daemon and CLI versions differ'
+    process.stdout.write(`note: ${detail} — run \`better-review restart\`\n`)
+  }
+}
+
+/**
+ * Restart the daemon by re-execing `better-review` by name. PATH resolves to
+ * whichever version the package manager just installed — unlike a daemon path
+ * cached in this process, which goes stale when a pnpm/yarn/bun upgrade moves
+ * the install into a new versioned store directory. A failed restart is
+ * reported on stderr with a non-zero exit code but is non-fatal: the package
+ * on disk is already up to date.
+ */
+async function restartDaemonForUpdate(version: string): Promise<void> {
+  try {
+    await execa('better-review', ['restart'], { stdio: 'inherit' })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    process.exitCode = 1
+    process.stderr.write(
+      `daemon not restarted automatically: ${message}\n` +
+        `run \`better-review restart\` to use v${version}\n`,
+    )
+  }
+}
+
+async function cmdUpdate(opts: { pm?: string }): Promise<void> {
+  if (opts.pm !== undefined && !isPackageManager(opts.pm)) {
+    throw new Error(
+      `unknown package manager '${opts.pm}' (expected: ${PACKAGE_MANAGERS.join(', ')})`,
+    )
+  }
+  const pkgRoot = getPackageRoot()
+  if (existsSync(join(pkgRoot, '.git'))) {
+    throw new Error('running from a source checkout — use `git pull` to update instead')
+  }
+
+  const current = getAppVersion()
+  process.stdout.write(`current version: v${current}\n`)
+
+  let latest: string
+  try {
+    const res = await execa('npm', ['view', PKG_NAME, 'version'])
+    latest = res.stdout.trim()
+  } catch (e) {
+    throw new Error(`failed to query the latest version: ${(e as Error).message}`, { cause: e })
+  }
+  if (!latest) throw new Error(`npm returned an empty version for ${PKG_NAME}`)
+  if (current === latest) {
+    // The CLI is current, but a daemon started before this upgrade may still
+    // be serving old code — reconcile it so `update` always leaves both on
+    // the same version.
+    const running = readServerJson(resolvePaths().home)
+    if (running && running.version !== current) {
+      process.stdout.write(
+        `already up to date (v${current}); restarting stale daemon (v${running.version ?? 'unknown'})…\n`,
+      )
+      await restartDaemonForUpdate(current)
+    } else {
+      process.stdout.write(`already up to date (v${current})\n`)
+    }
+    return
+  }
+
+  const pm: PackageManager =
+    (opts.pm as PackageManager | undefined) ?? detectPackageManager(pkgRoot)
+  process.stdout.write(`updating v${current} → v${latest} via ${pm}…\n`)
+  const { cmd, args } = installSpec(pm)
+  try {
+    await execa(cmd, args, { stdio: 'inherit' })
+  } catch (e) {
+    throw new Error(`install failed: ${(e as Error).message}`, { cause: e })
+  }
+
+  // Restart the daemon so the freshly installed code takes effect.
+  const wasRunning = readServerJson(resolvePaths().home) !== null
+  if (!wasRunning) {
+    process.stdout.write(`updated to v${latest}\n`)
+    return
+  }
+  process.stdout.write(`updated to v${latest}; restarting daemon…\n`)
+  await restartDaemonForUpdate(latest)
 }
 
 async function cmdRestart(): Promise<void> {
@@ -142,6 +239,7 @@ const program = new Command()
 program
   .name('better-review')
   .description('Local PR review helper')
+  .version(getAppVersion(), '-v, --version', 'show version')
   .argument('[pr]', 'PR target (GitHub PR URL)')
   .action(async (pr: string | undefined) => {
     await cmdStart(pr)
@@ -150,6 +248,11 @@ program
 program.command('stop').description('stop running daemon').action(cmdStop)
 program.command('status').description('show daemon status').action(cmdStatus)
 program.command('restart').description('stop and start daemon').action(cmdRestart)
+program
+  .command('update')
+  .description('upgrade better-review to the latest published version')
+  .option('--pm <manager>', 'package manager: npm | pnpm | yarn | bun')
+  .action((opts: { pm?: string }) => cmdUpdate(opts))
 
 program.parseAsync().catch((e: unknown) => {
   process.stderr.write(`error: ${(e as Error).message}\n`)

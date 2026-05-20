@@ -113,7 +113,14 @@ export interface HealthStatus {
   defaultAgent: AgentKind
   gh: { found: boolean; path?: string; authed: boolean }
   fs: { folderPicker: { supported: boolean } }
-  daemon: { pid: number; port: number; startedAt: number; home: string; logPath: string }
+  daemon: {
+    pid: number
+    port: number
+    startedAt: number
+    home: string
+    logPath: string
+    version: string
+  }
 }
 
 // User-editable runtime configuration. Mirrors the writable subset of the

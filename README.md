@@ -60,10 +60,16 @@ If you'd rather not install globally, run `node dist/cli/index.js …` after `pn
 ```bash
 better-review                                       # launch daemon + open UI
 better-review https://github.com/owner/repo/pull/1  # also create a review and jump to it
-better-review status                                # pid / port / startedAt
+better-review status                                # daemon + CLI versions, pid / port
 better-review stop                                  # graceful shutdown
 better-review restart                               # stop + start (use after gh auth login)
+better-review update                                # upgrade to the latest release + restart daemon
+better-review --version                             # print the installed version
 ```
+
+`update` reinstalls the latest published version, auto-detecting your package manager
+from the install path (npm / pnpm / yarn / bun) — pass `--pm <manager>` to override — then
+restarts the running daemon so the new version takes effect.
 
 The first run creates `~/.better-review/` (override with `BETTER_REVIEW_HOME`).
 
@@ -132,7 +138,7 @@ The prompt is split into two layers:
 
 Edit either scope from the **Prompt** link in the top bar (`Effective` / `Framework` / `Project` / `Global` tabs; `⌘S` saves). The `Project` tab has a repo selector at the top — pick the local repo whose `.better-review/review.md` you want to edit. Saving only affects future reviews. To replay existing sessions with the new rules, use **Apply to current session** in the prompt editor (it opens a picker so you can select which sessions to rerun) or **Rerun** on a single PR detail page.
 
-Daemon configuration (language, default agent, watchdog timeout, GC retention, port, concurrency) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / uptime / agent + `gh` paths.
+Daemon configuration (language, default agent, watchdog timeout, GC retention, port, concurrency) lives under the **Settings** link in the top bar; the **status dot** next to it shows daemon and CLI health at a glance — click for a popover with pid / port / version / uptime / agent + `gh` paths.
 
 ### Language
 
@@ -144,7 +150,7 @@ Layout under `~/.better-review/`:
 
 ```
 config.json               # optional; defaults are fine
-server.json               # daemon liveness: { pid, port, startedAt }
+server.json               # daemon liveness: { pid, port, startedAt, version }
 state.db                  # SQLite — sessions / findings / submissions / submission_comments
 daemon.log                # structured server logs
 review.md                 # global rule overrides (optional)
