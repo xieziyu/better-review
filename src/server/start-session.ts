@@ -9,6 +9,7 @@ import type { SessionsRepo } from './db/sessions'
 import type { SubmissionCommentsRepo } from './db/submission-comments'
 import type { SubmissionsRepo } from './db/submissions'
 import type { ReviewAgent } from './engine/agent'
+import { chooseDiffForAgent, filterDiffByGlobs, resolveExcludeGlobs } from './engine/diff-filter'
 import { annotateDiffWithIncremental, extractNewHunks } from './engine/diff-incremental'
 import type { EventBus } from './engine/events'
 import { PrepLogger, withCurrentPhase } from './engine/prep-logger'
@@ -285,8 +286,22 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     priorCtx && priorCtx.compare && !priorCtx.isForcePushed
       ? extractNewHunks(priorCtx.compare)
       : null
+
+  // Drop non-reviewable files (lockfiles, generated artifacts) from the diff
+  // fed to the agent so we don't burn prompt tokens on them. `diff.cache`
+  // above keeps the raw full diff for the web UI + submit-time validation.
+  const excludeGlobs = resolveExcludeGlobs(deps.getConfig().reviewExcludeGlobs)
+  const filtered = filterDiffByGlobs(diff.unifiedDiff, excludeGlobs)
+  const diffForAgent = chooseDiffForAgent(diff.unifiedDiff, filtered)
+  if (filtered.excludedFiles.length > 0) {
+    prepLogger.markPhase(
+      priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
+      `excluded ${filtered.excludedFiles.length} non-reviewable file(s) from the review prompt: ${filtered.excludedFiles.join(', ')}`,
+    )
+  }
+
   const annotatedDiff = annotateDiffWithIncremental(
-    diff.unifiedDiff,
+    diffForAgent,
     incremental,
     priorCtx?.lastReviewedSha ?? null,
   )

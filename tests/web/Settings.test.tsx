@@ -13,6 +13,7 @@ const baseConfig: AppConfig = {
   defaultAgent: 'claude',
   perPRGCDays: 7,
   language: 'en',
+  reviewExcludeGlobs: [],
 }
 
 const baseHealth: HealthStatus = {
@@ -64,14 +65,45 @@ describe('Settings', () => {
     vi.useRealTimers()
   })
 
-  it('renders all five fields with current values and the config file path', () => {
-    renderSettings()
+  it('renders all fields with current values and the config file path', () => {
+    renderSettings({ config: { ...baseConfig, reviewExcludeGlobs: ['*.snap'] } })
     expect(screen.getByText(/\.better-review\/config\.json/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /default agent/i })).toHaveTextContent('claude')
     expect(screen.getByLabelText(/stall minutes/i)).toHaveValue(3)
     expect(screen.getByLabelText(/per-pr gc days/i)).toHaveValue(7)
     expect(screen.getByLabelText(/max concurrent reviews/i)).toHaveValue(4)
     expect(screen.getByLabelText(/^port$/i)).toHaveValue(0)
+    expect(screen.getByLabelText(/review-exclude globs/i)).toHaveValue('*.snap')
+  })
+
+  it('does not read as dirty on mount when reviewExcludeGlobs is pre-populated', () => {
+    renderSettings({ config: { ...baseConfig, reviewExcludeGlobs: ['*.snap', 'dist/**'] } })
+    expect(screen.getByLabelText(/review-exclude globs/i)).toHaveValue('*.snap\ndist/**')
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+  })
+
+  it('marks the form dirty and PUTs the entered globs when editing reviewExcludeGlobs', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: baseConfig }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    renderSettings()
+    const globs = screen.getByLabelText(/review-exclude globs/i)
+    const save = screen.getByRole('button', { name: /^save$/i })
+    expect(save).toBeDisabled()
+
+    await user.type(globs, '*.generated.ts{enter}docs/api/**')
+    expect(save).toBeEnabled()
+    await user.click(save)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
+      reviewExcludeGlobs: ['*.generated.ts', 'docs/api/**'],
+    })
   })
 
   it('marks restart-required fields with a tag', () => {

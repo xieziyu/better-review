@@ -12,6 +12,7 @@ const updatableSchema = z.object({
   defaultAgent: z.enum(AGENT_KINDS),
   perPRGCDays: z.number().int().min(0).max(365),
   language: z.enum(LANGUAGES),
+  reviewExcludeGlobs: z.array(z.string().max(200)).max(100),
 })
 
 export function configRoutes(deps: AppDeps): Hono {

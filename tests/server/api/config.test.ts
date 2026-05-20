@@ -22,6 +22,7 @@ describe('config API', () => {
       defaultAgent: 'claude',
       perPRGCDays: 1,
       language: 'en',
+      reviewExcludeGlobs: [],
     })
     expect(j.file.endsWith('config.json')).toBe(true)
   })
@@ -38,6 +39,7 @@ describe('config API', () => {
       defaultAgent: 'codex',
       perPRGCDays: 14,
       language: 'zh-CN' as const,
+      reviewExcludeGlobs: ['dist/**', '*.snap'],
     }
     const res = await app.request('/api/config', {
       method: 'PUT',
@@ -123,5 +125,20 @@ describe('config API', () => {
     expect(res.status).toBe(400)
     const e = (await res.json()) as { error: string }
     expect(e.error).toMatch(/language/)
+  })
+
+  it('PUT /api/config rejects a non-array reviewExcludeGlobs with a 400', async () => {
+    const d = makeTestDeps()
+    const app = createApp(d)
+    const before = { ...d.getConfig() }
+    const res = await app.request('/api/config', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...before, reviewExcludeGlobs: 'dist/**' }),
+    })
+    expect(res.status).toBe(400)
+    const e = (await res.json()) as { error: string }
+    expect(e.error).toMatch(/reviewExcludeGlobs/)
+    expect(d.getConfig()).toEqual(before)
   })
 })

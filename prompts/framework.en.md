@@ -71,6 +71,8 @@ A snapshot of files this PR touches, fetched at commit `{{HEAD_SHA}}`, is availa
 
 Each body line below is prefixed with a `<NEW_LINE> | ` gutter where `<NEW_LINE>` is the line's number in the new file. Use that gutter as the source of `line` and `startLine` for findings — do NOT count offsets from `@@` headers. Removed (`-`) lines have a blank gutter because they don't exist in the new file and cannot be targeted by inline comments.
 
+Some non-reviewable files (dependency lockfiles, minified bundles, snapshots) have already been removed from the diff below. If you still see a file that is clearly generated, vendored, or machine-produced (large auto-generated client code, committed build output, etc.), you may skip reviewing it and need not report findings on it.
+
 {{DIFF}}
 
 ## Review checklist

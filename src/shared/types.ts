@@ -133,6 +133,9 @@ export interface AppConfig {
   defaultAgent: AgentKind
   perPRGCDays: number
   language: Language
+  // Extra glob patterns for files to drop from the review-agent prompt, on
+  // top of the built-in lockfile/generated defaults.
+  reviewExcludeGlobs: string[]
 }
 
 export type SSEEvent =
