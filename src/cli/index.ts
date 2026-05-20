@@ -71,8 +71,10 @@ function cmdStatus(): void {
     `daemon  pid=${info.pid} port=${info.port} version=${daemonVersion} startedAt=${new Date(info.startedAt).toISOString()}\n`,
   )
   process.stdout.write(`cli     version=${cliVersion}\n`)
-  if (info.version && info.version !== cliVersion) {
-    process.stdout.write('note: daemon is running an older version — run `better-review restart`\n')
+  if (daemonVersion !== cliVersion) {
+    const detail =
+      daemonVersion === 'unknown' ? 'daemon version is unknown' : 'daemon and CLI versions differ'
+    process.stdout.write(`note: ${detail} — run \`better-review restart\`\n`)
   }
 }
 
