@@ -294,9 +294,16 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   const filtered = filterDiffByGlobs(diff.unifiedDiff, excludeGlobs)
   const diffForAgent = chooseDiffForAgent(diff.unifiedDiff, filtered)
   if (filtered.excludedFiles.length > 0) {
+    const phase = priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt
+    const files = filtered.excludedFiles.join(', ')
+    // chooseDiffForAgent falls back to the raw diff when every file matched a
+    // glob — in that case nothing was actually removed from the prompt, so the
+    // log must not claim otherwise.
     prepLogger.markPhase(
-      priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
-      `excluded ${filtered.excludedFiles.length} non-reviewable file(s) from the review prompt: ${filtered.excludedFiles.join(', ')}`,
+      phase,
+      diffForAgent === filtered.filteredDiff
+        ? `excluded ${filtered.excludedFiles.length} non-reviewable file(s) from the review prompt: ${files}`
+        : `all changed files matched review-exclude globs; using the raw diff so the review prompt is not empty: ${files}`,
     )
   }
 
