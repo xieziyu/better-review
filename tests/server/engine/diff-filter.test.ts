@@ -37,6 +37,22 @@ function deleteBlock(path: string): string {
   ].join('\n')
 }
 
+// A modify block whose `diff --git` / `---` / `+++` headers are supplied
+// verbatim — used to exercise Git's C-quoted (non-ASCII) header form.
+function modifyBlockWithHeaders(gitLine: string, minus: string, plus: string): string {
+  return [
+    gitLine,
+    'index 1111111..2222222 100644',
+    minus,
+    plus,
+    '@@ -1,3 +1,3 @@',
+    ' context',
+    '-old line',
+    '+new line',
+    '',
+  ].join('\n')
+}
+
 function renameBlock(from: string, to: string): string {
   return [
     `diff --git a/${from} b/${to}`,
@@ -163,6 +179,18 @@ describe('filterDiffByGlobs', () => {
     const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['*.generated.ts']))
     expect(out.excludedFiles).toEqual(['src/schema.generated.ts'])
     expect(out.keptFiles).toEqual(['src/keep.ts'])
+  })
+
+  it('strips Git C-quoted (non-ASCII) header quotes before matching', () => {
+    // Git quotes paths with non-ASCII bytes — a lockfile under a Chinese dir
+    // arrives as `+++ "b/\\345.../pnpm-lock.yaml"`. The basename rule must
+    // still catch it.
+    const qa = '"a/\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml"'
+    const qb = '"b/\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml"'
+    const raw = modifyBlockWithHeaders(`diff --git ${qa} ${qb}`, `--- ${qa}`, `+++ ${qb}`)
+    const out = filterDiffByGlobs(raw, ALL)
+    expect(out.excludedFiles).toEqual(['\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml'])
+    expect(out.filteredDiff).toBe('')
   })
 
   it('extracts a path containing spaces from the `+++` header', () => {

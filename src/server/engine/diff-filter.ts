@@ -80,13 +80,33 @@ function blockStartOffsets(diff: string): number[] {
   return offsets
 }
 
+// Git wraps diff-header paths containing non-ASCII bytes, tabs, or quotes in
+// double quotes (`core.quotePath`). Strip the surrounding quotes so prefix and
+// glob matching see the bare path. Octal `\NNN` escapes inside are left as-is:
+// they only land in non-ASCII path segments, and basename / extension /
+// directory globs target ASCII tokens (`pnpm-lock.yaml`, `.snap`, `dist`) that
+// still match correctly through them.
+function unquoteDiffPath(raw: string): string {
+  const path = raw.trim()
+  return path.length >= 2 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path
+}
+
+function stripABPrefix(path: string, prefix: 'a/' | 'b/'): string {
+  return path.startsWith(prefix) ? path.slice(2) : path
+}
+
 // `diff --git a/<old> b/<new>` — last-resort path source for binary / pure-
 // rename blocks that carry no `+++`/`---` headers. Ambiguous for paths with
 // spaces; the `+++`/`---`/`rename to` headers are preferred when present.
 function pathFromGitLine(line: string): string | null {
   const rest = line.slice('diff --git '.length)
-  const bIdx = rest.lastIndexOf(' b/')
-  return bIdx >= 0 ? rest.slice(bIdx + 3) : null
+  // The `b/` side begins right after the space between the two paths, in
+  // either bare (` b/`) or quoted (` "b/`) form.
+  for (const sep of [' "b/', ' b/']) {
+    const idx = rest.lastIndexOf(sep)
+    if (idx >= 0) return stripABPrefix(unquoteDiffPath(rest.slice(idx + 1)), 'b/')
+  }
+  return null
 }
 
 // Resolve the repo-relative path a block describes. Prefers the `+++ b/<path>`
@@ -102,13 +122,13 @@ function pathForBlock(block: string): string | null {
     // so a removed `---`/content line can't be mistaken for a header.
     if (line.startsWith('@@ ')) break
     if (line.startsWith('+++ ')) {
-      const rest = line.slice(4).trim()
-      if (rest !== '/dev/null') plus = rest.startsWith('b/') ? rest.slice(2) : rest
+      const rest = unquoteDiffPath(line.slice(4))
+      if (rest !== '/dev/null') plus = stripABPrefix(rest, 'b/')
     } else if (line.startsWith('--- ')) {
-      const rest = line.slice(4).trim()
-      if (rest !== '/dev/null') minus = rest.startsWith('a/') ? rest.slice(2) : rest
+      const rest = unquoteDiffPath(line.slice(4))
+      if (rest !== '/dev/null') minus = stripABPrefix(rest, 'a/')
     } else if (line.startsWith('rename to ')) {
-      renameTo = line.slice('rename to '.length).trim()
+      renameTo = unquoteDiffPath(line.slice('rename to '.length))
     } else if (gitLine === null && line.startsWith('diff --git ')) {
       gitLine = line
     }
