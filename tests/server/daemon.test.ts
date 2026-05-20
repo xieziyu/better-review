@@ -19,6 +19,7 @@ describe('daemon lifecycle', () => {
     const meta = JSON.parse(readFileSync(join(home, 'server.json'), 'utf8'))
     expect(meta.pid).toBe(process.pid)
     expect(meta.port).toBe(h.port)
+    expect(typeof meta.version).toBe('string')
     await h.shutdown()
     expect(existsSync(join(home, 'server.json'))).toBe(false)
   })
@@ -40,6 +41,7 @@ describe('daemon lifecycle', () => {
       const j = await res.json()
       expect(j.daemon.port).toBe(h.port)
       expect(j.daemon.pid).toBe(process.pid)
+      expect(typeof j.daemon.version).toBe('string')
     } finally {
       await h.shutdown()
     }

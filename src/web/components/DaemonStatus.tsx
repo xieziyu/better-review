@@ -107,7 +107,7 @@ function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
             {t('daemon.upFor', { uptime: uptime(data.daemon.startedAt, now) })}
           </div>
           <div className="text-meta text-ink-muted font-mono tabular-nums">
-            pid {data.daemon.pid} · port {data.daemon.port}
+            pid {data.daemon.pid} · port {data.daemon.port} · v{data.daemon.version}
           </div>
         </div>
       </header>

@@ -32,6 +32,7 @@ import { resolvePaths } from './paths'
 import { PromptStore } from './prompts/store'
 import { makeRerunSession } from './rerun-session'
 import { makeStartSession, type ResolvedAgent } from './start-session'
+import { getAppVersion } from './version'
 
 export interface ServerHandle {
   port: number
@@ -49,7 +50,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
   mkdirSync(paths.sessionsDir, { recursive: true })
 
   const log = createLogger(paths.daemonLog)
-  log.info('startup begin', { pid: process.pid, home: paths.home })
+  log.info('startup begin', { pid: process.pid, home: paths.home, version: getAppVersion() })
   const {
     config: initialConfig,
     warnings,
@@ -247,6 +248,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
           startedAt,
           home: paths.home,
           logPath: paths.daemonLog,
+          version: getAppVersion(),
         },
       }
       for (const k of AGENT_KINDS) {
@@ -267,7 +269,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     })
   })
   log.info('server listening', { port })
-  writeFileSync(paths.serverJson, JSON.stringify({ pid: process.pid, port, startedAt }))
+  writeFileSync(
+    paths.serverJson,
+    JSON.stringify({ pid: process.pid, port, startedAt, version: getAppVersion() }),
+  )
   log.info('daemon started', { pid: process.pid, port })
 
   let shuttingDown = false

@@ -106,6 +106,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
           startedAt: 1,
           home,
           logPath: join(home, 'daemon.log'),
+          version: '0.0.0',
         },
       })),
   }

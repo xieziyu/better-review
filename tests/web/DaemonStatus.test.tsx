@@ -33,6 +33,7 @@ const healthy: HealthStatus = {
     startedAt: Date.now() - 2 * 60 * 60 * 1000 - 15 * 60 * 1000, // 2h 15m ago
     home: '/Users/x/.better-review',
     logPath: '/Users/x/.better-review/daemon.log',
+    version: '0.1.1',
   },
 }
 
@@ -106,13 +107,14 @@ describe('DaemonStatus', () => {
     expect(trigger.querySelector('span')?.className).toMatch(/bg-severity-must/)
   })
 
-  it('opens the popover on click and shows pid/port/uptime + path rows', async () => {
+  it('opens the popover on click and shows pid/port/version/uptime + path rows', async () => {
     const user = userEvent.setup()
     render(withClient(<DaemonStatus />, healthy))
     await user.click(screen.getByRole('button', { name: /daemon healthy/i }))
     const popover = await screen.findByRole('dialog', { name: /daemon status/i })
     expect(popover).toHaveTextContent(/pid 4242/)
     expect(popover).toHaveTextContent(/port 7345/)
+    expect(popover).toHaveTextContent(/v0\.1\.1/)
     expect(popover).toHaveTextContent(/Daemon up 2h/)
     expect(popover).toHaveTextContent('/Users/x/.better-review')
     expect(popover).toHaveTextContent('/Users/x/.better-review/daemon.log')
