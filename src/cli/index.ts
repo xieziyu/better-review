@@ -78,6 +78,27 @@ function cmdStatus(): void {
   }
 }
 
+/**
+ * Restart the daemon by re-execing `better-review` by name. PATH resolves to
+ * whichever version the package manager just installed — unlike a daemon path
+ * cached in this process, which goes stale when a pnpm/yarn/bun upgrade moves
+ * the install into a new versioned store directory. A failed restart is
+ * reported on stderr with a non-zero exit code but is non-fatal: the package
+ * on disk is already up to date.
+ */
+async function restartDaemonForUpdate(version: string): Promise<void> {
+  try {
+    await execa('better-review', ['restart'], { stdio: 'inherit' })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    process.exitCode = 1
+    process.stderr.write(
+      `daemon not restarted automatically: ${message}\n` +
+        `run \`better-review restart\` to use v${version}\n`,
+    )
+  }
+}
+
 async function cmdUpdate(opts: { pm?: string }): Promise<void> {
   if (opts.pm !== undefined && !isPackageManager(opts.pm)) {
     throw new Error(
@@ -101,7 +122,18 @@ async function cmdUpdate(opts: { pm?: string }): Promise<void> {
   }
   if (!latest) throw new Error(`npm returned an empty version for ${PKG_NAME}`)
   if (current === latest) {
-    process.stdout.write(`already up to date (v${current})\n`)
+    // The CLI is current, but a daemon started before this upgrade may still
+    // be serving old code — reconcile it so `update` always leaves both on
+    // the same version.
+    const running = readServerJson(resolvePaths().home)
+    if (running && running.version !== current) {
+      process.stdout.write(
+        `already up to date (v${current}); restarting stale daemon (v${running.version ?? 'unknown'})…\n`,
+      )
+      await restartDaemonForUpdate(current)
+    } else {
+      process.stdout.write(`already up to date (v${current})\n`)
+    }
     return
   }
 
@@ -115,31 +147,14 @@ async function cmdUpdate(opts: { pm?: string }): Promise<void> {
     throw new Error(`install failed: ${(e as Error).message}`, { cause: e })
   }
 
-  // Restart the daemon so the freshly installed code takes effect. This
-  // process resolved its daemon-script path from the OLD install location at
-  // startup; for pnpm/yarn/bun that location moves to a new versioned store
-  // directory on upgrade, so spawning from the cached path would relaunch the
-  // stale daemon (or fail). Re-exec the CLI by name instead — PATH always
-  // resolves `better-review` to the version that was just installed.
+  // Restart the daemon so the freshly installed code takes effect.
   const wasRunning = readServerJson(resolvePaths().home) !== null
   if (!wasRunning) {
     process.stdout.write(`updated to v${latest}\n`)
     return
   }
   process.stdout.write(`updated to v${latest}; restarting daemon…\n`)
-  try {
-    await execa('better-review', ['restart'], { stdio: 'inherit' })
-  } catch (e) {
-    // The install succeeded but the daemon is still on the old version;
-    // surface the reason and exit non-zero so scripts don't read this as a
-    // clean update.
-    const message = e instanceof Error ? e.message : String(e)
-    process.exitCode = 1
-    process.stderr.write(
-      `daemon not restarted automatically: ${message}\n` +
-        `run \`better-review restart\` to use v${latest}\n`,
-    )
-  }
+  await restartDaemonForUpdate(latest)
 }
 
 async function cmdRestart(): Promise<void> {
