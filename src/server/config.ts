@@ -39,6 +39,9 @@ const rawConfigSchema = z.object({
   defaultAgent: z.enum(AGENT_KINDS).default('codex'),
   perPRGCDays: z.number().int().nonnegative().default(7),
   language: z.enum(LANGUAGES).default(() => detectSystemLanguage()),
+  // Extra glob patterns for files to drop from the review-agent prompt, on top
+  // of the built-in lockfile/generated defaults. See engine/diff-filter.ts.
+  reviewExcludeGlobs: z.array(z.string()).default([]),
   // Deprecated alias kept for backward compatibility — superseded by `stallMinutes`.
   claudeStallMinutes: z.number().int().positive().optional(),
 })
@@ -99,6 +102,7 @@ const writableKeys = [
   'defaultAgent',
   'perPRGCDays',
   'language',
+  'reviewExcludeGlobs',
 ] as const
 
 export function saveConfig(file: string, config: Config): void {

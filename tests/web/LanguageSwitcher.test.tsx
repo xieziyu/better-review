@@ -14,6 +14,7 @@ const baseConfig: AppConfig = {
   defaultAgent: 'claude',
   perPRGCDays: 7,
   language: 'en',
+  reviewExcludeGlobs: [],
 }
 
 function renderSwitcher(opts?: { config?: AppConfig }) {

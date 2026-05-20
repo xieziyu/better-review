@@ -245,6 +245,11 @@
       "label": "端口",
       "hint": "0 表示由操作系统挑选。否则填写 1 到 65535 之间的空闲端口。"
     },
+    "reviewExcludeGlobs": {
+      "label": "评审排除 glob",
+      "hint": "每行一个 glob。匹配到的文件会在内置 lockfile 与生成文件默认规则之外，额外从评审 agent 的 prompt 中移除，以节省 token。不影响 Files Changed 视图。",
+      "placeholder": "例如 *.generated.ts"
+    },
     "restartRequired": "需要重启"
   },
   "prdetail": {

@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
 import { StatusDot } from '@/components/AgentList'
-import { Button, Field, NumberInput, SelectMenu, SelectMenuCheck, Tag } from '@/components/ui'
+import {
+  Button,
+  Field,
+  NumberInput,
+  SelectMenu,
+  SelectMenuCheck,
+  Tag,
+  TextArea,
+} from '@/components/ui'
 import { ApiError, api, queryKeys } from '@/lib/api'
 
 interface FieldErrors {
@@ -39,6 +47,18 @@ function validate(
   return errors
 }
 
+// Normalize the glob textarea: trim each line and drop blank ones. `#` comment
+// lines are kept so user annotations survive a save round-trip — the server's
+// resolveExcludeGlobs ignores them at filter time.
+function cleanGlobs(globs: string[]): string[] {
+  return globs.map((g) => g.trim()).filter((g) => g.length > 0)
+}
+
+function globsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((v, i) => v === b[i])
+}
+
 function isDirty(server: AppConfig, draft: AppConfig): boolean {
   return (
     server.port !== draft.port ||
@@ -46,7 +66,8 @@ function isDirty(server: AppConfig, draft: AppConfig): boolean {
     server.stallMinutes !== draft.stallMinutes ||
     server.defaultAgent !== draft.defaultAgent ||
     server.perPRGCDays !== draft.perPRGCDays ||
-    server.language !== draft.language
+    server.language !== draft.language ||
+    !globsEqual(cleanGlobs(server.reviewExcludeGlobs), cleanGlobs(draft.reviewExcludeGlobs))
   )
 }
 
@@ -135,7 +156,9 @@ export function Settings() {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        if (dirty && !hasErrors && !saveMut.isPending) saveMut.mutate(draft)
+        if (dirty && !hasErrors && !saveMut.isPending) {
+          saveMut.mutate({ ...draft, reviewExcludeGlobs: cleanGlobs(draft.reviewExcludeGlobs) })
+        }
       }}
       className="px-8 py-10 mx-auto max-w-2xl space-y-10"
     >
@@ -277,6 +300,21 @@ export function Settings() {
             value={Number.isFinite(draft.port) ? draft.port : ''}
             onChange={numericChange('port')}
             tone={errors.port ? 'error' : 'default'}
+          />
+        </Field>
+
+        <Field
+          label={t('settings.reviewExcludeGlobs.label')}
+          htmlFor="cfg-reviewExcludeGlobs"
+          hint={t('settings.reviewExcludeGlobs.hint')}
+        >
+          <TextArea
+            id="cfg-reviewExcludeGlobs"
+            rows={6}
+            spellCheck={false}
+            placeholder={t('settings.reviewExcludeGlobs.placeholder')}
+            value={draft.reviewExcludeGlobs.join('\n')}
+            onChange={(e) => set('reviewExcludeGlobs', e.currentTarget.value.split('\n'))}
           />
         </Field>
       </section>

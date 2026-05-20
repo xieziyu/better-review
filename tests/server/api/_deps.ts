@@ -49,6 +49,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     defaultAgent: 'claude',
     perPRGCDays: 1,
     language: 'en',
+    reviewExcludeGlobs: [],
   }
   const defaultDelete = makeDeleteSession({
     db,

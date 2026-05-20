@@ -50,6 +50,9 @@ importers:
       open:
         specifier: ^10.1.0
         version: 10.2.0
+      picomatch:
+        specifier: ^4.0.4
+        version: 4.0.4
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -96,6 +99,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      '@types/picomatch':
+        specifier: ^4.0.3
+        version: 4.0.3
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.28
@@ -1113,6 +1119,9 @@ packages:
 
   '@types/node@22.19.17':
     resolution: {integrity: sha512-wGdMcf+vPYM6jikpS/qhg6WiqSV/OhG+jeeHT/KlVqxYfD40iYJf9/AE1uQxVWFvU7MipKRkRv8NSHiCGgPr8Q==}
+
+  '@types/picomatch@4.0.3':
+    resolution: {integrity: sha512-iG0T6+nYJ9FAPmx9SsUlnwcq1ZVRuCXcVEvWnntoPlrOpwtSTKNDC9uVAxTsC3PUvJ+99n4RpAcNgBbHX3JSnQ==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -3434,6 +3443,8 @@ snapshots:
   '@types/node@22.19.17':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/picomatch@4.0.3': {}
 
   '@types/prop-types@15.7.15': {}
 

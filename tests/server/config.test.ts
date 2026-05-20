@@ -40,6 +40,17 @@ describe('loadConfig', () => {
     writeFileSync(join(home, 'config.json'), JSON.stringify({ port: 1 }))
     expect(['en', 'zh-CN']).toContain(loadConfig(home).language)
   })
+  it('defaults reviewExcludeGlobs to an empty array when the field is missing', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ port: 1 }))
+    expect(loadConfig(home).reviewExcludeGlobs).toEqual([])
+  })
+  it('round-trips custom reviewExcludeGlobs entries', () => {
+    writeFileSync(
+      join(home, 'config.json'),
+      JSON.stringify({ reviewExcludeGlobs: ['*.generated.ts', 'docs/api/**'] }),
+    )
+    expect(loadConfig(home).reviewExcludeGlobs).toEqual(['*.generated.ts', 'docs/api/**'])
+  })
   it('round-trips a zh-CN language setting', () => {
     writeFileSync(join(home, 'config.json'), JSON.stringify({ language: 'zh-CN' }))
     expect(loadConfig(home).language).toBe('zh-CN')

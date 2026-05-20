@@ -169,6 +169,7 @@ sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、finding
 | `defaultAgent`         | `"codex"`            | 可选 `"codex"` / `"claude"` / `"pi"`；没显式写过这个字段时，若配置的 CLI 没装，会自动回落到已装的第一个    |
 | `perPRGCDays`          | `7`                  | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC                                                   |
 | `language`             | 自动（`en` / `zh-CN`） | UI 和内置 prompt 的语言，首次启动按 `LANG` / `LC_ALL` / 系统 locale 自动选                                 |
+| `reviewExcludeGlobs`   | `[]`                 | 额外 glob 列表，匹配到的文件会在内置 lockfile / 生成文件默认规则之外，额外从评审 agent 的 prompt 中移除以省 token；不影响 Files Changed 视图 |
 
 ## 开发
 

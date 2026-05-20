@@ -245,6 +245,11 @@
       "label": "Port",
       "hint": "0 lets the OS pick. Otherwise a free port between 1 and 65535."
     },
+    "reviewExcludeGlobs": {
+      "label": "Review-exclude globs",
+      "hint": "One glob per line. Matching files are dropped from the review agent's prompt to save tokens, on top of built-in lockfile and generated-file defaults. Does not affect the Files Changed view.",
+      "placeholder": "e.g. *.generated.ts"
+    },
     "restartRequired": "restart required"
   },
   "prdetail": {

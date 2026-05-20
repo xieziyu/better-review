@@ -38,6 +38,7 @@ describe('prompts API', () => {
         defaultAgent: 'claude',
         perPRGCDays: 1,
         language: 'zh-CN',
+        reviewExcludeGlobs: [],
       },
     })
     const app = createApp(d)
