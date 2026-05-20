@@ -1,11 +1,13 @@
 import { AGENT_KINDS, type HealthStatus } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
+import { Check, Copy } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AgentRow, PresenceMark } from '@/components/AgentList'
 import { Tag } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
+import { copyTextToClipboard } from '@/lib/export-clipboard'
 import { useUptime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -137,19 +139,25 @@ function DaemonPopover({ data, now }: { data: HealthStatus; now: number }) {
 
       <Section label={t('daemon.paths')} last>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 min-w-0">
-          <dt className="text-meta text-ink-muted">{t('daemon.home')}</dt>
-          <dd
-            className="font-mono text-code text-ink-secondary truncate min-w-0"
-            title={data.daemon.home}
-          >
-            {data.daemon.home}
+          <dt className="text-meta text-ink-muted self-center">{t('daemon.home')}</dt>
+          <dd className="flex items-center gap-2 min-w-0">
+            <span
+              className="font-mono text-code text-ink-secondary truncate min-w-0 flex-1"
+              title={data.daemon.home}
+            >
+              {data.daemon.home}
+            </span>
+            <CopyPathButton value={data.daemon.home} />
           </dd>
-          <dt className="text-meta text-ink-muted">{t('daemon.log')}</dt>
-          <dd
-            className="font-mono text-code text-ink-secondary truncate min-w-0"
-            title={data.daemon.logPath}
-          >
-            {data.daemon.logPath}
+          <dt className="text-meta text-ink-muted self-center">{t('daemon.log')}</dt>
+          <dd className="flex items-center gap-2 min-w-0">
+            <span
+              className="font-mono text-code text-ink-secondary truncate min-w-0 flex-1"
+              title={data.daemon.logPath}
+            >
+              {data.daemon.logPath}
+            </span>
+            <CopyPathButton value={data.daemon.logPath} />
           </dd>
         </dl>
       </Section>
@@ -179,4 +187,40 @@ function GhAuthTag({ found, authed }: { found: boolean; authed: boolean }) {
   if (!found) return <Tag tone="danger">{t('daemon.missing')}</Tag>
   if (!authed) return <Tag tone="warning">{t('daemon.notAuthed')}</Tag>
   return <Tag tone="success">{t('daemon.authed')}</Tag>
+}
+
+function CopyPathButton({ value }: { value: string }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const onCopy = async () => {
+    try {
+      await copyTextToClipboard(value)
+      setCopied(true)
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  const label = copied ? t('daemon.copied') : t('daemon.copy')
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onCopy}
+      className="inline-flex items-center justify-center size-5 shrink-0 rounded text-ink-muted hover:text-ink-primary hover:bg-raised transition-colors duration-180 ease-out-quart focus:outline-none focus-visible:border focus-visible:border-brand"
+    >
+      {copied ? (
+        <Check size={12} aria-hidden="true" className="text-accent-ready" />
+      ) : (
+        <Copy size={12} aria-hidden="true" />
+      )}
+    </button>
+  )
 }
