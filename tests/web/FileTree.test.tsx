@@ -21,13 +21,19 @@ function mkFile(path: string, opts: MkFileOpts = {}): FileSummary {
     additions: opts.additions ?? 1,
     deletions: opts.deletions ?? 0,
     hunks: [] as HunkData[],
-    fileData: { type: opts.status ?? 'modify', oldPath: path, newPath: path, hunks: [] } as FileData,
+    fileData: {
+      type: opts.status ?? 'modify',
+      oldPath: path,
+      newPath: path,
+      hunks: [],
+    } as FileData,
   }
 }
 
-function mkCtx(
-  entries: Array<{ file: string; count?: number; severities?: Severity[] }> = [],
-): { countsByFile: Map<string, number>; severitiesByFile: Map<string, Set<Severity>> } {
+function mkCtx(entries: Array<{ file: string; count?: number; severities?: Severity[] }> = []): {
+  countsByFile: Map<string, number>
+  severitiesByFile: Map<string, Set<Severity>>
+} {
   const counts = new Map<string, number>()
   const sevs = new Map<string, Set<Severity>>()
   for (const e of entries) {
@@ -55,9 +61,11 @@ function renderTree(
     selectedPath?: string | null
     countsByFile?: Map<string, number>
     severitiesByFile?: Map<string, Set<Severity>>
+    viewedPaths?: Set<string>
   } = {},
 ) {
   const ctx = mkCtx()
+  const viewedPaths = opts.viewedPaths ?? new Set<string>()
   return render(
     <FileTree
       files={files}
@@ -65,6 +73,8 @@ function renderTree(
       onSelect={() => {}}
       severitiesByFile={opts.severitiesByFile ?? ctx.severitiesByFile}
       countsByFile={opts.countsByFile ?? ctx.countsByFile}
+      viewedPaths={viewedPaths}
+      viewedCount={viewedPaths.size}
       sessionId={opts.sessionId ?? SESSION_ID}
     />,
   )
@@ -141,8 +151,7 @@ describe('FileTree path compression', () => {
     expect(labels).toContain('Makefile, folder')
     // The standalone file row has no aria-label; verify by text content.
     const standaloneFile = buttons.find(
-      (b) =>
-        b.getAttribute('aria-expanded') == null && (b.textContent ?? '').endsWith('−12'),
+      (b) => b.getAttribute('aria-expanded') == null && (b.textContent ?? '').endsWith('−12'),
     )
     expect(standaloneFile).toBeDefined()
     expect(standaloneFile!.textContent).toContain('Makefile')
@@ -153,10 +162,7 @@ describe('FileTree path compression', () => {
 
 describe('FileTree collapse persistence', () => {
   it('persists collapse across remounts with the same sessionId', () => {
-    const { unmount } = renderTree([
-      mkFile('src/a/A.tsx'),
-      mkFile('src/a/B.tsx'),
-    ])
+    const { unmount } = renderTree([mkFile('src/a/A.tsx'), mkFile('src/a/B.tsx')])
     // src/a/ merges into a single folder row with two children.
     const folder = getFolderItem('src/a')
     expect(folder).toHaveAttribute('aria-expanded', 'true')
@@ -175,10 +181,9 @@ describe('FileTree collapse persistence', () => {
   })
 
   it('isolates collapse state by sessionId', () => {
-    const { unmount } = renderTree(
-      [mkFile('src/a/A.tsx'), mkFile('src/a/B.tsx')],
-      { sessionId: 'session-A' },
-    )
+    const { unmount } = renderTree([mkFile('src/a/A.tsx'), mkFile('src/a/B.tsx')], {
+      sessionId: 'session-A',
+    })
     fireEvent.click(getFolderItem('src/a'))
     expect(getFolderItem('src/a')).toHaveAttribute('aria-expanded', 'false')
     unmount()
@@ -245,12 +250,37 @@ describe('FileTree collapsed folder aggregates', () => {
   })
 })
 
+describe('FileTree viewed state', () => {
+  it('renders a viewed indicator on rows whose path is in viewedPaths', () => {
+    renderTree([mkFile('src/a.ts'), mkFile('src/b.ts')], {
+      viewedPaths: new Set(['src/a.ts']),
+    })
+    expect(screen.getAllByLabelText('Marked as viewed')).toHaveLength(1)
+  })
+
+  it('shows the viewed progress counter', () => {
+    renderTree([mkFile('src/a.ts'), mkFile('src/b.ts'), mkFile('src/c.ts')], {
+      viewedPaths: new Set(['src/a.ts']),
+    })
+    expect(screen.getByText('1 / 3 viewed')).toBeInTheDocument()
+  })
+
+  it('removes viewed files from the tree when "Hide viewed" is toggled on', () => {
+    renderTree([mkFile('with/a.ts'), mkFile('without/b.ts')], {
+      viewedPaths: new Set(['with/a.ts']),
+    })
+    expect(screen.getByText(/a\.ts/)).toBeInTheDocument()
+    expect(screen.getByText(/b\.ts/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText(/Hide viewed/i))
+    expect(screen.queryByText(/a\.ts/)).toBeNull()
+    expect(screen.getByText(/b\.ts/)).toBeInTheDocument()
+  })
+})
+
 describe('FileTree onlyWithFindings filter', () => {
   it('hides folders whose subtree contains no findings when toggled on', () => {
-    const files = [
-      mkFile('with/a.ts'),
-      mkFile('without/b.ts'),
-    ]
+    const files = [mkFile('with/a.ts'), mkFile('without/b.ts')]
     const counts = new Map<string, number>([['with/a.ts', 1]])
     const sevs = new Map<string, Set<Severity>>([['with/a.ts', new Set<Severity>(['must'])]])
     renderTree(files, { countsByFile: counts, severitiesByFile: sevs })

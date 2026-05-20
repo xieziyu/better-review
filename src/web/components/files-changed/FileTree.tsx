@@ -1,4 +1,5 @@
 import type { Severity } from '@shared/findings-schema'
+import { Check } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -22,6 +23,10 @@ interface Props {
   severitiesByFile: Map<string, Set<Severity>>
   /** Per-file total finding counts; used by the "only with findings" filter. */
   countsByFile: Map<string, number>
+  /** Canonical paths the reviewer marked as viewed; drives the row check + dim. */
+  viewedPaths: Set<string>
+  /** Total viewed count for the progress indicator. */
+  viewedCount: number
   /** Used to scope the persisted collapse state to this PR. */
   sessionId: string
 }
@@ -59,21 +64,25 @@ export function FileTree({
   onSelect,
   severitiesByFile,
   countsByFile,
+  viewedPaths,
+  viewedCount,
   sessionId,
 }: Props) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [onlyWithFindings, setOnlyWithFindings] = useState(false)
+  const [hideViewed, setHideViewed] = useState(false)
   const collapsed = useCollapsedFolders(sessionId)
 
   const filteredFiles = useMemo(() => {
     const q = filter.trim().toLowerCase()
     return files.filter((f) => {
       if (onlyWithFindings && (countsByFile.get(f.path) ?? 0) === 0) return false
+      if (hideViewed && viewedPaths.has(f.path)) return false
       if (!q) return true
       return f.path.toLowerCase().includes(q)
     })
-  }, [files, filter, onlyWithFindings, countsByFile])
+  }, [files, filter, onlyWithFindings, hideViewed, viewedPaths, countsByFile])
 
   const tree = useMemo(
     () => buildFileTree(filteredFiles, { countsByFile, severitiesByFile }),
@@ -108,23 +117,31 @@ export function FileTree({
           className="w-full bg-sunken border border-rule rounded px-2 py-1 text-meta text-ink-primary placeholder:text-ink-muted"
           aria-label={t('filesChanged.filterPlaceholder')}
         />
-        <label className="flex items-center gap-2 text-meta text-ink-secondary cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={onlyWithFindings}
-            onChange={(e) => setOnlyWithFindings(e.target.checked)}
-          />
-          {t('filesChanged.onlyWithFindings')}
-        </label>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <label className="flex items-center gap-2 text-meta text-ink-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyWithFindings}
+              onChange={(e) => setOnlyWithFindings(e.target.checked)}
+            />
+            {t('filesChanged.onlyWithFindings')}
+          </label>
+          <label className="flex items-center gap-2 text-meta text-ink-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hideViewed}
+              onChange={(e) => setHideViewed(e.target.checked)}
+            />
+            {t('filesChanged.viewed.hideViewed')}
+          </label>
+        </div>
       </div>
       <ul
         aria-label={t('filesChanged.tree.ariaTree')}
         className="flex-1 min-h-0 overflow-y-auto py-1"
       >
         {visibleRows.length === 0 ? (
-          <li className="px-3 py-4 text-meta text-ink-muted">
-            {t('filesChanged.noMatch')}
-          </li>
+          <li className="px-3 py-4 text-meta text-ink-muted">{t('filesChanged.noMatch')}</li>
         ) : (
           visibleRows.map((row) => (
             // Namespace the key by row kind so a folder and a file with the
@@ -134,16 +151,22 @@ export function FileTree({
               key={`${row.kind}:${row.node.path}`}
               row={row}
               selectedPath={selectedPath}
+              viewedPaths={viewedPaths}
               onSelectFile={onSelect}
               onToggleFolder={collapsed.toggle}
             />
           ))
         )}
       </ul>
-      <div className="shrink-0 px-3 py-2 border-t border-rule text-[11px] text-ink-muted font-mono">
-        {t('filesChanged.fileCount', { count: files.length })}{' '}
-        <span className="text-[color:var(--accent-ready)]">+{totalAdditions}</span>{' '}
-        <span className="text-[color:var(--severity-must)]">−{totalDeletions}</span>
+      <div className="shrink-0 px-3 py-2 border-t border-rule text-[11px] text-ink-muted font-mono flex items-center justify-between gap-2">
+        <span>
+          {t('filesChanged.fileCount', { count: files.length })}{' '}
+          <span className="text-[color:var(--accent-ready)]">+{totalAdditions}</span>{' '}
+          <span className="text-[color:var(--severity-must)]">−{totalDeletions}</span>
+        </span>
+        <span className="tabular-nums shrink-0">
+          {t('filesChanged.viewed.progress', { viewed: viewedCount, total: files.length })}
+        </span>
       </div>
     </div>
   )
@@ -152,11 +175,12 @@ export function FileTree({
 interface RowProps {
   row: VisibleRow
   selectedPath: string | null
+  viewedPaths: Set<string>
   onSelectFile: (path: string) => void
   onToggleFolder: (path: string) => void
 }
 
-function Row({ row, selectedPath, onSelectFile, onToggleFolder }: RowProps) {
+function Row({ row, selectedPath, viewedPaths, onSelectFile, onToggleFolder }: RowProps) {
   if (row.kind === 'folder') {
     return (
       <FolderRowItem
@@ -170,6 +194,7 @@ function Row({ row, selectedPath, onSelectFile, onToggleFolder }: RowProps) {
     <FileRowItem
       node={row.node}
       isSelected={row.node.path === selectedPath}
+      isViewed={viewedPaths.has(row.node.path)}
       onSelect={() => onSelectFile(row.node.path)}
     />
   )
@@ -273,7 +298,11 @@ function FolderRowItem({
         aria-expanded={isOpen}
         onClick={onToggle}
         aria-label={buttonLabel}
-        title={isOpen ? t('filesChanged.tree.ariaToggleCollapse', { path: node.path }) : t('filesChanged.tree.ariaToggleExpand', { path: node.path })}
+        title={
+          isOpen
+            ? t('filesChanged.tree.ariaToggleCollapse', { path: node.path })
+            : t('filesChanged.tree.ariaToggleExpand', { path: node.path })
+        }
         className="w-full py-1.5 pr-3 flex items-center gap-2 text-left transition-colors duration-180 ease-out-quart text-ink-secondary hover:bg-[color:color-mix(in_oklch,var(--brand)_6%,transparent)]"
         style={{ paddingLeft }}
       >
@@ -297,12 +326,15 @@ function FolderRowItem({
 function FileRowItem({
   node,
   isSelected,
+  isViewed,
   onSelect,
 }: {
   node: FileNode
   isSelected: boolean
+  isViewed: boolean
   onSelect: () => void
 }) {
+  const { t } = useTranslation()
   const { file, aggregate } = node
   const paddingLeft = node.depth * INDENT_PX + ROW_BASE_PX
   return (
@@ -316,6 +348,8 @@ function FileRowItem({
           isSelected
             ? 'bg-[color:color-mix(in_oklch,var(--brand)_12%,transparent)] text-ink-primary'
             : 'hover:bg-[color:color-mix(in_oklch,var(--brand)_6%,transparent)] text-ink-secondary',
+          // Dim viewed rows, but never the active file so it stays legible.
+          isViewed && !isSelected ? 'opacity-60' : '',
         )}
         style={{ paddingLeft }}
       >
@@ -331,6 +365,14 @@ function FileRowItem({
           trailingSlash={false}
         />
         <SeverityDots severities={aggregate.severities} />
+        {isViewed ? (
+          <span
+            aria-label={t('filesChanged.viewed.rowAria')}
+            className="shrink-0 inline-flex text-[color:var(--accent-ready)]"
+          >
+            <Check className="h-3 w-3" aria-hidden="true" />
+          </span>
+        ) : null}
         <DiffStat additions={file.additions} deletions={file.deletions} />
       </button>
     </li>

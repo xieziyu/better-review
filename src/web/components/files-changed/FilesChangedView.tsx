@@ -12,6 +12,7 @@ import {
 } from '@/lib/diff-utils'
 import { useSelectedFinding } from '@/lib/selection'
 import { useResizable } from '@/lib/use-resizable'
+import { useViewedFiles } from '@/lib/use-viewed-files'
 import { cn } from '@/lib/utils'
 
 import { FileDiffPane } from './FileDiffPane'
@@ -87,6 +88,7 @@ export function FilesChangedView({
     [findings, aliasMap],
   )
   const [expandedFindingIds, setExpandedFindingIds] = useState<Set<string>>(() => new Set())
+  const viewed = useViewedFiles(session.id)
 
   // Pin the selection to a valid file when the diff arrives or the file list
   // changes. `files` length === 0 is handled below. Normalize through the
@@ -156,6 +158,22 @@ export function FilesChangedView({
     onOpenFindingInPanel(dbId)
   }
 
+  const toggleViewed = (path: string): void => {
+    const wasViewed = viewed.isViewed(path)
+    viewed.toggle(path)
+    // Auto-advance: when *marking* the currently-selected file viewed, jump to
+    // the next unviewed file (search forward in diff order, then wrap). Skip on
+    // un-viewing. `viewed.isViewed` reads the pre-toggle snapshot here, which is
+    // fine — the search set excludes `path` itself.
+    if (!wasViewed && path === effectivePath) {
+      const idx = files.findIndex((f) => f.path === path)
+      if (idx === -1) return
+      const ordered = [...files.slice(idx + 1), ...files.slice(0, idx)]
+      const next = ordered.find((f) => !viewed.isViewed(f.path))
+      if (next) onSelectPath(next.path)
+    }
+  }
+
   return (
     <div className="flex flex-1 min-h-0">
       <div
@@ -168,6 +186,8 @@ export function FilesChangedView({
           onSelect={onSelectPath}
           severitiesByFile={severitiesByFile}
           countsByFile={countsByFile}
+          viewedPaths={viewed.viewed}
+          viewedCount={viewed.viewedCount}
           sessionId={session.id}
         />
         <div
@@ -188,6 +208,8 @@ export function FilesChangedView({
             onToggleFinding={toggleFinding}
             onOpenInPanel={openInPanel}
             fileUrl={githubFileLink(session)}
+            isViewed={viewed.isViewed(selectedFile.path)}
+            onToggleViewed={readOnly ? () => {} : () => toggleViewed(selectedFile.path)}
             readOnly={readOnly}
           />
         ) : null}

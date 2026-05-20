@@ -92,6 +92,12 @@
       "ariaToggleCollapse": "折叠目录 {{path}}",
       "ariaToggleExpand": "展开目录 {{path}}"
     },
+    "viewed": {
+      "toggle": "已查看",
+      "rowAria": "已标记为已查看",
+      "progress": "已查看 {{viewed}} / {{total}}",
+      "hideViewed": "隐藏已查看"
+    },
     "resizeAria": "调整文件树宽度",
     "fileCount_one": "{{count}} 个文件",
     "fileCount_other": "{{count}} 个文件",
