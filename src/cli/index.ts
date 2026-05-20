@@ -115,21 +115,24 @@ async function cmdUpdate(opts: { pm?: string }): Promise<void> {
     throw new Error(`install failed: ${(e as Error).message}`, { cause: e })
   }
 
-  // Restart the daemon so the freshly installed code takes effect. The bin
-  // path is unchanged after a reinstall, so spawnDetached picks up the new
-  // dist/server/index.js.
-  const paths = resolvePaths()
-  const existing = readServerJson(paths.home)
-  if (existing) {
-    await stopDaemon(existing, paths)
-    const fresh = await ensureDaemon({
-      home: paths.home,
-      spawnFn: spawnDetached(paths),
-      errorHint: paths.daemonStderr,
-    })
-    process.stdout.write(`updated to v${latest}; daemon restarted (pid=${fresh.pid})\n`)
-  } else {
+  // Restart the daemon so the freshly installed code takes effect. This
+  // process resolved its daemon-script path from the OLD install location at
+  // startup; for pnpm/yarn/bun that location moves to a new versioned store
+  // directory on upgrade, so spawning from the cached path would relaunch the
+  // stale daemon (or fail). Re-exec the CLI by name instead — PATH always
+  // resolves `better-review` to the version that was just installed.
+  const wasRunning = readServerJson(resolvePaths().home) !== null
+  if (!wasRunning) {
     process.stdout.write(`updated to v${latest}\n`)
+    return
+  }
+  process.stdout.write(`updated to v${latest}; restarting daemon…\n`)
+  try {
+    await execa('better-review', ['restart'], { stdio: 'inherit' })
+  } catch {
+    process.stdout.write(
+      `daemon not restarted automatically — run \`better-review restart\` to use v${latest}\n`,
+    )
   }
 }
 
