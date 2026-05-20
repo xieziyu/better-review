@@ -87,7 +87,11 @@ You can also pass the URL directly on the CLI — it opens the UI at that PR wit
 
 ### Triage findings
 
-The PR detail page opens on the **Files changed** tab — a hierarchical, path-compressed tree of the touched files with the unified diff on the right and finding cards inlined at the relevant hunks. The flat **Findings** tab is one click away when you want to step through the full list with the Inspector pane open.
+The PR detail page has three tabs — **Summary**, **Findings**, and **Files changed**. A finished review opens on **Summary**; while the agent is still working it opens on **Files changed** so you can preview the diff as it streams.
+
+The **Summary** tab is a one-screen report: change stats, an agent-written overview of what the PR actually does, a curated list of files the agent recommends you review by hand (plus any file carrying a `must` finding), and a per-file **coverage table** — what was reviewed, what came back clean, what needs attention, and what was dropped from the review entirely (lockfiles, build output, snapshots; see the `reviewExcludeGlobs` config option). Click any file to jump straight to it in **Files changed**. The overview waits on the agent; the stats and coverage table are derived and render even mid-run.
+
+The **Files changed** tab is a hierarchical, path-compressed tree of the touched files with the unified diff on the right and finding cards inlined at the relevant hunks. The flat **Findings** tab steps through the full list with the Inspector pane open.
 
 Each finding renders with:
 
@@ -155,7 +159,7 @@ state.db                  # SQLite — sessions / findings / submissions / submi
 daemon.log                # structured server logs
 review.md                 # global rule overrides (optional)
 codex-home/               # isolated CODEX_HOME used when running codex (see below)
-sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, agent.log, prompt.txt, prep.log
+sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, summary.json, agent.log, prompt.txt, prep.log
 ```
 
 **Why `codex-home/`?** The codex CLI records a `[projects."<cwd>"] trust_level = "trusted"` entry into its `config.toml` every time it runs in a new directory. better-review uses a fresh per-session workdir, which would otherwise grow your real `~/.codex/config.toml` by one block per review. To avoid that, the daemon points codex at `~/.better-review/codex-home/` via the `CODEX_HOME` environment variable — your real `~/.codex` stays untouched. The directory is seeded from your real `~/.codex/config.toml` (minus `[projects.*]` sections); `auth.json` is symlinked when present, so file-based credentials carry over (macOS keychain users need no extra setup).

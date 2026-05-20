@@ -28,6 +28,10 @@ export interface PromptVars {
   diff: string
   findingsPath: string
   schemaJson: string
+  // Absolute path the agent must write its review summary (`summary.json`) to,
+  // and a plain-text description of that file's schema.
+  summaryPath: string
+  summarySchema: string
   // Source context the agent will read alongside the diff. `kind` selects
   // which `{{#SOURCE:<kind>}}…{{/SOURCE}}` block survives rendering; the
   // matching values flow into `{{SOURCE_PATH}}`, `{{SOURCE_KIND}}`, and
@@ -172,6 +176,8 @@ export function renderPrompt(framework: string, vars: PromptVars): string {
     .replaceAll('{{DIFF}}', vars.diff)
     .replaceAll('{{FINDINGS_PATH}}', vars.findingsPath)
     .replaceAll('{{SCHEMA}}', vars.schemaJson)
+    .replaceAll('{{SUMMARY_PATH}}', vars.summaryPath)
+    .replaceAll('{{SUMMARY_SCHEMA}}', vars.summarySchema)
     .replaceAll('{{SOURCE_KIND}}', vars.sourceKind ?? 'none')
     .replaceAll('{{SOURCE_PATH}}', vars.sourcePath ?? '')
     .replaceAll('{{HEAD_SHA}}', vars.headSha ?? '')

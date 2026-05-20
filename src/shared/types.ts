@@ -1,4 +1,15 @@
 import type { FindingFromAgent, Severity } from './findings-schema'
+import type { ReviewSummaryFromAgent } from './summary-schema'
+
+export type { ReviewSummaryFromAgent, ManualReviewItem } from './summary-schema'
+
+// One file dropped from the review-agent diff by the skip-review globs (see
+// `engine/diff-filter.ts`). `glob` is the pattern that matched — shown in the
+// Summary tab so the reviewer knows *why* the agent never saw the file.
+export interface ExcludedFile {
+  path: string
+  glob: string
+}
 
 export type SessionStatus =
   | 'running'
@@ -49,6 +60,13 @@ export interface PRSession {
   extraPrompt: string | null
   headSha: string | null
   error: string | null
+  // The agent-written review summary (`summary.json`). Null until the agent
+  // produces it — and stays null for old sessions / non-compliant agents, in
+  // which case the Summary tab still renders its derived stats + coverage.
+  reviewSummary: ReviewSummaryFromAgent | null
+  // Files dropped from the review-agent diff by the skip-review globs,
+  // captured at prep time. Empty when nothing was excluded.
+  excludedFiles: ExcludedFile[]
 }
 
 export interface RecentRepo {
@@ -154,6 +172,7 @@ export type SSEEvent =
     }
   | { type: 'finding-added'; sessionId: string; finding: Finding }
   | { type: 'finding-updated'; sessionId: string; finding: Finding }
+  | { type: 'summary-generated'; sessionId: string; summary: ReviewSummaryFromAgent }
   | { type: 'status-changed'; sessionId: string; status: SessionStatus; error?: string }
   | { type: 'error'; sessionId: string; message: string }
   | { type: 'done'; sessionId: string }

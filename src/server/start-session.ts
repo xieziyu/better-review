@@ -293,9 +293,12 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   const excludeGlobs = resolveExcludeGlobs(deps.getConfig().reviewExcludeGlobs)
   const filtered = filterDiffByGlobs(diff.unifiedDiff, excludeGlobs)
   const diffForAgent = chooseDiffForAgent(diff.unifiedDiff, filtered)
+  // Persist the exclusions so the Summary tab can show what the agent never
+  // saw, even on a daemon restart.
+  deps.sessions.setExcludedFiles(id, filtered.excludedFiles)
   if (filtered.excludedFiles.length > 0) {
     const phase = priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt
-    const files = filtered.excludedFiles.join(', ')
+    const files = filtered.excludedFiles.map((f) => f.path).join(', ')
     // chooseDiffForAgent falls back to the raw diff when every file matched a
     // glob — in that case nothing was actually removed from the prompt, so the
     // log must not claim otherwise.
@@ -325,6 +328,9 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     findingsPath: join(workdir, 'findings.json'),
     schemaJson:
       'Array of finding objects with fields: id, severity, category, file, line, title, body, suggestion?',
+    summaryPath: join(workdir, 'summary.json'),
+    summarySchema:
+      'A single JSON object with fields: overview (string, a short markdown description of the main changes), manualReview (array of objects with fields: file (string repo-relative path, or null for a PR-wide note) and reason (string))',
     sourceKind: source.kind,
     sourcePath: source.sourcePath,
     headSha: source.headSha,

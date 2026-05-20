@@ -38,6 +38,8 @@ const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
   promptUsed: '',
   extraPrompt: null,
   headSha: null,
+  reviewSummary: null,
+  excludedFiles: [],
   error: null,
   ...overrides,
 })

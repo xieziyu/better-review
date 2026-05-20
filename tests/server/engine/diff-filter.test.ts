@@ -108,7 +108,7 @@ describe('filterDiffByGlobs', () => {
     const raw = modifyBlock('src/foo.ts') + modifyBlock('src/bar.ts')
     const out = filterDiffByGlobs(raw, ALL)
     expect(out.filteredDiff).toBe(raw)
-    expect(out.excludedFiles).toEqual([])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual([])
     expect(out.keptFiles).toEqual(['src/foo.ts', 'src/bar.ts'])
   })
 
@@ -116,21 +116,21 @@ describe('filterDiffByGlobs', () => {
     const raw = modifyBlock('pnpm-lock.yaml')
     const out = filterDiffByGlobs(raw, ALL)
     expect(out.filteredDiff).toBe('')
-    expect(out.excludedFiles).toEqual(['pnpm-lock.yaml'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['pnpm-lock.yaml'])
     expect(out.keptFiles).toEqual([])
   })
 
   it('drops a nested lockfile matched by the bare basename pattern', () => {
     const raw = modifyBlock('apps/web/pnpm-lock.yaml')
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['apps/web/pnpm-lock.yaml'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['apps/web/pnpm-lock.yaml'])
     expect(out.filteredDiff).toBe('')
   })
 
   it('matches `*.min.js` at the repo root and when nested', () => {
     const raw = modifyBlock('app.min.js') + modifyBlock('public/vendor/lib.min.js')
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['app.min.js', 'public/vendor/lib.min.js'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['app.min.js', 'public/vendor/lib.min.js'])
     expect(out.filteredDiff).toBe('')
   })
 
@@ -138,7 +138,7 @@ describe('filterDiffByGlobs', () => {
     const kept = modifyBlock('distfoo/keep.ts')
     const raw = modifyBlock('packages/ui/dist/bundle.js') + kept
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['packages/ui/dist/bundle.js'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['packages/ui/dist/bundle.js'])
     expect(out.keptFiles).toEqual(['distfoo/keep.ts'])
     expect(out.filteredDiff).toBe(kept)
   })
@@ -149,7 +149,7 @@ describe('filterDiffByGlobs', () => {
     const raw = a + modifyBlock('pnpm-lock.yaml') + b
     const out = filterDiffByGlobs(raw, ALL)
     expect(out.filteredDiff).toBe(a + b)
-    expect(out.excludedFiles).toEqual(['pnpm-lock.yaml'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['pnpm-lock.yaml'])
     expect(out.keptFiles).toEqual(['src/a.ts', 'src/b.ts'])
   })
 
@@ -163,14 +163,14 @@ describe('filterDiffByGlobs', () => {
   it('resolves a pure-deletion path from the `--- a/` header', () => {
     const raw = deleteBlock('yarn.lock')
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['yarn.lock'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['yarn.lock'])
     expect(out.filteredDiff).toBe('')
   })
 
   it('resolves a rename-only block path from the `rename to` line', () => {
     const raw = renameBlock('src/old.ts', 'src/new.generated.ts')
     const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['*.generated.ts']))
-    expect(out.excludedFiles).toEqual(['src/new.generated.ts'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['src/new.generated.ts'])
     expect(out.filteredDiff).toBe('')
   })
 
@@ -179,7 +179,7 @@ describe('filterDiffByGlobs', () => {
     // invert into "exclude everything else" — it should simply match nothing.
     const raw = modifyBlock('src/app.ts') + modifyBlock('src/util.ts')
     const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['!src/generated/**']))
-    expect(out.excludedFiles).toEqual([])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual([])
     expect(out.keptFiles).toEqual(['src/app.ts', 'src/util.ts'])
     expect(out.filteredDiff).toBe(raw)
   })
@@ -187,7 +187,7 @@ describe('filterDiffByGlobs', () => {
   it('honours a user-supplied glob on top of the built-ins', () => {
     const raw = modifyBlock('src/schema.generated.ts') + modifyBlock('src/keep.ts')
     const out = filterDiffByGlobs(raw, resolveExcludeGlobs(['*.generated.ts']))
-    expect(out.excludedFiles).toEqual(['src/schema.generated.ts'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['src/schema.generated.ts'])
     expect(out.keptFiles).toEqual(['src/keep.ts'])
   })
 
@@ -199,15 +199,28 @@ describe('filterDiffByGlobs', () => {
     const qb = '"b/\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml"'
     const raw = modifyBlockWithHeaders(`diff --git ${qa} ${qb}`, `--- ${qa}`, `+++ ${qb}`)
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual([
+      '\\345\\272\\224\\347\\224\\250/pnpm-lock.yaml',
+    ])
     expect(out.filteredDiff).toBe('')
   })
 
   it('extracts a path containing spaces from the `+++` header', () => {
     const raw = modifyBlock('docs/my notes.snap')
     const out = filterDiffByGlobs(raw, ALL)
-    expect(out.excludedFiles).toEqual(['docs/my notes.snap'])
+    expect(out.excludedFiles.map((f) => f.path)).toEqual(['docs/my notes.snap'])
     expect(out.filteredDiff).toBe('')
+  })
+
+  it('tags each excluded file with the glob that matched it', () => {
+    const raw =
+      modifyBlock('pnpm-lock.yaml') + modifyBlock('app.min.js') + modifyBlock('src/keep.ts')
+    const out = filterDiffByGlobs(raw, ALL)
+    expect(out.excludedFiles).toEqual([
+      { path: 'pnpm-lock.yaml', glob: 'pnpm-lock.yaml' },
+      { path: 'app.min.js', glob: '*.min.js' },
+    ])
+    expect(out.keptFiles).toEqual(['src/keep.ts'])
   })
 })
 

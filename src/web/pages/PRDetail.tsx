@@ -26,6 +26,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ExportPopover } from '@/components/ExportPopover'
 import { FilesChangedView } from '@/components/files-changed/FilesChangedView'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
+import { ReviewSummary } from '@/components/ReviewSummary'
 import { RunStrip } from '@/components/RunStrip'
 import { SubmitDrawer } from '@/components/SubmitDrawer'
 import { TranscriptDrawer, useTranscriptDrawer } from '@/components/TranscriptDrawer'
@@ -454,7 +455,7 @@ function TabButton({
   active: boolean
   onClick: () => void
   label: string
-  count: number
+  count?: number
 }) {
   return (
     <button
@@ -468,14 +469,16 @@ function TabButton({
       )}
     >
       {label}
-      <span
-        className={cn(
-          'inline-flex items-center justify-center rounded-full px-1.5 min-w-[18px] text-[10.5px] font-mono tabular-nums border',
-          active ? 'border-brand text-brand bg-canvas' : 'border-rule text-ink-muted bg-raised',
-        )}
-      >
-        {count}
-      </span>
+      {count !== undefined ? (
+        <span
+          className={cn(
+            'inline-flex items-center justify-center rounded-full px-1.5 min-w-[18px] text-[10.5px] font-mono tabular-nums border',
+            active ? 'border-brand text-brand bg-canvas' : 'border-rule text-ink-muted bg-raised',
+          )}
+        >
+          {count}
+        </span>
+      ) : null}
       {active ? (
         <span aria-hidden="true" className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand" />
       ) : null}
@@ -503,9 +506,10 @@ export function PRDetail() {
   const [extraDraft, setExtraDraft] = useState<string | null>(null)
   const [extraEditing, setExtraEditing] = useState(false)
   const [extraExpanded, setExtraExpanded] = useState(false)
-  // Files-changed tab state. Default to 'files' so users can preview the diff
-  // immediately once prep completes, even while the agent is still streaming.
-  const [activeTab, setActiveTab] = useState<'findings' | 'files'>('files')
+  // Workbench tab state. Default to 'files' pre-load so users can preview the
+  // diff while the agent streams; once the session loads, an effect below
+  // switches a terminal session (ready/submitted/archived) to 'summary'.
+  const [activeTab, setActiveTab] = useState<'summary' | 'findings' | 'files'>('files')
   const [filesTabSelectedPath, setFilesTabSelectedPath] = useState<string | null>(null)
   // Mirror to a ref so the SSE callback can read the latest value without
   // re-subscribing on every state change.
@@ -517,7 +521,10 @@ export function PRDetail() {
   // incoming finding's `file` (which may be the old path) before comparing it
   // to the currently-selected canonical path.
   const fileAliasMapRef = useRef<Map<string, string>>(new Map())
-  const activeTabRef = useRef<'findings' | 'files'>(activeTab)
+  const activeTabRef = useRef<'summary' | 'findings' | 'files'>(activeTab)
+  // One-shot guard: pick the default tab once per session id, after the
+  // session row loads — without yanking the tab on later refetches.
+  const tabInitForRef = useRef<string | null>(null)
   useEffect(() => {
     activeTabRef.current = activeTab
   }, [activeTab])
@@ -580,9 +587,7 @@ export function PRDetail() {
         // is a stable dedupe key. ts can't be used here because the SSE handler
         // synthesizes ts via Date.now() (the `progress` event doesn't carry one).
         const live = new Set(prev.map((s) => `${s.phase} ${s.detail ?? ''}`))
-        const missing = persisted.filter(
-          (s) => !live.has(`${s.phase} ${s.detail ?? ''}`),
-        )
+        const missing = persisted.filter((s) => !live.has(`${s.phase} ${s.detail ?? ''}`))
         return missing.length === 0 ? prev : [...missing, ...prev]
       })
     }
@@ -592,9 +597,7 @@ export function PRDetail() {
         // ts comes from the server for both disk and SSE (`prep-output` carries it),
         // so ts+command uniquely identifies a call across the two paths.
         const live = new Set(prev.map((c) => `${c.ts} ${c.command.join(' ')}`))
-        const missing = persisted.filter(
-          (c) => !live.has(`${c.ts} ${c.command.join(' ')}`),
-        )
+        const missing = persisted.filter((c) => !live.has(`${c.ts} ${c.command.join(' ')}`))
         return missing.length === 0 ? prev : [...missing, ...prev]
       })
     }
@@ -663,6 +666,17 @@ export function PRDetail() {
     setFilesTabSelectedPath(null)
   }, [id])
 
+  // Adaptive default tab: once the session loads, land a terminal session
+  // (results are in) on Summary, and a pre-terminal one on Files. Runs once
+  // per id — later refetches (SSE invalidations, status changes) must not
+  // override a tab the user has since picked.
+  useEffect(() => {
+    if (!data || tabInitForRef.current === id) return
+    tabInitForRef.current = id
+    const s = data.session.status
+    if (s === 'ready' || s === 'submitted' || s === 'archived') setActiveTab('summary')
+  }, [id, data])
+
   useEffect(() => {
     if (!justSwitched) return
     const tmr = setTimeout(() => setJustSwitched(false), 2500)
@@ -718,10 +732,7 @@ export function PRDetail() {
   // reparse the entire diff each tick. Kept above the early return below so
   // hook order stays stable across the loading→loaded transition.
   const unifiedDiff = sessionDiff ?? null
-  const parsedFiles = useMemo(
-    () => (unifiedDiff ? parseFileList(unifiedDiff) : []),
-    [unifiedDiff],
-  )
+  const parsedFiles = useMemo(() => (unifiedDiff ? parseFileList(unifiedDiff) : []), [unifiedDiff])
   const fileAliasMap = useMemo(() => buildFileAliasMap(parsedFiles), [parsedFiles])
   // Keep the alias-map ref in sync with the latest diff so the SSE callback
   // (which holds the ref) sees fresh data without re-subscribing.
@@ -850,6 +861,18 @@ export function PRDetail() {
       />
     )
 
+  const summaryTabBody = (
+    <ReviewSummary
+      session={session}
+      findings={activeFindings}
+      unifiedDiff={unifiedDiff}
+      onJumpToFile={(path) => {
+        setFilesTabSelectedPath(path)
+        setActiveTab('files')
+      }}
+    />
+  )
+
   const filesTabBody = (
     <FilesChangedView
       session={session}
@@ -867,6 +890,11 @@ export function PRDetail() {
 
   const tabsBar = (
     <div className="shrink-0 flex items-stretch border-b border-rule bg-main px-2">
+      <TabButton
+        active={activeTab === 'summary'}
+        onClick={() => setActiveTab('summary')}
+        label={t('filesChanged.tabSummary')}
+      />
       <TabButton
         active={activeTab === 'findings'}
         onClick={() => setActiveTab('findings')}
@@ -975,7 +1003,11 @@ export function PRDetail() {
       {tabsBar}
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {activeTab === 'findings' ? findingsTabBody : filesTabBody}
+        {activeTab === 'summary'
+          ? summaryTabBody
+          : activeTab === 'findings'
+            ? findingsTabBody
+            : filesTabBody}
       </div>
 
       <TranscriptDrawer

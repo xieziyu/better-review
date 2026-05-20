@@ -11,6 +11,9 @@ vi.mock('@/components/files-changed/FilesChangedView', () => ({
 vi.mock('@/components/FindingsWorkspace', () => ({
   FindingsWorkspace: () => <div data-testid="findings-workspace">findings-workspace</div>,
 }))
+vi.mock('@/components/ReviewSummary', () => ({
+  ReviewSummary: () => <div data-testid="review-summary">review-summary</div>,
+}))
 vi.mock('@/components/CodeBlock', () => ({
   CodeBlock: ({ code, children }: { code?: string; children?: React.ReactNode }) => (
     <pre>{code ?? children}</pre>
@@ -67,6 +70,8 @@ const session: PRSession = {
   promptUsed: '',
   extraPrompt: null,
   headSha: null,
+  reviewSummary: null,
+  excludedFiles: [],
   error: null,
 }
 
@@ -89,26 +94,37 @@ const finding: Finding = {
 }
 
 describe('PRDetail tabs', () => {
-  it('defaults to the Files changed tab and renders the files view', () => {
+  it('defaults a ready session to the Summary tab', () => {
     render(withRoute(session, [finding], 'diff'))
+    expect(screen.getByRole('tab', { name: /Summary/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('review-summary')).toBeInTheDocument()
+    expect(screen.queryByTestId('files-view')).not.toBeInTheDocument()
+  })
+
+  it('defaults a running session to the Files changed tab', () => {
+    render(withRoute({ ...session, status: 'running' }, [finding], 'diff'))
     expect(screen.getByRole('tab', { name: /Files changed/i })).toHaveAttribute(
       'aria-selected',
       'true',
     )
     expect(screen.getByTestId('files-view')).toBeInTheDocument()
-    expect(screen.queryByTestId('findings-workspace')).not.toBeInTheDocument()
   })
 
-  it('switches to Findings tab and renders the workspace', () => {
+  it('switches to the Findings tab and renders the workspace', () => {
     render(withRoute(session, [finding], 'diff'))
     fireEvent.click(screen.getByRole('tab', { name: /Findings/i }))
     expect(screen.getByTestId('findings-workspace')).toBeInTheDocument()
-    expect(screen.queryByTestId('files-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('review-summary')).not.toBeInTheDocument()
   })
 
-  it('shows zero count on Findings tab when there are none', () => {
+  it('switches to the Files changed tab and renders the files view', () => {
+    render(withRoute(session, [finding], 'diff'))
+    fireEvent.click(screen.getByRole('tab', { name: /Files changed/i }))
+    expect(screen.getByTestId('files-view')).toBeInTheDocument()
+  })
+
+  it('shows zero count on the Findings tab when there are none', () => {
     render(withRoute(session, [], 'diff'))
-    const findingsTab = screen.getByRole('tab', { name: /Findings/i })
-    expect(findingsTab).toHaveTextContent('0')
+    expect(screen.getByRole('tab', { name: /Findings/i })).toHaveTextContent('0')
   })
 })

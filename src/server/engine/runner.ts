@@ -7,6 +7,7 @@ import type { ReviewAgent } from './agent'
 import type { EventBus } from './events'
 import { watchFindings } from './findings-watcher'
 import type { RunnerRegistry } from './runner-registry'
+import { watchSummary } from './summary-watcher'
 
 export interface RunReviewArgs {
   sessionId: string
@@ -44,6 +45,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   } = args
   mkdirSync(workdir, { recursive: true })
   const findingsPath = join(workdir, 'findings.json')
+  const summaryPath = join(workdir, 'summary.json')
   const logPath = join(workdir, 'agent.log')
   writeFileSync(join(workdir, 'prompt.txt'), prompt)
 
@@ -64,6 +66,18 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     fresh.forEach((f) => seenIds.add(f.id))
     const inserted = findings.insertMany(sessionId, fresh)
     inserted.forEach((f) => bus.emit({ type: 'finding-added', sessionId, finding: f }))
+  })
+  // The agent's review summary is best-effort: a parse failure surfaces as a
+  // non-fatal `error` event and leaves the session's summary null (the Summary
+  // tab degrades to its derived stats + coverage).
+  const stopSummaryWatcher = await watchSummary(summaryPath, (result) => {
+    if (cancelled) return
+    if (!result.ok) {
+      bus.emit({ type: 'error', sessionId, message: `summary.json: ${result.error}` })
+      return
+    }
+    sessions.setSummary(sessionId, result.data)
+    bus.emit({ type: 'summary-generated', sessionId, summary: result.data })
   })
   const reapAfterResult = () => {
     child.kill('SIGTERM')
@@ -166,6 +180,7 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
     await drained
     await new Promise((res) => setTimeout(res, 200))
     await stopWatcher()
+    await stopSummaryWatcher()
 
     if (cancelled) {
       sessions.setStatus(sessionId, 'cancelled')

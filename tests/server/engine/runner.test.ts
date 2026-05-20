@@ -136,6 +136,14 @@ describe.each(FIXTURES)('runReview ($kind happy path)', (fx) => {
     expect(findings.listBySession('s1')).toHaveLength(1)
     expect(events.some((e) => e.type === 'done')).toBe(true)
     expect(events.some((e) => e.type === 'finding-added')).toBe(true)
+    // The agent also writes summary.json — the runner parses it, persists it
+    // onto the session row, and emits a `summary-generated` event.
+    expect(got.reviewSummary).not.toBeNull()
+    expect(got.reviewSummary?.overview).toContain('review summary')
+    expect(got.reviewSummary?.manualReview).toHaveLength(1)
+    const summaryEvt = events.find((e) => e.type === 'summary-generated')
+    expect(summaryEvt).toBeDefined()
+    expect(events.some((e) => e.type === 'error')).toBe(false)
     // The runner flips pending → running and announces it before spawn.
     expect(events.some((e) => e.type === 'status-changed' && e.status === 'running')).toBe(true)
     const startEvt = events.find((e) => e.type === 'progress' && e.phase === 'agent:starting')
