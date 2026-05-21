@@ -32,6 +32,12 @@ const SEV_DOT: Record<Severity, string> = {
   nit: 'bg-[color:var(--severity-nit)]',
 }
 
+const SEV_TEXT: Record<Severity, string> = {
+  must: 'text-severity-must',
+  should: 'text-severity-should',
+  nit: 'text-severity-nit',
+}
+
 /**
  * The "Summary" tab body: a one-screen review report — change stats, the
  * agent-written overview, the curated "review this yourself" list, and a
@@ -102,12 +108,21 @@ function StatStrip({ stats }: { stats: SummaryStats }) {
         <span className="text-[color:var(--severity-must)] tabular-nums">−{stats.deletions}</span>
       </Stat>
       <Stat label={t('summary.statFindings')}>
-        <span className="tabular-nums">{fc.total}</span>
-        {fc.total > 0 ? (
-          <span className="ml-1.5 text-meta font-medium text-ink-secondary">
-            {t('summary.findingsBreakdown', { must: fc.must, should: fc.should, nit: fc.nit })}
+        {fc.total === 0 ? (
+          <span className="tabular-nums">0</span>
+        ) : (
+          <span className="flex items-center gap-2">
+            <SeverityCount level="must" count={fc.must} />
+            <span aria-hidden="true" className="font-normal text-ink-muted">
+              ·
+            </span>
+            <SeverityCount level="should" count={fc.should} />
+            <span aria-hidden="true" className="font-normal text-ink-muted">
+              ·
+            </span>
+            <SeverityCount level="nit" count={fc.nit} />
           </span>
-        ) : null}
+        )}
       </Stat>
       <Stat label={t('summary.statExcluded')}>
         <span className="tabular-nums">{stats.excludedCount}</span>
@@ -122,6 +137,24 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
       <div className="text-caps uppercase tracking-caps text-ink-muted">{label}</div>
       <div className="mt-1.5 text-h1 text-ink-primary">{children}</div>
     </div>
+  )
+}
+
+/**
+ * One severity tally for the Findings stat — just the count, tinted by its
+ * severity (must = red, should = amber, nit = blue) so color alone carries the
+ * category. A zero count drops to ink-muted so empty buckets recede. The
+ * severity word lives in title / aria-label for hover + screen readers.
+ */
+function SeverityCount({ level, count }: { level: Severity; count: number }) {
+  return (
+    <span
+      className={cn('tabular-nums', count === 0 ? 'text-ink-muted' : SEV_TEXT[level])}
+      title={`${count} ${level}`}
+      aria-label={`${count} ${level}`}
+    >
+      {count}
+    </span>
   )
 }
 

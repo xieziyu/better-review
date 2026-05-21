@@ -138,7 +138,6 @@
     "statLines": "代码增删",
     "statFindings": "发现问题",
     "statExcluded": "未送审",
-    "findingsBreakdown": "{{must}} must · {{should}} should · {{nit}} nit",
     "overviewTitle": "改动概览",
     "overviewMissing": "本轮评审未生成改动概览。",
     "overviewPending": "评审仍在进行 —— agent 完成后会写入改动概览。",

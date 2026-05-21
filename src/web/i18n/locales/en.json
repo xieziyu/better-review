@@ -138,7 +138,6 @@
     "statLines": "Lines",
     "statFindings": "Findings",
     "statExcluded": "Not reviewed",
-    "findingsBreakdown": "{{must}} must · {{should}} should · {{nit}} nit",
     "overviewTitle": "Changes overview",
     "overviewPending": "The review is still running — the overview is written when the agent finishes.",
     "overviewMissing": "This review round did not produce an overview.",
