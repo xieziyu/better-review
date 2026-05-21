@@ -294,8 +294,14 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   const filtered = filterDiffByGlobs(diff.unifiedDiff, excludeGlobs)
   const diffForAgent = chooseDiffForAgent(diff.unifiedDiff, filtered)
   // Persist the exclusions so the Summary tab can show what the agent never
-  // saw, even on a daemon restart.
-  deps.sessions.setExcludedFiles(id, filtered.excludedFiles)
+  // saw, even on a daemon restart. When chooseDiffForAgent fell back to the
+  // raw diff (every file matched a glob), the agent *did* see those files —
+  // persist an empty list so the Summary tab doesn't mislabel them as
+  // "Not reviewed".
+  deps.sessions.setExcludedFiles(
+    id,
+    diffForAgent === filtered.filteredDiff ? filtered.excludedFiles : [],
+  )
   if (filtered.excludedFiles.length > 0) {
     const phase = priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt
     const files = filtered.excludedFiles.map((f) => f.path).join(', ')
