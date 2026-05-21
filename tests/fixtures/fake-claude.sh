@@ -44,6 +44,16 @@ else
 JSON
 fi
 
+# Also write the review summary (summary.json sits next to findings.json).
+SUMMARY_PATH="$(dirname "$FINDINGS_PATH")/summary.json"
+if [[ -n "$FAKE_CLAUDE_SUMMARY_BODY" ]]; then
+  echo "$FAKE_CLAUDE_SUMMARY_BODY" > "$SUMMARY_PATH"
+else
+  cat > "$SUMMARY_PATH" <<'JSON'
+{"overview":"Fake claude review summary.","manualReview":[{"file":"a.ts","reason":"fake reason"}]}
+JSON
+fi
+
 sleep 0.05
 echo '{"type":"result","subtype":"success"}'
 

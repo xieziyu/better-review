@@ -80,6 +80,7 @@
     "openDetailAria": "展开详情面板"
   },
   "filesChanged": {
+    "tabSummary": "概览",
     "tabFindings": "评审发现",
     "tabFiles": "文件变更",
     "filterPlaceholder": "过滤文件…",
@@ -131,6 +132,38 @@
       "clickHint": "点击跳转",
       "dismiss": "关闭"
     }
+  },
+  "summary": {
+    "statFiles": "文件改动",
+    "statLines": "代码增删",
+    "statFindings": "发现问题",
+    "statExcluded": "未送审",
+    "overviewTitle": "改动概览",
+    "overviewMissing": "本轮评审未生成改动概览。",
+    "overviewPending": "评审仍在进行 —— agent 完成后会写入改动概览。",
+    "attributedTo": "概览由 {{agent}} 生成",
+    "attentionTitle": "建议人工重点审查",
+    "attentionHint": "点击文件可跳转到「文件变更」",
+    "attentionEmpty": "没有需要人工特别关注的内容。",
+    "attentionPrWide": "PR 级",
+    "attentionDerived_one": "包含 {{count}} 个 must 级问题。",
+    "attentionDerived_other": "包含 {{count}} 个 must 级问题。",
+    "findingChip_one": "{{count}} 个问题",
+    "findingChip_other": "{{count}} 个问题",
+    "coverageTitle": "审查覆盖",
+    "covColFile": "文件",
+    "covColLines": "增删",
+    "covColStatus": "状态",
+    "statusFlagged": "重点关注",
+    "statusFound_one": "已审查 · {{count}} 个问题",
+    "statusFound_other": "已审查 · {{count}} 个问题",
+    "statusClean": "已审查 · 无问题",
+    "statusExcluded": "未送审",
+    "excludedNote": "标记为「未送审」的文件已按 review-exclude 规则（依赖锁文件、构建产物、快照等）从评审 diff 中移除 —— agent 未曾看到它们。可在「设置 → review-exclude 规则」中调整。",
+    "coverageEmptyTitle": "没有文件改动",
+    "coverageEmptyBody": "本 PR 没有可覆盖的文件改动。",
+    "coveragePendingTitle": "diff 尚未就绪",
+    "coveragePendingBody": "待 prep 拉取到 diff 后，覆盖表才会显示。"
   },
   "common": {
     "save": "保存",

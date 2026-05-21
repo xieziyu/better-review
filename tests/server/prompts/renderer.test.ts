@@ -9,12 +9,18 @@ describe('renderPrompt', () => {
     diff: 'DIFF',
     findingsPath: '/p/f.json',
     schemaJson: '{}',
+    summaryPath: '/p/s.json',
+    summarySchema: 'SUM_SCHEMA',
   }
 
   it('substitutes all variables', () => {
-    const tpl = 'R: {{RULES}}\nM: {{PR_META}}\nD: {{DIFF}}\nP: {{FINDINGS_PATH}}\nS: {{SCHEMA}}'
+    const tpl =
+      'R: {{RULES}}\nM: {{PR_META}}\nD: {{DIFF}}\nP: {{FINDINGS_PATH}}\nS: {{SCHEMA}}\n' +
+      'SP: {{SUMMARY_PATH}}\nSS: {{SUMMARY_SCHEMA}}'
     const out = renderPrompt(tpl, baseVars)
-    expect(out).toBe('R: RULES\nM: META\nD: DIFF\nP: /p/f.json\nS: {}')
+    expect(out).toBe(
+      'R: RULES\nM: META\nD: DIFF\nP: /p/f.json\nS: {}\nSP: /p/s.json\nSS: SUM_SCHEMA',
+    )
   })
 
   it('leaves unknown placeholders alone', () => {

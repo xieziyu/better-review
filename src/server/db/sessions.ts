@@ -2,8 +2,10 @@ import type Database from 'better-sqlite3'
 
 import type {
   AgentKind,
+  ExcludedFile,
   PRSession,
   RecentRepo,
+  ReviewSummaryFromAgent,
   SessionStatus,
   SourceKind,
 } from '../../shared/types'
@@ -56,6 +58,19 @@ interface Row {
   extra_prompt: string | null
   head_sha: string | null
   error: string | null
+  summary_json: string | null
+  excluded_files_json: string | null
+}
+
+// Parse a JSON column, tolerating NULL and malformed content (a corrupt blob
+// must not crash session reads — the Summary tab degrades gracefully instead).
+function parseJsonColumn<T>(raw: string | null, fallback: T): T {
+  if (raw === null || raw === '') return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
 }
 
 function rowToSession(r: Row): PRSession {
@@ -81,6 +96,8 @@ function rowToSession(r: Row): PRSession {
     extraPrompt: r.extra_prompt,
     headSha: r.head_sha,
     error: r.error,
+    reviewSummary: parseJsonColumn<ReviewSummaryFromAgent | null>(r.summary_json, null),
+    excludedFiles: parseJsonColumn<ExcludedFile[]>(r.excluded_files_json, []),
   }
 }
 
@@ -242,6 +259,21 @@ export class SessionsRepo {
           WHERE id=@id`,
       )
       .run({ ...artifacts, id, now: Date.now() })
+  }
+
+  // Persists the agent's parsed `summary.json`. Last write wins — the summary
+  // watcher re-calls this on every successful parse.
+  setSummary(id: string, summary: ReviewSummaryFromAgent): void {
+    this.db
+      .prepare('UPDATE pr_sessions SET summary_json=?, updated_at=? WHERE id=?')
+      .run(JSON.stringify(summary), Date.now(), id)
+  }
+
+  // Persists the skip-review-glob exclusions computed during prep.
+  setExcludedFiles(id: string, files: ExcludedFile[]): void {
+    this.db
+      .prepare('UPDATE pr_sessions SET excluded_files_json=?, updated_at=? WHERE id=?')
+      .run(JSON.stringify(files), Date.now(), id)
   }
 
   delete(id: string): void {

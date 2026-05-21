@@ -56,6 +56,8 @@ const session: PRSession = {
   promptUsed: '',
   extraPrompt: null,
   headSha: null,
+  reviewSummary: null,
+  excludedFiles: [],
   error: null,
 }
 

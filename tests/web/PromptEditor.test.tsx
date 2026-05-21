@@ -168,6 +168,8 @@ describe('PromptEditor', () => {
         promptUsed: '',
         extraPrompt: null,
         headSha: null,
+        reviewSummary: null,
+        excludedFiles: [],
         error: null,
       },
     ]

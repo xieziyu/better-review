@@ -6,6 +6,8 @@
 
 import picomatch from 'picomatch'
 
+import type { ExcludedFile } from '../../shared/types'
+
 // Files that essentially never warrant code review. Each glob is matched
 // against the full repo-relative path AND its basename, so a plain
 // `pnpm-lock.yaml` pattern also catches a nested `apps/web/pnpm-lock.yaml`
@@ -44,8 +46,8 @@ export const BUILTIN_REVIEW_EXCLUDE_GLOBS: readonly string[] = [
 export interface DiffFilterResult {
   // The diff with excluded file blocks removed. Ready to feed the annotator.
   filteredDiff: string
-  // Repo-relative paths of files whose blocks were dropped.
-  excludedFiles: string[]
+  // Files whose blocks were dropped, each tagged with the glob that matched.
+  excludedFiles: ExcludedFile[]
   // Repo-relative paths of files whose blocks were kept.
   keptFiles: string[]
 }
@@ -156,20 +158,26 @@ export function filterDiffByGlobs(unifiedDiff: string, globs: readonly string[])
   // negation: a matcher that hits every path *outside* that dir, silently
   // dropping most of the diff. With `nonegate` such a pattern is inert (no
   // real path starts with `!`).
-  const matchers = globs.map((g) => picomatch(g, { dot: true, nonegate: true }))
-  const isExcluded = (path: string): boolean => {
+  // Keep each glob paired with its compiled matcher so we can report *which*
+  // pattern excluded a file (shown in the Summary tab).
+  const matchers = globs.map((g) => ({
+    glob: g,
+    match: picomatch(g, { dot: true, nonegate: true }),
+  }))
+  const matchingGlob = (path: string): string | null => {
     const base = path.slice(path.lastIndexOf('/') + 1)
-    return matchers.some((m) => m(path) || m(base))
+    return matchers.find((m) => m.match(path) || m.match(base))?.glob ?? null
   }
 
-  const excludedFiles: string[] = []
+  const excludedFiles: ExcludedFile[] = []
   const keptFiles: string[] = []
   let out = unifiedDiff.slice(0, starts[0] ?? 0)
   for (const [i, start] of starts.entries()) {
     const block = unifiedDiff.slice(start, starts[i + 1] ?? unifiedDiff.length)
     const path = pathForBlock(block)
-    if (path !== null && isExcluded(path)) {
-      excludedFiles.push(path)
+    const glob = path !== null ? matchingGlob(path) : null
+    if (path !== null && glob !== null) {
+      excludedFiles.push({ path, glob })
     } else {
       if (path !== null) keptFiles.push(path)
       out += block

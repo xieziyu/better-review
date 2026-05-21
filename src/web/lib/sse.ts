@@ -6,6 +6,7 @@ const SSE_TYPES: Array<SSEEvent['type']> = [
   'agent-output',
   'finding-added',
   'finding-updated',
+  'summary-generated',
   'status-changed',
   'error',
   'done',

@@ -80,6 +80,7 @@
     "openDetailAria": "Open finding detail"
   },
   "filesChanged": {
+    "tabSummary": "Summary",
     "tabFindings": "Findings",
     "tabFiles": "Files changed",
     "filterPlaceholder": "Filter files…",
@@ -131,6 +132,38 @@
       "clickHint": "Click to jump",
       "dismiss": "Dismiss"
     }
+  },
+  "summary": {
+    "statFiles": "Files changed",
+    "statLines": "Lines",
+    "statFindings": "Findings",
+    "statExcluded": "Not reviewed",
+    "overviewTitle": "Changes overview",
+    "overviewPending": "The review is still running — the overview is written when the agent finishes.",
+    "overviewMissing": "This review round did not produce an overview.",
+    "attributedTo": "Overview written by {{agent}}",
+    "attentionTitle": "Recommended for human review",
+    "attentionHint": "Click a file to open it in Files changed",
+    "attentionEmpty": "Nothing was flagged for special human attention.",
+    "attentionPrWide": "PR-wide",
+    "attentionDerived_one": "Carries {{count}} must-severity finding.",
+    "attentionDerived_other": "Carries {{count}} must-severity findings.",
+    "findingChip_one": "{{count}} finding",
+    "findingChip_other": "{{count}} findings",
+    "coverageTitle": "Review coverage",
+    "covColFile": "File",
+    "covColLines": "Lines",
+    "covColStatus": "Status",
+    "statusFlagged": "Needs attention",
+    "statusFound_one": "Reviewed · {{count}} finding",
+    "statusFound_other": "Reviewed · {{count}} findings",
+    "statusClean": "Reviewed · no issues",
+    "statusExcluded": "Not reviewed",
+    "excludedNote": "Files marked “Not reviewed” were dropped from the review diff by the skip-review rules (lockfiles, build output, snapshots…) — the agent never saw them. Adjust the rules in Settings → review-exclude globs.",
+    "coverageEmptyTitle": "No file changes",
+    "coverageEmptyBody": "This PR has no file changes to cover.",
+    "coveragePendingTitle": "Diff not ready",
+    "coveragePendingBody": "The coverage table appears once prep has fetched the diff."
   },
   "common": {
     "save": "Save",
