@@ -8,6 +8,21 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.2.0] — 2026-05-21
+
+### Added
+
+- **Review summary tab** — the agent now writes `summary.json` (review overview + manual-review notes) alongside `findings.json`, watched and persisted to a new `pr_sessions` column and broadcast as a `summary-generated` SSE event. A new **Summary** tab on the PR detail page shows a change-stat strip, the agent's overview, a curated "needs human review" list, and a full per-file coverage table; it is placed first and is the default landing tab for a finished review. Stats and coverage render mid-run and the overview degrades gracefully when `summary.json` is absent. (#25)
+- **Non-reviewable file filtering** — `engine/diff-filter.ts` drops per-file diff blocks for lockfiles and generated artifacts before the diff is rendered into the review-agent prompt, so reviews don't burn tokens on content that never yields a useful finding. Built-in defaults cover dependency lockfiles plus minified / snapshot / build-output patterns; a new `reviewExcludeGlobs` config key (Settings page glob editor) extends them per project. Filtering applies only to the agent prompt — `diff.cache` stays the raw full diff, so the Files Changed view and submit-time line validation are unaffected — and falls back to the raw diff when every file is excluded. (#24)
+- **CLI version display and self-update** — `better-review --version` prints the installed version; `status` reports both the daemon and CLI versions and flags a mismatch; `better-review update` reinstalls the latest published version (auto-detecting npm / pnpm / yarn / bun from the install path, `--pm` override) and restarts the daemon, aborting when run from a source checkout. The daemon records its version in `server.json` and exposes `daemon.version` on `/api/health`; the DaemonStatus popover shows it. (#23)
+- **Mark-as-viewed in the Files Changed view** — a per-file "Viewed" checkbox persisted per session to localStorage; the file tree shows a check indicator, a "Hide viewed" filter, and an "N / M viewed" progress counter, and marking a file viewed auto-advances to the next unviewed file. Disabled on read-only historical rounds. (#22)
+- Copy-to-clipboard buttons on the daemon status popover's path rows. (#21)
+- **Isolated codex `CODEX_HOME`** — the daemon spawns codex with `CODEX_HOME` pointed at `~/.better-review/codex-home/`, so codex's per-directory `trust_level` writes no longer accumulate one block per review in the user's real `~/.codex/config.toml`. The isolated config is seeded from the user's real config (minus `[projects.*]` sections) and resynced when that file's mtime changes. (#19)
+
+### Fixed
+
+- Deleting `~/.codex/config.toml` to revert to defaults now clears the previously-synced isolated copy under `CODEX_HOME`, instead of leaving codex running against the stale snapshot. (#20)
+
 ## [0.1.1] — 2026-05-16
 
 ### Fixed
@@ -26,7 +41,7 @@ The shipped 0.1.x line. Feature buckets are grouped by theme rather than by indi
 - `claude` agent retained as the original; `claude --output-format stream-json --verbose -p <prompt>`.
 - New `defaultAgent` config key (`"codex"` / `"claude"` / `"pi"`); replaces hard-coded `claude`. When the value isn't explicit in `config.json` and the configured CLI is missing, the daemon auto-falls-back to the first installed agent in `AGENT_KINDS` order (codex → claude → pi).
 - New `stallMinutes` config key applies to all agents; deprecated alias `claudeStallMinutes` still read with a warn log.
-- Health endpoint returns per-agent presence (`agents.codex`, `agents.claude`, `agents.pi`) plus the resolved `defaultAgent`; UI banner only goes red when the *default* agent is missing.
+- Health endpoint returns per-agent presence (`agents.codex`, `agents.claude`, `agents.pi`) plus the resolved `defaultAgent`; UI banner only goes red when the _default_ agent is missing.
 
 ### Added — Source context
 

@@ -1,26 +1,26 @@
 {
   "name": "@xieziyu/better-review",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local PR review helper combining a review-agent CLI (codex / claude / pi) and gh CLI with a browser UI.",
-  "license": "GPL-3.0-or-later",
-  "author": "xieziyu <rainnyxzy@outlook.com>",
+  "keywords": [
+    "claude",
+    "cli",
+    "code-review",
+    "codex",
+    "github",
+    "local-first",
+    "pr-review"
+  ],
   "homepage": "https://github.com/xieziyu/better-review#readme",
+  "bugs": {
+    "url": "https://github.com/xieziyu/better-review/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "xieziyu <rainnyxzy@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xieziyu/better-review.git"
   },
-  "bugs": {
-    "url": "https://github.com/xieziyu/better-review/issues"
-  },
-  "keywords": [
-    "pr-review",
-    "code-review",
-    "github",
-    "claude",
-    "codex",
-    "cli",
-    "local-first"
-  ],
   "bin": {
     "better-review": "dist/cli/index.js"
   },
@@ -29,10 +29,10 @@
     "README.md",
     "README.zh-CN.md"
   ],
+  "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "type": "module",
   "scripts": {
     "build": "npm run build:server && npm run build:web && node scripts/copy-assets.mjs",
     "build:server": "tsc -p tsconfig.server.json",
