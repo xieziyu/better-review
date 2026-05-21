@@ -4,9 +4,9 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import type { SSEEvent } from '../../../src/shared/types'
 import { EventBus } from '../../../src/server/engine/events'
 import { PrepLogger, withCurrentPhase } from '../../../src/server/engine/prep-logger'
+import type { SSEEvent } from '../../../src/shared/types'
 
 function makeLogger() {
   const workdir = mkdtempSync(join(tmpdir(), 'br-prep-'))

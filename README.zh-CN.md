@@ -23,13 +23,13 @@
 
 ## 前置条件
 
-| 工具                               | 版本                      | 说明                                                                                                                                       |
-| ---------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Node.js](https://nodejs.org)      | ≥ 20                      | daemon 与构建都需要                                                                                                                        |
+| 工具                               | 版本                      | 说明                                                                                                                                                                                                                                                        |
+| ---------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Node.js](https://nodejs.org)      | ≥ 20                      | daemon 与构建都需要                                                                                                                                                                                                                                         |
 | C/C++ 工具链                       | 各平台默认                | 安装时 `better-sqlite3` 会本地构建 native 模块，因此需要：macOS — Xcode Command Line Tools（`xcode-select --install`）；Linux — `build-essential` + `python3`；Windows — `npm install --global windows-build-tools`（或手动装 Visual Studio Build Tools）。 |
-| [`gh` CLI](https://cli.github.com) | 任意近期版本              | 必须先 `gh auth login`                                                                                                                     |
-| Review agent CLI                   | 至少装一个                | [`codex`](https://github.com/openai/codex)、[`claude`](https://docs.anthropic.com/en/docs/claude-code) 或 `pi`，需在 `PATH` 中可用 |
-| 浏览器                             | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>`                                                                                                          |
+| [`gh` CLI](https://cli.github.com) | 任意近期版本              | 必须先 `gh auth login`                                                                                                                                                                                                                                      |
+| Review agent CLI                   | 至少装一个                | [`codex`](https://github.com/openai/codex)、[`claude`](https://docs.anthropic.com/en/docs/claude-code) 或 `pi`，需在 `PATH` 中可用                                                                                                                          |
+| 浏览器                             | Chrome / Firefox / Safari | UI 跑在 `http://127.0.0.1:<port>`                                                                                                                                                                                                                           |
 
 ## 安装
 
@@ -165,15 +165,15 @@ sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、finding
 
 `config.json` 可改字段（全部可选）。**Settings** 页改的就是这个文件，绝大多数字段保存即生效；下表标注 _(需重启)_ 的两项要重启 daemon 才生效。
 
-| 字段                   | 默认                 | 说明                                                                                                       |
-| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `port`                 | `0`（随机）          | 想要稳定 URL 就固定一个端口 _(需重启)_                                                                     |
-| `maxConcurrentReviews` | `4`                  | 并行 agent 进程上限，超过的排队 _(需重启)_                                                                 |
-| `stallMinutes`         | `3`                  | agent 多久没 stdout 就触发 watchdog                                                                        |
-| `defaultAgent`         | `"codex"`            | 可选 `"codex"` / `"claude"` / `"pi"`；没显式写过这个字段时，若配置的 CLI 没装，会自动回落到已装的第一个    |
-| `perPRGCDays`          | `7`                  | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC                                                   |
-| `language`             | 自动（`en` / `zh-CN`） | UI 和内置 prompt 的语言，首次启动按 `LANG` / `LC_ALL` / 系统 locale 自动选                                 |
-| `reviewExcludeGlobs`   | `[]`                 | 额外 glob 列表，匹配到的文件会在内置 lockfile / 生成文件默认规则之外，额外从评审 agent 的 prompt 中移除以省 token；不影响 Files Changed 视图 |
+| 字段                   | 默认                   | 说明                                                                                                                                         |
+| ---------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`                 | `0`（随机）            | 想要稳定 URL 就固定一个端口 _(需重启)_                                                                                                       |
+| `maxConcurrentReviews` | `4`                    | 并行 agent 进程上限，超过的排队 _(需重启)_                                                                                                   |
+| `stallMinutes`         | `3`                    | agent 多久没 stdout 就触发 watchdog                                                                                                          |
+| `defaultAgent`         | `"codex"`              | 可选 `"codex"` / `"claude"` / `"pi"`；没显式写过这个字段时，若配置的 CLI 没装，会自动回落到已装的第一个                                      |
+| `perPRGCDays`          | `7`                    | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC                                                                                     |
+| `language`             | 自动（`en` / `zh-CN`） | UI 和内置 prompt 的语言，首次启动按 `LANG` / `LC_ALL` / 系统 locale 自动选                                                                   |
+| `reviewExcludeGlobs`   | `[]`                   | 额外 glob 列表，匹配到的文件会在内置 lockfile / 生成文件默认规则之外，额外从评审 agent 的 prompt 中移除以省 token；不影响 Files Changed 视图 |
 
 ## 开发
 

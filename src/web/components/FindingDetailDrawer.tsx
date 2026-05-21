@@ -13,13 +13,7 @@ interface Props {
   readOnly?: boolean | undefined
 }
 
-export function FindingDetailDrawer({
-  finding,
-  session,
-  unifiedDiff,
-  onClose,
-  readOnly,
-}: Props) {
+export function FindingDetailDrawer({ finding, session, unifiedDiff, onClose, readOnly }: Props) {
   const { t } = useTranslation()
 
   useEffect(() => {

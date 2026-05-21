@@ -4,10 +4,7 @@ import { createApp } from '../../../src/server/api/app'
 import type { SessionStatus } from '../../../src/shared/types'
 import { makeTestDeps } from './_deps'
 
-function insertSession(
-  d: ReturnType<typeof makeTestDeps>,
-  status: SessionStatus = 'ready',
-): void {
+function insertSession(d: ReturnType<typeof makeTestDeps>, status: SessionStatus = 'ready'): void {
   d.sessions.insert({
     id: 's1',
     owner: 'o',

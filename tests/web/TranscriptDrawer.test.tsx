@@ -63,11 +63,7 @@ describe('TranscriptDrawer', () => {
 
   it('calls onToggle when the handle is clicked', () => {
     let toggled = 0
-    render(
-      <TranscriptDrawer
-        {...drawerProps({ chunks: ['x'], onToggle: () => (toggled += 1) })}
-      />,
-    )
+    render(<TranscriptDrawer {...drawerProps({ chunks: ['x'], onToggle: () => (toggled += 1) })} />)
     fireEvent.click(screen.getByRole('button', { name: /Open transcript drawer/i }))
     expect(toggled).toBe(1)
   })

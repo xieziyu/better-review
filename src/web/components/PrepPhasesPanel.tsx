@@ -83,9 +83,7 @@ export function PrepPhasesPanel({ steps, calls }: Props) {
                 disabled={!hasCalls}
                 className={cn(
                   'w-full px-4 py-1.5 flex items-center gap-2 text-left',
-                  hasCalls
-                    ? 'hover:bg-raised cursor-pointer'
-                    : 'cursor-default text-ink-muted',
+                  hasCalls ? 'hover:bg-raised cursor-pointer' : 'cursor-default text-ink-muted',
                   'transition-colors duration-180 ease-out-quart',
                 )}
               >

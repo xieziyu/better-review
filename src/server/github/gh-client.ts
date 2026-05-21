@@ -34,10 +34,7 @@ type GhCallRecorder = (rec: GhCallRecord) => void
 
 const callRecorder = new AsyncLocalStorage<GhCallRecorder>()
 
-export function withGhCallRecorder<T>(
-  recorder: GhCallRecorder,
-  fn: () => Promise<T>,
-): Promise<T> {
+export function withGhCallRecorder<T>(recorder: GhCallRecorder, fn: () => Promise<T>): Promise<T> {
   return callRecorder.run(recorder, fn)
 }
 

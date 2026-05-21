@@ -1,3 +1,4 @@
+import type { Severity } from '@shared/findings-schema'
 import {
   createContext,
   useCallback,
@@ -9,8 +10,6 @@ import {
   type ReactNode,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-
-import type { Severity } from '@shared/findings-schema'
 
 import { SeverityLabel } from '@/components/ui/SeverityLabel'
 

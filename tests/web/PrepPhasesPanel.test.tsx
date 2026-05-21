@@ -51,12 +51,7 @@ describe('PrepPhasesPanel', () => {
   })
 
   it('attaches calls under a synthetic phase row when no markPhase fired yet', () => {
-    render(
-      <PrepPhasesPanel
-        steps={[]}
-        calls={[call({ phase: 'prep:fetching-pr' })]}
-      />,
-    )
+    render(<PrepPhasesPanel steps={[]} calls={[call({ phase: 'prep:fetching-pr' })]} />)
     expect(screen.getByText(/Fetching PR metadata/i)).toBeInTheDocument()
     expect(screen.getByText(/1 call/i)).toBeInTheDocument()
   })

@@ -132,9 +132,7 @@ function emitChildren(folder: RawFolder, depth: number): TreeNode[] {
   const folderChildren = [...folder.folders.values()].sort((a, b) =>
     a.segment.localeCompare(b.segment),
   )
-  const fileChildren = [...folder.files.values()].sort((a, b) =>
-    a.segment.localeCompare(b.segment),
-  )
+  const fileChildren = [...folder.files.values()].sort((a, b) => a.segment.localeCompare(b.segment))
   return [...folderChildren, ...fileChildren].map((c) => compress(c, depth, []))
 }
 
@@ -183,9 +181,7 @@ function compress(raw: RawNode, depth: number, prefixSegments: string[]): TreeNo
 export function buildFileTree(files: FileSummary[], ctx: BuildTreeContext): TreeNode[] {
   const roots: Roots = { folders: new Map(), files: new Map() }
   for (const f of files) insertFile(roots, f, ctx)
-  const folderRoots = [...roots.folders.values()].sort((a, b) =>
-    a.segment.localeCompare(b.segment),
-  )
+  const folderRoots = [...roots.folders.values()].sort((a, b) => a.segment.localeCompare(b.segment))
   const fileRoots = [...roots.files.values()].sort((a, b) => a.segment.localeCompare(b.segment))
   return [...folderRoots, ...fileRoots].map((r) => compress(r, 0, []))
 }

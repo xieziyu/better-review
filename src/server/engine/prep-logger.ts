@@ -3,7 +3,6 @@ import { appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { PrepCall } from '../../shared/types'
-
 import type { EventBus } from './events'
 
 // ALS-scoped current phase. Used by the parallel prior-context / source-prep
@@ -89,8 +88,7 @@ export class PrepLogger {
    * block), otherwise falls back to the most recently marked phase.
    */
   recordCall(call: Omit<PrepCall, 'phase'> & { phase?: string }): void {
-    const phase =
-      call.phase ?? currentPhaseStore.getStore() ?? this.currentPhase ?? 'prep:unknown'
+    const phase = call.phase ?? currentPhaseStore.getStore() ?? this.currentPhase ?? 'prep:unknown'
     const entry: PrepLogCallEntry = {
       kind: 'call',
       phase,

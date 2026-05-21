@@ -54,9 +54,7 @@ describe('Toast (peek)', () => {
     expect(screen.getByText('gh-client.ts')).toBeInTheDocument()
     expect(screen.getByText(/:142/)).toBeInTheDocument()
     expect(screen.getByText(/src\/server\/github/)).toBeInTheDocument()
-    expect(
-      screen.getByText('gh stderr is swallowed when API call fails'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('gh stderr is swallowed when API call fails')).toBeInTheDocument()
   })
 
   it('auto-dismisses after the default 6s', () => {

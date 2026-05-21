@@ -3,12 +3,7 @@ import { join } from 'node:path'
 
 import { Hono } from 'hono'
 
-import {
-  AGENT_KINDS,
-  type AgentKind,
-  type PrepCall,
-  type PrepStep,
-} from '../../../shared/types'
+import { AGENT_KINDS, type AgentKind, type PrepCall, type PrepStep } from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
 import type { AppDeps } from '../app'
 

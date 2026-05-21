@@ -23,13 +23,13 @@
 
 ## Prerequisites
 
-| Tool                               | Version                   | Notes                                                                                                                                              |
-| ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Node.js](https://nodejs.org)      | ≥ 20                      | Required by the daemon and the build.                                                                                                              |
+| Tool                               | Version                   | Notes                                                                                                                                                                                                                                                                |
+| ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Node.js](https://nodejs.org)      | ≥ 20                      | Required by the daemon and the build.                                                                                                                                                                                                                                |
 | C/C++ toolchain                    | platform default          | Needed at install time to build `better-sqlite3` from source. macOS: Xcode Command Line Tools (`xcode-select --install`). Linux: `build-essential` + `python3`. Windows: `npm install --global windows-build-tools` (or install Visual Studio Build Tools manually). |
-| [`gh` CLI](https://cli.github.com) | recent                    | Must be authenticated (`gh auth login`).                                                                                                           |
-| Review agent CLI                   | at least one              | [`codex`](https://github.com/openai/codex), [`claude`](https://docs.anthropic.com/en/docs/claude-code), or `pi`. Must be on your `PATH`.           |
-| Browser                            | Chrome / Firefox / Safari | UI runs at `http://127.0.0.1:<port>`.                                                                                                              |
+| [`gh` CLI](https://cli.github.com) | recent                    | Must be authenticated (`gh auth login`).                                                                                                                                                                                                                             |
+| Review agent CLI                   | at least one              | [`codex`](https://github.com/openai/codex), [`claude`](https://docs.anthropic.com/en/docs/claude-code), or `pi`. Must be on your `PATH`.                                                                                                                             |
+| Browser                            | Chrome / Firefox / Safari | UI runs at `http://127.0.0.1:<port>`.                                                                                                                                                                                                                                |
 
 ## Install
 
@@ -166,15 +166,15 @@ sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, summa
 
 `config.json` keys (all optional). The **Settings** page edits the same file; most keys hot-reload, the two flagged below need a daemon restart.
 
-| Key                    | Default                | Meaning                                                                                                                |
-| ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `port`                 | `0` (random)           | Set to a fixed port if you want a stable URL. _(restart required)_                                                     |
-| `maxConcurrentReviews` | `4`                    | Cap on parallel agent processes; the rest queue. _(restart required)_                                                  |
-| `stallMinutes`         | `3`                    | Watchdog kills an agent that emits no stdout for this long.                                                            |
-| `defaultAgent`         | `"codex"`              | `"codex"` / `"claude"` / `"pi"`. If unset and the configured CLI is missing, falls back to the first installed agent.  |
-| `perPRGCDays`          | `7`                    | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.                                            |
-| `language`             | auto (`en` / `zh-CN`)  | UI + built-in prompt language. Auto-detected from `LANG` / `LC_ALL` / OS locale on first boot.                         |
-| `reviewExcludeGlobs`   | `[]`                   | Extra glob patterns for files to drop from the review agent's prompt (saves tokens), on top of built-in lockfile / generated-file defaults. Does not affect the Files Changed view. |
+| Key                    | Default               | Meaning                                                                                                                                                                             |
+| ---------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`                 | `0` (random)          | Set to a fixed port if you want a stable URL. _(restart required)_                                                                                                                  |
+| `maxConcurrentReviews` | `4`                   | Cap on parallel agent processes; the rest queue. _(restart required)_                                                                                                               |
+| `stallMinutes`         | `3`                   | Watchdog kills an agent that emits no stdout for this long.                                                                                                                         |
+| `defaultAgent`         | `"codex"`             | `"codex"` / `"claude"` / `"pi"`. If unset and the configured CLI is missing, falls back to the first installed agent.                                                               |
+| `perPRGCDays`          | `7`                   | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.                                                                                                         |
+| `language`             | auto (`en` / `zh-CN`) | UI + built-in prompt language. Auto-detected from `LANG` / `LC_ALL` / OS locale on first boot.                                                                                      |
+| `reviewExcludeGlobs`   | `[]`                  | Extra glob patterns for files to drop from the review agent's prompt (saves tokens), on top of built-in lockfile / generated-file defaults. Does not affect the Files Changed view. |
 
 ## Development
 
