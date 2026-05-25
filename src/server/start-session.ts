@@ -15,16 +15,17 @@ import { annotateDiffWithIncremental, extractNewHunks } from './engine/diff-incr
 import type { EventBus } from './engine/events'
 import { PrepLogger, withCurrentPhase } from './engine/prep-logger'
 import type { ConcurrencyQueue } from './engine/queue'
-import { loadPriorReviewContext, type PriorReviewContext } from './engine/rerun-context'
+import type { PriorReviewContext } from './engine/rerun-context'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
-import { prepareSourceContext } from './git/source-prep'
 import { withGhCallRecorder, type GhClient } from './github/gh-client'
-import { parsePRTarget, type PRTarget } from './github/pr-target-parser'
+import { parsePRTarget } from './github/pr-target-parser'
 import type { Logger } from './logger'
 import { resolveLocalRepoPath } from './paths'
 import { renderPrompt, type PriorReviewVars } from './prompts/renderer'
 import { resolveEffectivePrompt } from './prompts/resolver'
+import { getSourceFlow } from './source/registry'
+import type { SourceFlow } from './source/types'
 
 export interface ResolvedAgent {
   agent: ReviewAgent
@@ -157,6 +158,8 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'pending' })
 
+    const flow = getSourceFlow(source, { gh: deps.gh })
+
     void deps.queue.run(id, async () => {
       try {
         const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
@@ -168,7 +171,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
               id,
               workdir,
               sessionShort,
-              target,
+              flow,
               localRepoPath,
               extraPrompt,
               prepLogger,
@@ -208,7 +211,7 @@ interface PrepareReviewArgs {
   id: string
   workdir: string
   sessionShort: string
-  target: PRTarget
+  flow: SourceFlow
   localRepoPath: string | null
   extraPrompt: string | null
   prepLogger: PrepLogger
@@ -220,10 +223,10 @@ interface PrepareReviewResult {
 }
 
 async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResult> {
-  const { deps, id, workdir, sessionShort, target, localRepoPath, extraPrompt, prepLogger } = args
+  const { deps, id, workdir, sessionShort, flow, localRepoPath, extraPrompt, prepLogger } = args
 
   prepLogger.markPhase(PREP_PHASES.fetchingPR)
-  const meta = await deps.gh.prView(target)
+  const meta = await flow.fetchMetadata()
   // Backfill the row so the UI shows title/author as soon as we know them
   // (it's polling the session via React Query + SSE invalidation).
   deps.sessions.updatePRMeta(id, {
@@ -236,7 +239,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   })
 
   prepLogger.markPhase(PREP_PHASES.fetchingDiff)
-  const diff = await deps.gh.prDiff(target)
+  const diff = await flow.fetchDiff()
   writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
 
   // Prior review context + source prep are independent: kick them off in
@@ -252,26 +255,22 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   prepLogger.markPhase(sourcePhase)
   const [priorCtxResult, sourceResult] = await Promise.allSettled([
     withCurrentPhase(PREP_PHASES.loadingPriorReview, () =>
-      loadPriorReviewContext(
-        {
-          sessions: deps.sessions,
-          submissions: deps.submissions,
-          submissionComments: deps.submissionComments,
-          gh: deps.gh,
-          log: deps.log,
-        },
-        { target, currentHeadSha: meta.headSha, prAuthor: meta.author },
-      ),
+      flow.loadPriorContext({
+        sessions: deps.sessions,
+        submissions: deps.submissions,
+        submissionComments: deps.submissionComments,
+        log: deps.log,
+        currentHeadSha: meta.headSha,
+        authorLogin: meta.author,
+      }),
     ),
     withCurrentPhase(sourcePhase, () =>
-      prepareSourceContext({
-        localRepoPath,
-        gh: deps.gh,
-        target,
+      flow.prepareSourceTree({
+        workdir,
+        sessionShort,
         headSha: meta.headSha,
         unifiedDiff: diff.unifiedDiff,
-        sessionWorkdir: workdir,
-        sessionShort,
+        localRepoPath,
         log: deps.log,
       }),
     ),
@@ -288,7 +287,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     // return kind:'none'. Treat an unexpected throw as fatal.
     throw sourceResult.reason
   }
-  const source = sourceResult.value
+  const sourceCtx = sourceResult.value
 
   prepLogger.markPhase(
     priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
@@ -340,7 +339,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   })
   const promptVars: Parameters<typeof renderPrompt>[1] = {
     rules: resolved.rules.content,
-    prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,
+    prMeta: flow.buildSourceMeta(meta),
     diff: annotatedDiff,
     findingsPath: join(workdir, 'findings.json'),
     schemaJson:
@@ -348,9 +347,9 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     summaryPath: join(workdir, 'summary.json'),
     summarySchema:
       'A single JSON object with fields: overview (string, a short markdown description of the main changes), manualReview (array of objects with fields: file (string repo-relative path, or null for a PR-wide note) and reason (string))',
-    sourceKind: source.kind,
-    sourcePath: source.sourcePath,
-    headSha: source.headSha,
+    sourceKind: sourceCtx.kind,
+    sourcePath: sourceCtx.sourcePath,
+    headSha: sourceCtx.headSha,
   }
   if (extraPrompt !== null) promptVars.extraNotes = extraPrompt
   if (priorCtx) promptVars.priorReview = toPriorReviewVars(priorCtx)
@@ -358,12 +357,12 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
 
   deps.sessions.updatePrepArtifacts(id, {
     promptUsed: prompt,
-    sourceKind: source.kind,
-    sourceRefName: source.refName,
+    sourceKind: sourceCtx.kind,
+    sourceRefName: sourceCtx.refName,
   })
 
   return {
     prompt,
-    sourcePath: source.kind !== 'none' && source.sourcePath ? source.sourcePath : null,
+    sourcePath: sourceCtx.kind !== 'none' && sourceCtx.sourcePath ? sourceCtx.sourcePath : null,
   }
 }
