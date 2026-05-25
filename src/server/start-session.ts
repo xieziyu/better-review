@@ -19,7 +19,6 @@ import type { PriorReviewContext } from './engine/rerun-context'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
 import { withGhCallRecorder, type GhClient } from './github/gh-client'
-import { parsePRTarget } from './github/pr-target-parser'
 import type { Logger } from './logger'
 import { resolveLocalRepoPath } from './paths'
 import { renderPrompt, type PriorReviewVars } from './prompts/renderer'
@@ -69,8 +68,13 @@ function toPriorReviewVars(ctx: PriorReviewContext): PriorReviewVars {
 }
 
 export interface StartSessionInput {
-  prInput: string
+  // Pre-resolved SessionSource. The API layer calls parseSessionInput()
+  // to turn the raw user string into this; rerun-session reuses the
+  // archived session's source verbatim.
+  source: SessionSource
   agent?: AgentKind
+  // GitHub-PR-only: a pinned clone for the worktree-source strategy.
+  // Ignored for source kinds that already operate on a local repo.
   localRepoPath?: string
   extraPrompt?: string
 }
@@ -93,30 +97,64 @@ export const PREP_PHASES = {
   renderingPromptWithPrior: 'prep:rendering-prompt:with-prior',
 } as const
 
+// Compact display identifiers per source kind, used to name the session
+// workdir. Kept short + filesystem-safe (no slashes) so the path stays
+// inside sessionsDir and is easy to spot in `ls`.
+function workdirSlug(source: SessionSource): string {
+  switch (source.kind) {
+    case 'github-pr':
+      return `pr-${source.owner}-${source.repo}-${source.number}`
+    case 'local-branch': {
+      // Last path segment of the repo, sanitized to [\w.-]. The
+      // session-id suffix below disambiguates if two sessions hit the
+      // same basename.
+      const base = source.repoPath.replace(/\/+$/, '').split('/').pop() ?? 'repo'
+      const safe = base.replace(/[^\w.-]+/g, '_') || 'repo'
+      return `local-${safe}`
+    }
+    case 'gitbutler-vbranch': {
+      const base = source.repoPath.replace(/\/+$/, '').split('/').pop() ?? 'repo'
+      const safe = base.replace(/[^\w.-]+/g, '_') || 'repo'
+      return `vbranch-${safe}`
+    }
+  }
+}
+
+// Vestigial PR-shaped columns the session row still has (owner / repo /
+// number, all NOT NULL). For non-PR sources we fill them with safe
+// placeholders so existing reads keep working. A future migration can
+// make these nullable and drop the placeholders.
+function placeholderPrFields(source: SessionSource): {
+  owner: string
+  repo: string
+  number: number
+} {
+  if (source.kind === 'github-pr') {
+    return { owner: source.owner, repo: source.repo, number: source.number }
+  }
+  return { owner: '', repo: '', number: 0 }
+}
+
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
   return async function startSession({
-    prInput,
+    source,
     agent: agentKind,
     localRepoPath: rawRepo,
     extraPrompt: rawExtra,
   }) {
-    const target = parsePRTarget(prInput)
-    // Construct the durable SessionSource. Phase 0 always resolves to a
-    // `github-pr` source; later phases pick a different kind based on the
-    // parsed input shape.
-    const source: SessionSource = {
-      kind: 'github-pr',
-      owner: target.owner,
-      repo: target.repo,
-      number: target.number,
-    }
     const localRepoPath =
       rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
     const extraPrompt =
       rawExtra !== undefined && rawExtra.trim().length > 0 ? rawExtra.trim() : null
-    const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
-    if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
-      return { id: existing.id }
+
+    // PR dedup: avoid two concurrent reviews of the same PR. Local-branch
+    // and vbranch get a follow-up source_hash-based dedup later — for
+    // Phase 1b we always allow concurrent local sessions.
+    if (source.kind === 'github-pr') {
+      const existing = deps.sessions.findActiveByPR(source.owner, source.repo, source.number)
+      if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
+        return { id: existing.id }
+    }
 
     const kind = agentKind ?? deps.getConfig().defaultAgent
     // Fail fast (and synchronously to the caller) if the CLI is missing —
@@ -125,12 +163,10 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
 
     const id = randomUUID()
     const sessionShort = id.slice(0, 8)
-    const workdir = join(
-      deps.paths.sessionsDir,
-      `pr-${target.owner}-${target.repo}-${target.number}-${sessionShort}`,
-    )
+    const workdir = join(deps.paths.sessionsDir, `${workdirSlug(source)}-${sessionShort}`)
     mkdirSync(workdir, { recursive: true })
 
+    const prFields = placeholderPrFields(source)
     // Insert with minimal fields populated. prView hasn't run yet, so
     // title/author/url/headSha are all null. The row exists immediately
     // so the UI can navigate to its detail page and start consuming SSE
@@ -138,9 +174,9 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     deps.sessions.insert({
       id,
       source,
-      owner: target.owner,
-      repo: target.repo,
-      number: target.number,
+      owner: prFields.owner,
+      repo: prFields.repo,
+      number: prFields.number,
       title: null,
       author: null,
       url: null,

@@ -41,7 +41,7 @@ export interface AppDeps {
   webDir?: string
   getPort: () => number
   startSession: (input: {
-    prInput: string
+    source: import('../../shared/source').SessionSource
     agent?: import('../../shared/types').AgentKind
     localRepoPath?: string
     extraPrompt?: string

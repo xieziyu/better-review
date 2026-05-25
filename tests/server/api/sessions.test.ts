@@ -23,7 +23,7 @@ describe('sessions API', () => {
   })
 
   it('POST /api/sessions forwards a valid agent override', async () => {
-    let received: { prInput: string; agent?: string } | null = null
+    let received: { source: unknown; agent?: string } | null = null
     const deps = makeTestDeps({
       startSession: async (input) => {
         received = input
@@ -37,7 +37,10 @@ describe('sessions API', () => {
       body: JSON.stringify({ prInput: 'https://github.com/owner/repo/pull/1', agent: 'codex' }),
     })
     expect(res.status).toBe(201)
-    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1', agent: 'codex' })
+    expect(received).toEqual({
+      source: { kind: 'github-pr', owner: 'owner', repo: 'repo', number: 1 },
+      agent: 'codex',
+    })
   })
 
   it('POST /api/sessions rejects an unknown agent', async () => {
@@ -52,7 +55,7 @@ describe('sessions API', () => {
   })
 
   it('POST /api/sessions forwards localRepoPath to startSession', async () => {
-    let received: { prInput: string; agent?: string; localRepoPath?: string } | null = null
+    let received: { source: unknown; agent?: string; localRepoPath?: string } | null = null
     const deps = makeTestDeps({
       startSession: async (input) => {
         received = input
@@ -71,13 +74,13 @@ describe('sessions API', () => {
     })
     expect(res.status).toBe(201)
     expect(received).toEqual({
-      prInput: 'https://github.com/owner/repo/pull/1',
+      source: { kind: 'github-pr', owner: 'owner', repo: 'repo', number: 1 },
       localRepoPath: repoDir,
     })
   })
 
   it('POST /api/sessions drops empty/whitespace localRepoPath silently', async () => {
-    let received: { prInput: string; agent?: string; localRepoPath?: string } | null = null
+    let received: { source: unknown; agent?: string; localRepoPath?: string } | null = null
     const deps = makeTestDeps({
       startSession: async (input) => {
         received = input
@@ -93,12 +96,14 @@ describe('sessions API', () => {
         localRepoPath: '   ',
       }),
     })
-    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1' })
+    expect(received).toEqual({
+      source: { kind: 'github-pr', owner: 'owner', repo: 'repo', number: 1 },
+    })
   })
 
   it('POST /api/sessions forwards extraPrompt to startSession', async () => {
     let received: {
-      prInput: string
+      source: unknown
       agent?: string
       localRepoPath?: string
       extraPrompt?: string
@@ -120,13 +125,13 @@ describe('sessions API', () => {
     })
     expect(res.status).toBe(201)
     expect(received).toEqual({
-      prInput: 'https://github.com/owner/repo/pull/1',
+      source: { kind: 'github-pr', owner: 'owner', repo: 'repo', number: 1 },
       extraPrompt: 'see PRD section 4',
     })
   })
 
   it('POST /api/sessions drops empty/whitespace extraPrompt silently', async () => {
-    let received: { prInput: string; extraPrompt?: string } | null = null
+    let received: { source: unknown; extraPrompt?: string } | null = null
     const deps = makeTestDeps({
       startSession: async (input) => {
         received = input
@@ -142,7 +147,9 @@ describe('sessions API', () => {
         extraPrompt: '   \n\n',
       }),
     })
-    expect(received).toEqual({ prInput: 'https://github.com/owner/repo/pull/1' })
+    expect(received).toEqual({
+      source: { kind: 'github-pr', owner: 'owner', repo: 'repo', number: 1 },
+    })
   })
 
   it('POST /api/sessions rejects non-string extraPrompt', async () => {

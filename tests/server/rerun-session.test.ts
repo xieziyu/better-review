@@ -52,7 +52,7 @@ describe('makeRerunSession', () => {
 
     expect(result.freshId).toBe('fresh-id')
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
     })
     expect(sessions.getById('s1')?.status).toBe('archived')
@@ -68,7 +68,7 @@ describe('makeRerunSession', () => {
     await rerun('s1', { agent: 'codex' })
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'codex',
     })
   })
@@ -99,7 +99,7 @@ describe('makeRerunSession', () => {
     await rerun('s1')
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
       extraPrompt: 'see PRD',
     })
@@ -131,7 +131,7 @@ describe('makeRerunSession', () => {
     await rerun('s1', { extraPrompt: 'new guidance' })
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
       extraPrompt: 'new guidance',
     })
@@ -163,7 +163,7 @@ describe('makeRerunSession', () => {
     await rerun('s1', { extraPrompt: '' })
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
     })
   })
@@ -195,7 +195,7 @@ describe('makeRerunSession', () => {
     await rerun('s1')
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
       localRepoPath: '/Users/me/code/r',
     })
@@ -210,7 +210,7 @@ describe('makeRerunSession', () => {
     await rerun('s1')
 
     expect(startSession).toHaveBeenCalledWith({
-      prInput: 'https://github.com/o/r/pull/1',
+      source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
     })
   })

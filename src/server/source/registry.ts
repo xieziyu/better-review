@@ -5,6 +5,7 @@
 import type { SessionSource } from '../../shared/source'
 import type { GhClient } from '../github/gh-client'
 import { makeGithubPrFlow } from './github-pr-flow'
+import { makeLocalBranchFlow } from './local-branch-flow'
 import type { SourceFlow } from './types'
 
 export interface SourceFlowDeps {
@@ -16,8 +17,7 @@ export function getSourceFlow(source: SessionSource, deps: SourceFlowDeps): Sour
     case 'github-pr':
       return makeGithubPrFlow(source, { gh: deps.gh })
     case 'local-branch':
-      // Phase 1b adds LocalBranchFlow.
-      throw new Error('local-branch source is not implemented yet (Phase 1b)')
+      return makeLocalBranchFlow(source)
     case 'gitbutler-vbranch':
       // Phase 2 adds GitButlerVBranchFlow.
       throw new Error('gitbutler-vbranch source is not implemented yet (Phase 2)')
