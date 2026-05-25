@@ -54,7 +54,7 @@ type SessionSource =
 
 **退出标准**：跑完所有测试，UI 行为零变化，DB 中老 PR session 仍可打开/rerun，新 session 的 `source_json` 正确写入。
 
-### Phase 1 — Local branch source + provider 抽象 ☐ in progress (1a+1b+1c done, 1d pending)
+### Phase 1 — Local branch source + provider 抽象 ✅ done (1d: 77cce1d)
 
 > 引入 provider 接口（Metadata / Diff / SourceTree / Submission），同步实现 `GithubPrProvider` (包装现有逻辑) 和 `LocalBranchProvider`。这样抽象一上来就有两个实现验证。
 
@@ -82,25 +82,43 @@ type SessionSource =
 - [x] `framework.{en,zh-CN}.md`：opener 按 session kind 切换；中性化 "PR-wide" / "this PR" 文案
 - [x] `start-session.ts` 把 `flow.source.kind` 喂给 `sessionKind` promptVar
 
-**1d — UI（待做）**
+**1d — UI（77cce1d）**
 
-- [ ] Home：方案 A 顶部 Tab（GitHub PR active / Local branch active / GitButler vbranch 灰显并标 "Phase 2"）
-- [ ] Home Local Tab：repoPath picker + 可选 head/base
-- [ ] PRDetail：local session 隐藏 Submit 按钮 + 标 "Read-only review"
-- [ ] Sidebar/RecentRow：local session 不再 render `owner/repo#number`，改 render `<basename> · <branch>`
-- [ ] i18n：补 en + zh-CN
-- [ ] e2e：补一个 local-branch 走通的 happy path
+- [x] Home：方案 A 顶部 Tab（GitHub PR active / Local branch active / GitButler vbranch 灰显并标 "Phase 2"）
+- [x] Home Local Tab：repoPath picker + 可选 head/base
+- [x] PRDetail：local session 隐藏 Submit 按钮 + 标 "Read-only review"
+- [x] Sidebar/RecentRow：local session 不再 render `owner/repo#number`，改 render `<basename> · <branch>`
+- [x] i18n：补 en + zh-CN
+- [ ] e2e：补一个 local-branch 走通的 happy path（推后到 Phase 3 e2e 收尾时一起加）
 
 **退出标准**：在本仓库挑一个分支能跑出 findings，UI 全程可用，没有 Submit 入口；PR 路径仍然完整可用。
 
-### Phase 2 — GitButler 虚拟分支 ☐
+### Phase 2 — GitButler 虚拟分支 ☐ in progress (spike done)
 
-- [ ] spike：确认 `but show <branch>` / `but status --json` 是否能稳定拿到 vbranch tip sha；写到 `docs/plans/local-source-review.md` 的"未决"区
-- [ ] `/api/local-source/inspect?path=...`：返回是否为 GitButler 项目 + vbranch 列表（含 tip sha、commit count、diffstat）
-- [ ] `GitButlerVBranchProvider`：diff 优先 `but show`，兜底 `git diff <merge-base>..<tip>`；sourceTree 同 local-branch；submit 禁用
-- [ ] Home：vbranch tab 启用，按 inspect 接口拉列表
-- [ ] prompts：加 vbranch 语义说明（"this is a single virtual branch checkout, other vbranches in the workspace are not included"）
-- [ ] e2e：跳过（CI 没有 but 二进制，靠手测 + 单测覆盖 provider）
+**Spike findings (but 0.19.13)**
+
+- `but status --json` 是最完备的状态出口：`stacks[].branches[]` 列出 applied 栈里的所有 vbranch，按 **栈顶 → 栈底** 顺序排列。每个 branch 自带 `commits[]`（也是新→旧），每条 commit 含 `commitId` (full sha)。`mergeBase.commitId` 是工作区 target branch 的 merge-base。
+- `but show <branchName> --json` 返回 `commits[]`（新→旧，整段栈，**不是只这个 branch 的 commits**）+ `baseCommit.sha`（始终等于 workspace mergeBase）。**不能**直接拿 `baseCommit.sha` 当 review base —— 对栈顶 branch 会把整条栈的 diff 算进去。
+- `but branch list --json` 输出 `appliedStacks[].heads[].name`（只有名字 + 简要 review/CI 状态），不够算 diff base，**只能用来做"是否 GitButler 项目 + 可选 vbranch 列表"的快捷探测**。
+- `but diff <branchName> --json` 返回结构化 diff（带 hunks），但不是 unified format。我们走 `git diff <base>..<tip>` 拿标准 unified，喂给现有 `engine/diff-*` 链路即可。
+- vbranch tip = `status.stacks[].branches[branchIdx].commits[0].commitId`
+- vbranch base = `branches[branchIdx + 1]?.commits[0]?.commitId ?? mergeBase.commitId`（栈底 branch 的 base 才是 workspace mergeBase；中间或顶部 branch 的 base 是它下方 branch 的 tip）
+
+**实施清单**
+
+- [x] spike：见上
+- [ ] `src/server/gitbutler/cli.ts`：execa wrapper + `findExecutable('but')` 缓存；`butStatus(repoPath)` 解析 status JSON 为 `{ kind: 'gitbutler', stacks: VBranchInfo[], mergeBase }`，校验失败抛 typed error
+- [ ] `src/server/gitbutler/inspect.ts`：把 status 折叠成 `inspectGitButler(repoPath) → { kind, vbranches: { name, tipSha, baseSha, commitCount, stackPosition }[] }`，按 stack 折叠 + 标记 stackPosition
+- [ ] `/api/local-source/inspect?path=...`：返回 `{ kind: 'gitbutler' | 'git' | 'none', vbranches: [...] }`；非 GitButler 项目走 `git rev-parse --is-inside-work-tree` 探测，但内不返回 vbranch 列表
+- [ ] `src/server/source/gitbutler-vbranch-flow.ts`：metadata = `git log -1 <tipSha>`，diff = `git diff <baseSha>..<tipSha>`（标准 unified），sourceTree = `git worktree add --detach <workdir>/repo <tipSha>`（与 local-branch 完全复用），submit = not-supported
+- [ ] `src/server/source/parse.ts`：扩展 `parseSessionInput` 接受 vbranch 选项（API 调用方需要在请求体里显式标 `kind: 'gitbutler-vbranch'`），路径单跑仍判 local-branch
+- [ ] `src/server/source/index.ts`：注册 gitbutler-vbranch flow
+- [ ] `src/server/start-session.ts` workdirSlug：vbranch 用 `vbranch-<basename>-<safeName>`（已实现一半，验一下）
+- [ ] prompts：`{{#SESSION_KIND:gitbutler-vbranch}}` 块加 "single vbranch checkout, sibling vbranches not included" 语义
+- [ ] Home vbranch tab：去掉 disabled，repo picker 触发 inspect；如果 `kind === 'gitbutler'`，下拉框列 vbranches；否则灰显 + 提示 "Not a GitButler project"
+- [ ] API 路由 vbranch 创建：复用 POST /api/sessions（前端传 `kind: 'gitbutler-vbranch', repoPath, vbranchName`），server 用 parse 转 source
+- [ ] 单测：inspect 解析、provider 的 base/tip 折叠、stacked branch 边界
+- [ ] e2e：跳过（CI 无 but 二进制，靠手测 + 单测覆盖 provider）
 
 ### Phase 3 — UI 收尾 ☐
 
@@ -112,7 +130,7 @@ type SessionSource =
 
 ## 五、风险 / 未决
 
-1. **GitButler CLI 稳定性**：`but show <branch>` 是否真的能给出可 checkout 的 sha？Phase 2 前先 spike。
+1. ~~**GitButler CLI 稳定性**：`but show <branch>` 是否真的能给出可 checkout 的 sha？~~ Resolved by Phase 2 spike — `but status --json` 是真源（参看 Phase 2 节）；`but show` 的 `baseCommit` 不能用作 review base，stacked branch 必须从 status 折叠出来。
 2. **未 commit 的工作树脏改动 review**：本期不做。Phase 1 mockup B 曾出现"Working tree diff"段；落地时不实现。
 3. **Diff line 锚定**：local diff 同样符合 "new file" 行号规则，`diff-line-validator` 不需要改。但若用户把 base 设成很老的 revision，hunk 大可能引发噪声 — Phase 1 提示一下即可。
 4. **同仓库同分支重复发起**：用 `sourceHash(source)` 做活跃 session 去重；head sha 变了允许新开。
