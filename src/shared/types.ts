@@ -253,6 +253,25 @@ export interface LocalSourceInspect {
   mergeBaseSha?: string
   warning?: string
 }
+// Local-branch listing for the Home "Local branch" tab HEAD/BASE pickers.
+// `head` is the symbolic shortname of HEAD ('main', 'feat/x', …) or null
+// when the repo is in a detached state. Branches are sorted by most-
+// recent commit first so the natural defaults (the user's working
+// branch and recently-touched neighbors) bubble to the top.
+export interface LocalBranchEntry {
+  name: string
+  // Short (7-char) commit sha — enough to display, not enough to disambiguate
+  // collisions, but that's a display field, not an identity field.
+  sha: string
+  // Unix epoch seconds of the branch tip's committer date.
+  committedAt: number
+}
+export interface LocalBranchesResult {
+  kind: 'none' | 'git'
+  repoPath: string
+  head: string | null
+  branches: LocalBranchEntry[]
+}
 export interface RerunSessionRequest {
   agent?: AgentKind
   // When omitted, the rerun reuses the previous session's `extraPrompt` as-is.

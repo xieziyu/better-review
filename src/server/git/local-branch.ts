@@ -144,6 +144,45 @@ export async function readDiff(repoPath: string, base: string, head: string): Pr
   return r.stdout
 }
 
+export interface LocalBranchEntry {
+  name: string
+  sha: string
+  committedAt: number
+}
+
+// List local branches in `repoPath`, newest commit first, with the
+// current HEAD shortname (or null when detached). Pure read-only —
+// powers the Home tab pickers.
+export async function listLocalBranches(
+  repoPath: string,
+): Promise<{ head: string | null; branches: LocalBranchEntry[] }> {
+  // Tab-separated format keeps the parser dead simple. `objectname:short`
+  // gives 7-char shas (git's default), `committerdate:unix` is the
+  // epoch-seconds timestamp we need for relative-time display.
+  const r = await git(repoPath, [
+    'for-each-ref',
+    '--format=%(refname:short)%09%(objectname:short)%09%(committerdate:unix)',
+    '--sort=-committerdate',
+    'refs/heads',
+  ])
+  if (r.exitCode !== 0) throw new LocalGitError(`git for-each-ref failed in ${repoPath}`)
+  const branches: LocalBranchEntry[] = []
+  for (const line of r.stdout.split('\n')) {
+    if (!line) continue
+    const [name, sha, ts] = line.split('\t')
+    if (!name || !sha || !ts) continue
+    const committedAt = Number(ts)
+    if (!Number.isFinite(committedAt)) continue
+    branches.push({ name, sha, committedAt })
+  }
+  // `git rev-parse --abbrev-ref HEAD` returns 'HEAD' literal for detached
+  // states. Treat that as null so the UI doesn't badge a non-existent branch.
+  const headR = await git(repoPath, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  const headName = headR.exitCode === 0 ? headR.stdout.trim() : ''
+  const head = headName && headName !== 'HEAD' ? headName : null
+  return { head, branches }
+}
+
 // Inspect a local branch end-to-end: resolve head→sha, ref name, commit
 // metadata. Used by the flow's fetchMetadata().
 export async function inspectLocalBranch(
