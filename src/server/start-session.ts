@@ -73,8 +73,12 @@ export interface StartSessionInput {
   // archived session's source verbatim.
   source: SessionSource
   agent?: AgentKind
-  // GitHub-PR-only: a pinned clone for the worktree-source strategy.
-  // Ignored for source kinds that already operate on a local repo.
+  // For GitHub-PR sources this pins the local clone the worktree-source
+  // strategy uses. For local-branch and gitbutler-vbranch sources the
+  // caller can omit it — `source.repoPath` already names the repo, and
+  // startSession derives `session.localRepoPath` from it. Passing it
+  // explicitly still works (the UI does, and rerun-session preserves
+  // the prior value); the derivation only kicks in when it's absent.
   localRepoPath?: string
   extraPrompt?: string
 }
@@ -142,8 +146,21 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     localRepoPath: rawRepo,
     extraPrompt: rawExtra,
   }) {
+    // Resolution order: an explicit rawRepo wins (the UI always supplies
+    // it; rerun-session passes through the prior session's pin). When
+    // omitted, fall back to the source's own repoPath for local-branch
+    // and vbranch sources — that path is already absolute + validated by
+    // parseSessionInput. Without this, an API caller that only supplies
+    // a path-shaped `prInput` would create a worktree against the repo
+    // but leave `session.localRepoPath` null, which silently disables
+    // project-tier prompt resolution and skips worktree cleanup on
+    // delete-session.
     const localRepoPath =
-      rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
+      rawRepo !== undefined && rawRepo.trim().length > 0
+        ? resolveLocalRepoPath(rawRepo)
+        : source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch'
+          ? source.repoPath
+          : null
     const extraPrompt =
       rawExtra !== undefined && rawExtra.trim().length > 0 ? rawExtra.trim() : null
 
