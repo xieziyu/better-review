@@ -34,6 +34,7 @@ import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { buildFileAliasMap, canonicalFilePath, parseFileList } from '@/lib/diff-utils'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
+import { isLocalSource, sameSource, sessionDisplayLabel } from '@/lib/session-display'
 import { useSSE } from '@/lib/sse'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -50,16 +51,6 @@ const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'da
     archived: 'neutral',
     cancelled: 'neutral',
   }
-
-function sessionHeaderLabel(session: PRSession): string {
-  if (session.source.kind === 'local-branch') {
-    const base =
-      session.source.repoPath.replace(/\/+$/, '').split('/').pop() ?? session.source.repoPath
-    const branch = session.headRef ?? session.source.head
-    return `${base} · ${branch}`
-  }
-  return `${session.owner}/${session.repo}#${session.number}`
-}
 
 function SourceKindBadge({ session }: { session: PRSession }) {
   const { t } = useTranslation()
@@ -127,8 +118,8 @@ function PRHeader({
   justSwitched,
 }: PRHeaderProps) {
   const { t } = useTranslation()
-  const isLocal = session.source.kind === 'local-branch'
-  const headerLabel = sessionHeaderLabel(session)
+  const isLocal = isLocalSource(session.source)
+  const headerLabel = sessionDisplayLabel(session)
   return (
     <header className="space-y-4">
       <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -197,9 +188,7 @@ function PRHeader({
         ) : null}
       </div>
 
-      <h1 className="text-display text-ink-primary">
-        {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
-      </h1>
+      <h1 className="text-display text-ink-primary">{session.title ?? headerLabel}</h1>
 
       <div className="flex items-center gap-4 flex-wrap">
         <fieldset className="flex items-center gap-1.5 text-meta text-ink-secondary">
@@ -509,7 +498,7 @@ function TabButton({
   )
 }
 
-export function PRDetail() {
+export function SessionDetail() {
   const { t } = useTranslation()
   const { id = '' } = useParams()
   const nav = useNavigate()
@@ -730,7 +719,7 @@ export function PRDetail() {
     onSuccess: ({ id: freshId }) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sessions })
       setJustSwitched(true)
-      nav(`/pr/${freshId}`)
+      nav(`/session/${freshId}`)
     },
   })
 
@@ -794,13 +783,7 @@ export function PRDetail() {
   const isOrphanArchived =
     isHistorical &&
     Array.isArray(allSessions) &&
-    !allSessions.some(
-      (s) =>
-        s.owner === session.owner &&
-        s.repo === session.repo &&
-        s.number === session.number &&
-        s.status !== 'archived',
-    )
+    !allSessions.some((s) => sameSource(s, session) && s.status !== 'archived')
   const activeFindings = isHistorical ? findings : findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -810,12 +793,7 @@ export function PRDetail() {
   const roundNumber = Array.isArray(allSessions)
     ? 1 +
       allSessions.filter(
-        (s) =>
-          s.owner === session.owner &&
-          s.repo === session.repo &&
-          s.number === session.number &&
-          s.status === 'archived' &&
-          s.createdAt < session.createdAt,
+        (s) => sameSource(s, session) && s.status === 'archived' && s.createdAt < session.createdAt,
       ).length
     : 1
 

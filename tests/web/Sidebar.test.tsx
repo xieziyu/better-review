@@ -126,6 +126,58 @@ describe('Sidebar', () => {
     expect(screen.getByText('done one')).toBeInTheDocument()
   })
 
+  it('splits sessions into PR and Local repos top-level sections', () => {
+    const pr = mkSession({ id: 'p', number: 7, title: 'pr-title' })
+    const local = mkSession({
+      id: 'l',
+      title: 'local-title',
+      source: { kind: 'local-branch', repoPath: '/u/me/foo', head: 'feat', base: 'main' },
+      owner: '',
+      repo: '',
+      number: 0,
+    })
+    const vbranch = mkSession({
+      id: 'v',
+      title: 'vbranch-title',
+      source: {
+        kind: 'gitbutler-vbranch',
+        repoPath: '/u/me/bar',
+        vbranchName: 'feat-vb',
+        base: 'sha',
+      },
+      owner: '',
+      repo: '',
+      number: 0,
+    })
+    render(withClient(<Sidebar />, { sessions: [pr, local, vbranch] }))
+    expect(screen.getByText(/Pull requests/i)).toBeInTheDocument()
+    expect(screen.getByText(/Local repos/i)).toBeInTheDocument()
+    expect(screen.getByText('pr-title')).toBeInTheDocument()
+    expect(screen.getByText('local-title')).toBeInTheDocument()
+    expect(screen.getByText('vbranch-title')).toBeInTheDocument()
+  })
+
+  it('groups local sessions under their repo basename', () => {
+    const a = mkSession({
+      id: 'a',
+      title: 'first',
+      source: { kind: 'local-branch', repoPath: '/u/me/foo', head: 'feat', base: 'main' },
+      owner: '',
+      repo: '',
+      number: 0,
+    })
+    const b = mkSession({
+      id: 'b',
+      title: 'second',
+      source: { kind: 'local-branch', repoPath: '/u/me/foo', head: 'fix', base: 'main' },
+      owner: '',
+      repo: '',
+      number: 0,
+    })
+    render(withClient(<Sidebar />, { sessions: [a, b] }))
+    expect(screen.getAllByText('foo').length).toBeGreaterThan(0)
+  })
+
   it('shows the no-match empty state when filter excludes everything', async () => {
     const user = userEvent.setup()
     render(

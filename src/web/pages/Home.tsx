@@ -17,6 +17,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
+import { sessionDisplayLabel } from '@/lib/session-display'
 import { cn } from '@/lib/utils'
 
 type HomeTab = 'pr' | 'local' | 'vbranch'
@@ -41,30 +42,17 @@ const STATUS_TONE: Record<
   cancelled: 'neutral',
 }
 
-// Human-readable label for a session in the Recent list. Local sessions
-// don't have an owner/repo/number triple, so we fall back to the repo's
-// basename and the branch ref.
-function sessionRecentLabel(session: PRSession): string {
-  if (session.source.kind === 'local-branch') {
-    const base =
-      session.source.repoPath.replace(/\/+$/, '').split('/').pop() ?? session.source.repoPath
-    const branch = session.headRef ?? session.source.head
-    return `${base} · ${branch}`
-  }
-  return `${session.owner}/${session.repo}#${session.number}`
-}
-
 function RecentRow({ session }: { session: PRSession }) {
   const { t } = useTranslation()
   const relativeTime = useRelativeTime()
   return (
     <Link
-      to={`/pr/${session.id}`}
+      to={`/session/${session.id}`}
       className="group block py-3 border-b border-rule last:border-b-0"
     >
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-meta text-ink-secondary tabular-nums">
-          {sessionRecentLabel(session)}
+          {sessionDisplayLabel(session)}
         </span>
         <Tag tone={STATUS_TONE[session.status]}>{t(`sidebar.status.${session.status}`)}</Tag>
         <span className="ml-auto text-caps tracking-caps text-ink-muted uppercase">
@@ -156,7 +144,7 @@ export function Home() {
     mutationFn: api.createSession,
     onSuccess: ({ id }) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sessions })
-      nav(`/pr/${id}`)
+      nav(`/session/${id}`)
     },
   })
 

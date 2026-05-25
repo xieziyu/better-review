@@ -341,7 +341,7 @@
     "sourceSnapshotTitle": "Only the files touched by the diff are snapshotted at PR head; callers and adjacent modules are not included.",
     "newRunStarted": "new run started",
     "readOnlyReview": "Read-only review",
-    "readOnlyReviewTitle": "Local-branch reviews stay in the UI — there is no GitHub destination to submit to.",
+    "readOnlyReviewTitle": "Local source reviews stay in the UI — there is no GitHub destination to submit to.",
     "submittedNote": "Submitted to GitHub.",
     "cancelRunningAriaLabel": "Cancel running review",
     "cancelTitle": "Cancel running review?",
@@ -526,6 +526,11 @@
       "active": "Active",
       "done": "Done",
       "stale": "Stale"
+    },
+    "section": {
+      "pr": "Pull requests",
+      "local": "Local repos",
+      "localUnknownRepo": "(unknown repo)"
     },
     "status": {
       "running": "Running",

@@ -341,7 +341,7 @@
     "sourceSnapshotTitle": "仅 diff 涉及的文件被快照到 PR head；callers 与相邻模块未包含。",
     "newRunStarted": "已启动新一轮",
     "readOnlyReview": "只读评审",
-    "readOnlyReviewTitle": "本地分支评审仅在 UI 内查看 —— 无 GitHub 目标可提交。",
+    "readOnlyReviewTitle": "本地评审仅在 UI 内查看 —— 无 GitHub 目标可提交。",
     "submittedNote": "已提交到 GitHub。",
     "cancelRunningAriaLabel": "取消正在进行的评审",
     "cancelTitle": "取消正在进行的评审？",
@@ -526,6 +526,11 @@
       "active": "进行中",
       "done": "已完成",
       "stale": "过期"
+    },
+    "section": {
+      "pr": "Pull Request",
+      "local": "本地仓库",
+      "localUnknownRepo": "（未知仓库）"
     },
     "status": {
       "running": "运行中",

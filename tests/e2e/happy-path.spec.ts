@@ -73,6 +73,6 @@ test('create session via API and find it on homepage', async ({ page }) => {
   const { id } = (await res.json()) as { id: string }
   expect(id).toBeTruthy()
 
-  await page.goto(`http://127.0.0.1:${port}/pr/${id}`)
+  await page.goto(`http://127.0.0.1:${port}/session/${id}`)
   await expect(page.locator('body')).toContainText('owner/repo#1', { timeout: 30_000 })
 })

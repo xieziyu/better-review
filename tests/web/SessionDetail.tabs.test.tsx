@@ -22,7 +22,7 @@ vi.mock('@/components/CodeBlock', () => ({
 
 import { SelectionProvider } from '@/lib/selection'
 import { ToastProvider } from '@/lib/toast'
-import { PRDetail } from '@/pages/PRDetail'
+import { SessionDetail } from '@/pages/SessionDetail'
 
 function withRoute(
   session: PRSession,
@@ -38,9 +38,9 @@ function withRoute(
     <QueryClientProvider client={qc}>
       <SelectionProvider>
         <ToastProvider>
-          <MemoryRouter initialEntries={[`/pr/${session.id}`]}>
+          <MemoryRouter initialEntries={[`/session/${session.id}`]}>
             <Routes>
-              <Route path="/pr/:id" element={<PRDetail />} />
+              <Route path="/session/:id" element={<SessionDetail />} />
             </Routes>
           </MemoryRouter>
         </ToastProvider>

@@ -385,7 +385,7 @@ export function PromptEditor() {
           onApplied={(firstId) => {
             setShowApplyModal(false)
             void qc.invalidateQueries({ queryKey: queryKeys.sessions })
-            navigate(`/pr/${firstId}`)
+            navigate(`/session/${firstId}`)
           }}
         />
       ) : null}
