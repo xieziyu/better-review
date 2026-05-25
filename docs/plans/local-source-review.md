@@ -15,20 +15,20 @@ PR 路径保持完全兼容，旧 session 不动。
 
 ## 二、锁定的决策
 
-| 维度 | 决定 |
-|---|---|
+| 维度      | 决定                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Home 输入 | **方案 A — 顶部 Tab**：`GitHub PR / Local branch / GitButler vbranch`；vbranch tab 仅当所选路径是 GitButler 项目时启用，否则灰显并 hint |
-| Submit | **Local/vbranch session 完全禁用 Submit**；按钮 hidden，UI 标记 "Read-only review"；findings 仍可在 UI 内勾选/编辑/查看，但不外发 |
-| Diff base | 默认 `merge-base(HEAD, refs/remotes/<default>/HEAD)`，兜底 `origin/main`；UI 可显式覆盖 |
-| 路由 | `/pr/:id` 保留为别名；新 session 走 `/session/:id`（Phase 4 收尾时切换） |
-| DB | 新增 `source_json` 列 + `source_hash` 唯一索引；旧 PR 行 migration 回填；老 PR 字段保留并改 nullable |
+| Submit    | **Local/vbranch session 完全禁用 Submit**；按钮 hidden，UI 标记 "Read-only review"；findings 仍可在 UI 内勾选/编辑/查看，但不外发       |
+| Diff base | 默认 `merge-base(HEAD, refs/remotes/<default>/HEAD)`，兜底 `origin/main`；UI 可显式覆盖                                                 |
+| 路由      | `/pr/:id` 保留为别名；新 session 走 `/session/:id`（Phase 4 收尾时切换）                                                                |
+| DB        | 新增 `source_json` 列 + `source_hash` 唯一索引；旧 PR 行 migration 回填；老 PR 字段保留并改 nullable                                    |
 
 ## 三、概念建模
 
 ```ts
 type SessionSource =
-  | { kind: 'github-pr';        owner: string; repo: string; number: number }
-  | { kind: 'local-branch';     repoPath: string; head: string; base: string }
+  | { kind: 'github-pr'; owner: string; repo: string; number: number }
+  | { kind: 'local-branch'; repoPath: string; head: string; base: string }
   | { kind: 'gitbutler-vbranch'; repoPath: string; vbranchName: string; base: string }
 ```
 
@@ -41,20 +41,25 @@ type SessionSource =
 
 ## 四、阶段与进度
 
-### Phase 0 — 抽象铺底（行为零变化）  ☐ in progress
+### Phase 0 — SessionSource 类型 + DB 持久化（行为零变化） ☐ in progress
 
-- [ ] `src/shared/source.ts`：`SessionSource` 联合 + zod schema + `sourceHash()`
+> Provider 抽象推迟到 Phase 1（有 LocalBranchProvider 这第二个实现时再抽，避免单实现的过度抽象）。
+
+- [ ] `src/shared/source.ts`：`SessionSource` 联合 + zod schema + `sourceHash()`，含单测
+- [ ] DB migration `0010_session_source.sql`：加 `source_json TEXT` + `source_hash TEXT` 列，回填老 PR 行
+- [ ] `PRSession` 接口加 `source: SessionSource`（非空，所有行迁移后都有值）
+- [ ] `SessionsRepo.insert` 接受 source；`rowToSession` 读回；`start-session.ts` 在 `parsePRTarget` 后构造 source 并落库
+- [ ] 现有 server / cli / shared / web / e2e 测试全绿（无新功能）
+
+**退出标准**：跑完所有测试，UI 行为零变化，DB 中老 PR session 仍可打开/rerun，新 session 的 `source_json` 正确写入。
+
+### Phase 1 — Local branch source + provider 抽象 ☐
+
+> 引入 provider 接口（Metadata / Diff / SourceTree / Submission），同步实现 `GithubPrProvider` (包装现有逻辑) 和 `LocalBranchProvider`。这样抽象一上来就有两个实现验证。
+
 - [ ] 新建 `src/server/source/` 目录，定义四个 provider 接口
 - [ ] 实现 `GithubPrProvider`，把现有 `gh-client + worktree + snapshot + submit` 包进去
 - [ ] `start-session.ts`：`parseInput → SessionSource → providers.dispatch(...)`
-- [ ] DB migration `0007_source_json.sql`：加列 + 回填 PR 行
-- [ ] `PRSession` 接口加 `source: SessionSource`；PR 专属字段标 nullable
-- [ ] 现有 server / cli / shared / web / e2e 测试全绿（无新功能）
-
-**退出标准**：跑完所有测试，UI 行为零变化，DB 中老 PR session 仍可打开/rerun。
-
-### Phase 1 — Local branch source  ☐
-
 - [ ] `parseSessionInput()`：URL → PR；绝对路径/`~` → local-branch
 - [ ] `LocalBranchProvider`：
   - metadata：`git log -1 --format=%H/%an/%s` + `url = null`
@@ -70,7 +75,7 @@ type SessionSource =
 
 **退出标准**：在本仓库挑一个分支能跑出 findings，UI 全程可用，没有 Submit 入口；PR 路径仍然完整可用。
 
-### Phase 2 — GitButler 虚拟分支  ☐
+### Phase 2 — GitButler 虚拟分支 ☐
 
 - [ ] spike：确认 `but show <branch>` / `but status --json` 是否能稳定拿到 vbranch tip sha；写到 `docs/plans/local-source-review.md` 的"未决"区
 - [ ] `/api/local-source/inspect?path=...`：返回是否为 GitButler 项目 + vbranch 列表（含 tip sha、commit count、diffstat）
@@ -79,7 +84,7 @@ type SessionSource =
 - [ ] prompts：加 vbranch 语义说明（"this is a single virtual branch checkout, other vbranches in the workspace are not included"）
 - [ ] e2e：跳过（CI 没有 but 二进制，靠手测 + 单测覆盖 provider）
 
-### Phase 3 — UI 收尾  ☐
+### Phase 3 — UI 收尾 ☐
 
 - [ ] Sidebar：分两段 "PR" / "Local repos"，本地仓库按 repoPath 分组
 - [ ] 路由：`/session/:id` 主路径；`/pr/:id` 保留 301
