@@ -207,9 +207,13 @@
       "headLabel": "Head",
       "headPlaceholder": "branch / sha（默认 HEAD）",
       "headAriaLabel": "待评审的分支、ref 或 SHA",
+      "headMenuAriaLabel": "选择 head 分支",
       "baseLabel": "Base",
       "basePlaceholder": "auto（origin/HEAD → main → master）",
       "baseAriaLabel": "diff base ref",
+      "baseMenuAriaLabel": "选择 base 分支",
+      "branchesEmptyHint": "请先在上方选择本地仓库，下面会列出其分支。",
+      "branchHeadBadge": "HEAD",
       "readOnlyHint": "本地评审仅在 UI 内可用 —— findings 不会被提交到 GitHub。"
     },
     "vbranch": {
@@ -217,6 +221,7 @@
       "repoAriaLabel": "GitButler 项目路径",
       "label": "vbranch",
       "ariaLabel": "选择虚拟分支",
+      "menuAriaLabel": "虚拟分支列表",
       "pickOne": "—— 选择一个虚拟分支 ——",
       "pickFirst": "请先选一个 GitButler 项目路径，下面会列出其虚拟分支。",
       "inspecting": "正在检测项目中的虚拟分支…",
@@ -240,6 +245,9 @@
     "pickerError": "无法打开文件夹选择器",
     "recentRepoMatch": "★ 与 PR 匹配 · ",
     "recentRepoMeta": "上次使用 {{when}} · 共 {{count}} 次",
+    "recentReposMenuAriaLabel": "最近使用的本地仓库",
+    "recentReposEmptyHint": "暂无最近使用的本地仓库。直接输入路径，或点 Browse。",
+    "recentRepoCurrentBadge": "current",
     "autoFillHint": "ⓘ 已从历史记录自动填充 · 匹配 {{owner}}/{{repo}}",
     "extra": {
       "header": "本次评审的附加上下文",

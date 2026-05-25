@@ -207,9 +207,13 @@
       "headLabel": "Head",
       "headPlaceholder": "branch / sha (default HEAD)",
       "headAriaLabel": "Branch, ref, or SHA to review",
+      "headMenuAriaLabel": "Pick a head branch",
       "baseLabel": "Base",
       "basePlaceholder": "auto (origin/HEAD → main → master)",
       "baseAriaLabel": "Diff base ref",
+      "baseMenuAriaLabel": "Pick a base branch",
+      "branchesEmptyHint": "Pick a local repository above to list its branches.",
+      "branchHeadBadge": "HEAD",
       "readOnlyHint": "Local reviews are read-only — findings stay in the UI and aren't posted to GitHub."
     },
     "vbranch": {
@@ -217,6 +221,7 @@
       "repoAriaLabel": "GitButler project path",
       "label": "vbranch",
       "ariaLabel": "Pick a virtual branch",
+      "menuAriaLabel": "Virtual branches",
       "pickOne": "— pick a virtual branch —",
       "pickFirst": "Pick a GitButler project path to list its virtual branches.",
       "inspecting": "Inspecting the project for virtual branches…",
@@ -240,6 +245,9 @@
     "pickerError": "Failed to open folder picker",
     "recentRepoMatch": "★ matches PR · ",
     "recentRepoMeta": "last used {{when}} · ×{{count}}",
+    "recentReposMenuAriaLabel": "Recent local repositories",
+    "recentReposEmptyHint": "No recently-used local repositories. Type a path or click Browse.",
+    "recentRepoCurrentBadge": "current",
     "autoFillHint": "ⓘ Auto-filled from history · matches {{owner}}/{{repo}}",
     "extra": {
       "header": "Extra context for this review",

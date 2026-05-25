@@ -14,7 +14,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
+import {
+  Button,
+  Combobox,
+  EmptyState,
+  KbdHint,
+  SelectMenu,
+  SelectMenuCheck,
+  Tag,
+} from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
 import { sessionDisplayLabel } from '@/lib/session-display'
@@ -125,6 +133,10 @@ export function Home() {
   const [localTabRepo, setLocalTabRepo] = useState('')
   const [localTabHead, setLocalTabHead] = useState('')
   const [localTabBase, setLocalTabBase] = useState('')
+  // Gate the auto-prefill of HEAD: once the user has touched it (typed,
+  // picked, or cleared), don't clobber their choice when the branch list
+  // refreshes.
+  const [localTabHeadTouched, setLocalTabHeadTouched] = useState(false)
   // vbranch tab state. Repo + selected vbranch; inspect result is fetched
   // from the API and drives both the gating and the dropdown contents.
   const [vbranchTabRepo, setVbranchTabRepo] = useState('')
@@ -223,6 +235,26 @@ export function Home() {
 
   const localTabRepoTrim = localTabRepo.trim()
   const localTabCanSubmit = localTabRepoTrim.length > 0 && !create.isPending
+  // Fetch local branches once the user has picked a repo on the local tab.
+  // Mirrors the vbranchInspect pattern: parent query, both Combobox
+  // pickers consume the same data.
+  const { data: localBranches } = useQuery({
+    queryKey: queryKeys.localBranches(localTabRepoTrim),
+    queryFn: () => api.listLocalBranches(localTabRepoTrim),
+    enabled: tab === 'local' && localTabRepoTrim.length > 0,
+    retry: false,
+  })
+  // Reset the user-touched flag when the repo path changes — the branch
+  // list belongs to a different repo now, so re-prefill is appropriate.
+  useEffect(() => {
+    setLocalTabHeadTouched(false)
+  }, [localTabRepoTrim])
+  // Prefill HEAD with the repo's current branch once the API resolves.
+  useEffect(() => {
+    if (localTabHeadTouched) return
+    const next = localBranches?.head
+    if (next && localTabHead !== next) setLocalTabHead(next)
+  }, [localBranches, localTabHeadTouched, localTabHead])
   const prCanSubmit = trimmed.length > 0 && !create.isPending
 
   const vbranchTabRepoTrim = vbranchTabRepo.trim()
@@ -322,10 +354,7 @@ export function Home() {
             {k}
             {health && k === health.defaultAgent ? (
               <span
-                className={cn(
-                  'ml-1.5 text-[10px]',
-                  selected ? 'text-canvas/70' : 'text-ink-muted',
-                )}
+                className={cn('ml-1.5 text-[10px]', selected ? 'text-canvas/70' : 'text-ink-muted')}
               >
                 {t('home.agent.defaultSuffix')}
               </span>
@@ -441,62 +470,71 @@ export function Home() {
             </div>
 
             <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-              <FolderGit2 size={16} className="text-ink-muted shrink-0" aria-hidden="true" />
-              <input
-                type="text"
-                list="recent-repos"
+              <Combobox
                 value={localRepo}
-                onChange={(e) => {
-                  setLocalRepo(e.target.value)
+                onChange={(next) => {
+                  setLocalRepo(next)
                   setLocalRepoTouched(true)
                 }}
+                options={recentRepos?.items ?? []}
+                getValue={(r) => r.path}
+                getKey={(r) => r.path}
+                ariaLabel={t('home.localRepoAriaLabel')}
+                menuAriaLabel={t('home.recentReposMenuAriaLabel')}
                 placeholder={t('home.localRepoPlaceholder')}
-                className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-                aria-label={t('home.localRepoAriaLabel')}
-                spellCheck={false}
-                autoComplete="off"
+                leftIcon={<FolderGit2 size={16} aria-hidden="true" />}
+                emptyHint={t('home.recentReposEmptyHint')}
+                renderOption={(r) => (
+                  <>
+                    <span className="font-mono truncate">{r.path}</span>
+                    {r.matchedCurrentRepo ? (
+                      <span className="text-caps tracking-caps text-accent-ready uppercase shrink-0 rounded px-1.5 py-0.5 bg-[color-mix(in_oklch,var(--accent-ready)_18%,transparent)]">
+                        {t('home.recentRepoCurrentBadge')}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto font-mono text-meta text-ink-muted shrink-0">
+                      {t('home.recentRepoMeta', {
+                        when: relativeTime(r.lastUsedAt),
+                        count: r.useCount,
+                      })}
+                    </span>
+                  </>
+                )}
+                rightSlot={
+                  <>
+                    {folderPickerSupported ? (
+                      <button
+                        type="button"
+                        onClick={() => void browseLocalRepo('pr')}
+                        disabled={pickerBusy !== null}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                        aria-label={t('home.browseAriaLabel')}
+                        title={t('home.browseTitle')}
+                      >
+                        <FolderOpen size={14} aria-hidden="true" />
+                        {pickerBusy === 'pr' ? t('home.opening') : t('home.browse')}
+                      </button>
+                    ) : null}
+                    {localRepo ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocalRepo('')
+                          setLocalRepoTouched(true)
+                        }}
+                        className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                        aria-label={t('home.clearAriaLabel')}
+                      >
+                        {t('home.clear')}
+                      </button>
+                    ) : null}
+                  </>
+                }
               />
-              {folderPickerSupported ? (
-                <button
-                  type="button"
-                  onClick={() => void browseLocalRepo('pr')}
-                  disabled={pickerBusy !== null}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
-                  aria-label={t('home.browseAriaLabel')}
-                  title={t('home.browseTitle')}
-                >
-                  <FolderOpen size={14} aria-hidden="true" />
-                  {pickerBusy === 'pr' ? t('home.opening') : t('home.browse')}
-                </button>
-              ) : null}
-              {localRepo ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLocalRepo('')
-                    setLocalRepoTouched(true)
-                  }}
-                  className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                  aria-label={t('home.clearAriaLabel')}
-                >
-                  {t('home.clear')}
-                </button>
-              ) : null}
             </div>
             {pickerError ? (
               <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
             ) : null}
-            <datalist id="recent-repos">
-              {recentRepos?.items.map((r) => (
-                <option key={r.path} value={r.path}>
-                  {r.matchedCurrentRepo ? t('home.recentRepoMatch') : ''}
-                  {t('home.recentRepoMeta', {
-                    when: relativeTime(r.lastUsedAt),
-                    count: r.useCount,
-                  })}
-                </option>
-              ))}
-            </datalist>
             {showAutoFillHint ? (
               <div className="text-meta text-ink-muted -mt-1 pl-1">
                 {t('home.autoFillHint', { owner: target!.owner, repo: target!.repo })}
@@ -548,41 +586,69 @@ export function Home() {
               <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-                <GitBranch size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
                 <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
                   {t('home.local.headLabel')}
                 </span>
-                <input
-                  type="text"
+                <Combobox
                   value={localTabHead}
-                  onChange={(e) => setLocalTabHead(e.target.value)}
+                  onChange={(next) => {
+                    setLocalTabHead(next)
+                    setLocalTabHeadTouched(true)
+                  }}
+                  options={localBranches?.branches ?? []}
+                  getValue={(b) => b.name}
+                  getKey={(b) => b.name}
+                  ariaLabel={t('home.local.headAriaLabel')}
+                  menuAriaLabel={t('home.local.headMenuAriaLabel')}
                   placeholder={t('home.local.headPlaceholder')}
-                  className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-                  aria-label={t('home.local.headAriaLabel')}
-                  spellCheck={false}
-                  autoComplete="off"
+                  leftIcon={<GitBranch size={14} aria-hidden="true" />}
+                  emptyHint={t('home.local.branchesEmptyHint')}
+                  renderOption={(b) => (
+                    <>
+                      <span className="font-mono truncate">{b.name}</span>
+                      {localBranches?.head === b.name ? (
+                        <span className="text-caps tracking-caps text-accent-ready uppercase shrink-0 rounded px-1.5 py-0.5 bg-[color-mix(in_oklch,var(--accent-ready)_18%,transparent)]">
+                          {t('home.local.branchHeadBadge')}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto font-mono text-meta text-ink-muted shrink-0">
+                        {b.sha} · {relativeTime(b.committedAt * 1000)}
+                      </span>
+                    </>
+                  )}
                 />
-              </label>
-              <label className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-                <GitBranch size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+              </div>
+              <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
                 <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
                   {t('home.local.baseLabel')}
                 </span>
-                <input
-                  type="text"
+                <Combobox
                   value={localTabBase}
-                  onChange={(e) => setLocalTabBase(e.target.value)}
+                  onChange={setLocalTabBase}
+                  options={localBranches?.branches ?? []}
+                  getValue={(b) => b.name}
+                  getKey={(b) => b.name}
+                  ariaLabel={t('home.local.baseAriaLabel')}
+                  menuAriaLabel={t('home.local.baseMenuAriaLabel')}
                   placeholder={t('home.local.basePlaceholder')}
-                  className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-                  aria-label={t('home.local.baseAriaLabel')}
-                  spellCheck={false}
-                  autoComplete="off"
+                  leftIcon={<GitBranch size={14} aria-hidden="true" />}
+                  emptyHint={t('home.local.branchesEmptyHint')}
+                  renderOption={(b) => (
+                    <>
+                      <span className="font-mono truncate">{b.name}</span>
+                      <span className="ml-auto font-mono text-meta text-ink-muted shrink-0">
+                        {b.sha} · {relativeTime(b.committedAt * 1000)}
+                      </span>
+                    </>
+                  )}
                 />
-              </label>
+              </div>
             </div>
-            <div className="text-meta text-ink-muted -mt-1 pl-1">{t('home.local.readOnlyHint')}</div>
+            <div className="text-meta text-ink-muted -mt-1 pl-1">
+              {t('home.local.readOnlyHint')}
+            </div>
 
             {extraPromptPanel}
             {agentFieldset}
@@ -632,13 +698,9 @@ export function Home() {
             {vbranchTabRepoTrim.length === 0 ? (
               <div className="text-meta text-ink-muted pl-1">{t('home.vbranch.pickFirst')}</div>
             ) : vbranchInspectFetching && !vbranchInspect ? (
-              <div className="text-meta text-ink-muted pl-1">
-                {t('home.vbranch.inspecting')}
-              </div>
+              <div className="text-meta text-ink-muted pl-1">{t('home.vbranch.inspecting')}</div>
             ) : vbranchInspect?.kind === 'none' ? (
-              <div className="text-meta text-severity-must pl-1">
-                {t('home.vbranch.notARepo')}
-              </div>
+              <div className="text-meta text-severity-must pl-1">{t('home.vbranch.notARepo')}</div>
             ) : vbranchInspect?.kind === 'git' ? (
               <div className="text-meta text-ink-muted pl-1">
                 {t('home.vbranch.notGitButler')}
@@ -646,38 +708,65 @@ export function Home() {
               </div>
             ) : vbranchInspect?.kind === 'gitbutler' &&
               (!vbranchInspect.vbranches || vbranchInspect.vbranches.length === 0) ? (
-              <div className="text-meta text-ink-muted pl-1">
-                {t('home.vbranch.empty')}
-              </div>
+              <div className="text-meta text-ink-muted pl-1">{t('home.vbranch.empty')}</div>
             ) : vbranchInspect?.kind === 'gitbutler' ? (
-              <label className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-                <GitBranch size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
-                <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
-                  {t('home.vbranch.label')}
-                </span>
-                <select
-                  value={vbranchSelected}
-                  onChange={(e) => setVbranchSelected(e.target.value)}
-                  className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary focus:outline-none font-mono"
-                  aria-label={t('home.vbranch.ariaLabel')}
-                >
-                  <option value="">{t('home.vbranch.pickOne')}</option>
-                  {vbranchInspect.vbranches!.map((v) => {
-                    const stackTag =
-                      v.stackSize > 1
-                        ? ` · stack ${v.stackPosition + 1}/${v.stackSize}`
-                        : ''
-                    const commitsTag = ` · ${v.commitCount} commit${v.commitCount === 1 ? '' : 's'}`
-                    return (
-                      <option key={v.name} value={v.name}>
-                        {v.name}
-                        {commitsTag}
-                        {stackTag}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
+              (() => {
+                const vbranches = vbranchInspect.vbranches!
+                const selected = vbranches.find((v) => v.name === vbranchSelected) ?? null
+                return (
+                  <div className="flex items-center gap-2.5 pl-1">
+                    <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+                      {t('home.vbranch.label')}
+                    </span>
+                    <div className="flex-1">
+                      <SelectMenu
+                        value={selected}
+                        options={vbranches}
+                        onChange={(v) => setVbranchSelected(v.name)}
+                        getKey={(v) => v.name}
+                        ariaLabel={t('home.vbranch.ariaLabel')}
+                        menuAriaLabel={t('home.vbranch.menuAriaLabel')}
+                        renderEmpty={() => (
+                          <span className="flex-1 text-ink-muted">{t('home.vbranch.pickOne')}</span>
+                        )}
+                        renderTrigger={(v) => (
+                          <>
+                            <GitBranch
+                              size={14}
+                              className="text-ink-muted shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span className="font-mono truncate">{v.name}</span>
+                            <span className="text-meta text-ink-muted shrink-0">
+                              · {v.commitCount} commit{v.commitCount === 1 ? '' : 's'}
+                              {v.stackSize > 1
+                                ? ` · stack ${v.stackPosition + 1}/${v.stackSize}`
+                                : ''}
+                            </span>
+                          </>
+                        )}
+                        renderOption={(v, isSel) => (
+                          <>
+                            <GitBranch
+                              size={14}
+                              className="text-ink-muted shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span className="font-mono truncate">{v.name}</span>
+                            <span className="ml-auto text-meta text-ink-muted shrink-0">
+                              {v.commitCount} commit{v.commitCount === 1 ? '' : 's'}
+                              {v.stackSize > 1
+                                ? ` · stack ${v.stackPosition + 1}/${v.stackSize}`
+                                : ''}
+                            </span>
+                            <SelectMenuCheck selected={isSel} />
+                          </>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )
+              })()
             ) : null}
 
             <div className="text-meta text-ink-muted -mt-1 pl-1">
