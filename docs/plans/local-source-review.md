@@ -41,15 +41,16 @@ type SessionSource =
 
 ## 四、阶段与进度
 
-### Phase 0 — SessionSource 类型 + DB 持久化（行为零变化） ☐ in progress
+### Phase 0 — SessionSource 类型 + DB 持久化（行为零变化） ✅ done (47d2599)
 
 > Provider 抽象推迟到 Phase 1（有 LocalBranchProvider 这第二个实现时再抽，避免单实现的过度抽象）。
 
-- [ ] `src/shared/source.ts`：`SessionSource` 联合 + zod schema + `sourceHash()`，含单测
-- [ ] DB migration `0010_session_source.sql`：加 `source_json TEXT` + `source_hash TEXT` 列，回填老 PR 行
-- [ ] `PRSession` 接口加 `source: SessionSource`（非空，所有行迁移后都有值）
-- [ ] `SessionsRepo.insert` 接受 source；`rowToSession` 读回；`start-session.ts` 在 `parsePRTarget` 后构造 source 并落库
-- [ ] 现有 server / cli / shared / web / e2e 测试全绿（无新功能）
+- [x] `src/shared/source.ts`：`SessionSource` 联合 + zod schema + 单测
+- [x] `src/server/source/hash.ts`：`sourceHash()` (server-only，避免 node:crypto 进 web bundle)
+- [x] DB migration `0010_session_source.sql`：加 `source_json TEXT` 列 + 索引，回填老 PR 行（SQLite `json_object` 的 key 序与 `serializeSource()` 对齐）
+- [x] `PRSession` 接口加 `source: SessionSource`
+- [x] `SessionsRepo.insert` 接受 source；`rowToSession` 读回；`start-session.ts` 在 `parsePRTarget` 后构造 source 并落库
+- [x] 现有测试全绿（一个 chokidar flaky 单测重跑通过）
 
 **退出标准**：跑完所有测试，UI 行为零变化，DB 中老 PR session 仍可打开/rerun，新 session 的 `source_json` 正确写入。
 
