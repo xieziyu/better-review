@@ -1,3 +1,4 @@
+import type { SessionSourceKind } from '../../shared/source'
 import type { SourceKind } from '../../shared/types'
 
 export interface PriorReplyForPrompt {
@@ -39,6 +40,13 @@ export interface PromptVars {
   sourceKind?: SourceKind
   sourcePath?: string
   headSha?: string
+  // Discriminates the SessionSource: 'github-pr' / 'local-branch' /
+  // 'gitbutler-vbranch'. Controls which `{{#SESSION_KIND:<kind>}}` block
+  // survives rendering — the framework uses this to swap the opening
+  // "PR reviewer" voice for "code reviewer reviewing a local branch"
+  // without re-templating the whole prompt. Defaults to 'github-pr' so
+  // legacy callers and existing tests stay byte-identical.
+  sessionKind?: SessionSourceKind
   // Per-session free-form notes (PRD excerpts, judgment guidance, etc.).
   // Empty / whitespace-only is treated as none and the entire
   // `{{#EXTRA_NOTES}}…{{/EXTRA_NOTES}}` block (including header) is removed.
@@ -58,6 +66,25 @@ export interface PromptVars {
 const SOURCE_BLOCK_OPEN_RE = /\{\{#SOURCE:([a-z]+)\}\}\n?/g
 const SOURCE_BLOCK_CLOSE_RE = /\{\{\/SOURCE\}\}\n?/g
 const SOURCE_BLOCK_FULL_RE = /\{\{#SOURCE:([a-z]+)\}\}[\s\S]*?\{\{\/SOURCE\}\}\n?/g
+
+// Same machinery, but parameterized by SessionSource.kind instead of the
+// resolved-source-tree kind. Hyphens are allowed in the discriminator
+// (github-pr, local-branch, gitbutler-vbranch).
+const SESSION_KIND_BLOCK_FULL_RE =
+  /\{\{#SESSION_KIND:([a-z-]+)\}\}[\s\S]*?\{\{\/SESSION_KIND\}\}\n?/g
+const SESSION_KIND_BLOCK_OPEN_RE = /\{\{#SESSION_KIND:[a-z-]+\}\}\n?/g
+const SESSION_KIND_BLOCK_CLOSE_RE = /\{\{\/SESSION_KIND\}\}\n?/g
+
+function applySessionKindBlocks(template: string, kind: SessionSourceKind | undefined): string {
+  // 'github-pr' by default keeps the prompt byte-identical to the
+  // pre-Phase-1c version when no sessionKind is threaded through.
+  const active: SessionSourceKind = kind ?? 'github-pr'
+  let out = template.replace(SESSION_KIND_BLOCK_FULL_RE, (full, blockKind: string) =>
+    blockKind === active ? full : '',
+  )
+  out = out.replace(SESSION_KIND_BLOCK_OPEN_RE, '').replace(SESSION_KIND_BLOCK_CLOSE_RE, '')
+  return out
+}
 
 function applySourceBlocks(template: string, kind: SourceKind | undefined): string {
   const active: SourceKind = kind ?? 'none'
@@ -168,7 +195,10 @@ function applyPriorReview(template: string, prior: PriorReviewVars | undefined):
 
 export function renderPrompt(framework: string, vars: PromptVars): string {
   return applyPriorReview(
-    applyExtraNotes(applySourceBlocks(framework, vars.sourceKind), vars.extraNotes),
+    applyExtraNotes(
+      applySourceBlocks(applySessionKindBlocks(framework, vars.sessionKind), vars.sourceKind),
+      vars.extraNotes,
+    ),
     vars.priorReview,
   )
     .replaceAll('{{RULES}}', vars.rules)

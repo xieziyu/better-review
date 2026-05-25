@@ -386,6 +386,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     sourceKind: sourceCtx.kind,
     sourcePath: sourceCtx.sourcePath,
     headSha: sourceCtx.headSha,
+    sessionKind: flow.source.kind,
   }
   if (extraPrompt !== null) promptVars.extraNotes = extraPrompt
   if (priorCtx) promptVars.priorReview = toPriorReviewVars(priorCtx)
