@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ButCliError, parseButStatus } from '../../../src/server/gitbutler/cli'
 
-// Captured from `but status --json` during the Phase 2 spike (see
-// docs/plans/local-source-review.md). Stripped down to the fields the
+// Captured from `but status --json`, stripped down to the fields the
 // parser actually reads.
 const TWO_STACK_FIXTURE = {
   unassignedChanges: [{ cliId: 'yt', filePath: 'b.js', changeType: 'added' }],

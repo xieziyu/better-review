@@ -1,10 +1,8 @@
 // Public-facing GitButler inspection: turns the raw `but status` JSON
 // into a normalized shape the API + frontend consume. Encapsulates the
-// stack-relative base resolution that the spike uncovered (see
-// docs/plans/local-source-review.md Phase 2 notes): each vbranch's
-// review base is the *tip of the next branch down its stack*, not the
-// workspace mergeBase. Only the bottommost branch in a stack uses
-// mergeBase as its base.
+// stack-relative base resolution: each vbranch's review base is the
+// *tip of the next branch down its stack*, not the workspace mergeBase.
+// Only the bottommost branch in a stack uses mergeBase as its base.
 
 import { existsSync } from 'node:fs'
 
