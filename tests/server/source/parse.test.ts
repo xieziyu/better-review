@@ -67,4 +67,21 @@ describe('parseSessionInput', () => {
   it('rejects URLs that are not GitHub PRs', () => {
     expect(() => parseSessionInput('https://example.com/foo')).toThrow()
   })
+
+  it('routes to gitbutler-vbranch when vbranchName is supplied', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-parse-'))
+    const s = parseSessionInput(dir, { vbranchName: 'feature-x' })
+    expect(s).toEqual({
+      kind: 'gitbutler-vbranch',
+      repoPath: dir,
+      vbranchName: 'feature-x',
+      base: 'auto',
+    })
+  })
+
+  it('ignores a whitespace-only vbranchName and falls back to local-branch', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-parse-'))
+    const s = parseSessionInput(dir, { vbranchName: '   ' })
+    expect(s.kind).toBe('local-branch')
+  })
 })

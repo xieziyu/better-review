@@ -14,6 +14,10 @@ export interface ParseSessionInputOpts {
   // Diff base. Defaults to 'auto' (LocalBranchFlow resolves at runtime
   // via `refs/remotes/origin/HEAD` → `origin/main` → `origin/master`).
   localBranchBase?: string
+  // When set with a path-shaped input, routes to a gitbutler-vbranch
+  // source instead of local-branch. The flow looks the name up in
+  // `but status --json` at runtime to resolve the tip/base SHAs.
+  vbranchName?: string
 }
 
 const URL_PREFIX_RE = /^https?:\/\//i
@@ -39,6 +43,18 @@ export function parseSessionInput(input: string, opts: ParseSessionInputOpts = {
 
   if (looksLikePath(trimmed)) {
     const repoPath = resolveLocalRepoPath(trimmed)
+    const vbranchName = opts.vbranchName?.trim()
+    if (vbranchName) {
+      return {
+        kind: 'gitbutler-vbranch',
+        repoPath,
+        vbranchName,
+        // base is resolved at runtime from `but status` (the schema
+        // requires a non-empty string, so we seed 'auto' as a sentinel
+        // that the flow ignores).
+        base: 'auto',
+      }
+    }
     return {
       kind: 'local-branch',
       repoPath,
