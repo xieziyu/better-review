@@ -93,7 +93,7 @@ type SessionSource =
 
 **退出标准**：在本仓库挑一个分支能跑出 findings，UI 全程可用，没有 Submit 入口；PR 路径仍然完整可用。
 
-### Phase 2 — GitButler 虚拟分支 ☐ in progress (spike done)
+### Phase 2 — GitButler 虚拟分支 ✅ done (2a d862bdc, 2b 64d0673, 2c ae27e32, 2d 2a173e7; 2e 已经在 Phase 1c 282d9bf 顺手做了)
 
 **Spike findings (but 0.19.13)**
 
@@ -107,17 +107,17 @@ type SessionSource =
 **实施清单**
 
 - [x] spike：见上
-- [ ] `src/server/gitbutler/cli.ts`：execa wrapper + `findExecutable('but')` 缓存；`butStatus(repoPath)` 解析 status JSON 为 `{ kind: 'gitbutler', stacks: VBranchInfo[], mergeBase }`，校验失败抛 typed error
-- [ ] `src/server/gitbutler/inspect.ts`：把 status 折叠成 `inspectGitButler(repoPath) → { kind, vbranches: { name, tipSha, baseSha, commitCount, stackPosition }[] }`，按 stack 折叠 + 标记 stackPosition
-- [ ] `/api/local-source/inspect?path=...`：返回 `{ kind: 'gitbutler' | 'git' | 'none', vbranches: [...] }`；非 GitButler 项目走 `git rev-parse --is-inside-work-tree` 探测，但内不返回 vbranch 列表
-- [ ] `src/server/source/gitbutler-vbranch-flow.ts`：metadata = `git log -1 <tipSha>`，diff = `git diff <baseSha>..<tipSha>`（标准 unified），sourceTree = `git worktree add --detach <workdir>/repo <tipSha>`（与 local-branch 完全复用），submit = not-supported
-- [ ] `src/server/source/parse.ts`：扩展 `parseSessionInput` 接受 vbranch 选项（API 调用方需要在请求体里显式标 `kind: 'gitbutler-vbranch'`），路径单跑仍判 local-branch
-- [ ] `src/server/source/index.ts`：注册 gitbutler-vbranch flow
-- [ ] `src/server/start-session.ts` workdirSlug：vbranch 用 `vbranch-<basename>-<safeName>`（已实现一半，验一下）
-- [ ] prompts：`{{#SESSION_KIND:gitbutler-vbranch}}` 块加 "single vbranch checkout, sibling vbranches not included" 语义
-- [ ] Home vbranch tab：去掉 disabled，repo picker 触发 inspect；如果 `kind === 'gitbutler'`，下拉框列 vbranches；否则灰显 + 提示 "Not a GitButler project"
-- [ ] API 路由 vbranch 创建：复用 POST /api/sessions（前端传 `kind: 'gitbutler-vbranch', repoPath, vbranchName`），server 用 parse 转 source
-- [ ] 单测：inspect 解析、provider 的 base/tip 折叠、stacked branch 边界
+- [x] `src/server/gitbutler/cli.ts`：execa wrapper + `findButExecutable()` 缓存；`parseButStatus` 校验失败抛 typed `ButCliError`
+- [x] `src/server/gitbutler/inspect.ts`：`foldStatusToVBranches` 折叠 + `inspectLocalSource` 顶层接口
+- [x] `/api/local-source/inspect?path=...`：返回 `{ kind: 'gitbutler' | 'git' | 'none', vbranches?, mergeBaseSha?, warning? }`
+- [x] `src/server/source/gitbutler-vbranch-flow.ts`：完全复用 local-branch 的 readDiff + prepareLocalSourceContext；只额外做一次 `but status` 解析
+- [x] `src/server/source/parse.ts`：`vbranchName` 选项路由到 vbranch 源
+- [x] `src/server/source/registry.ts`：注册 `makeGitButlerVBranchFlow`
+- [x] `src/server/start-session.ts` workdirSlug：之前 Phase 0/1 已经把 `vbranch-<basename>` 准备好了
+- [x] prompts：`{{#SESSION_KIND:gitbutler-vbranch}}` 块（在 Phase 1c 282d9bf 一起做了）
+- [x] Home vbranch tab：去掉 disabled，repo picker 触发 inspect；按 inspect 结果分支 (`none` / `git` / `gitbutler` / 空 workspace) 给不同提示
+- [x] API 路由 vbranch 创建：POST /api/sessions 接收 `vbranchName`，parse 转 source
+- [x] 单测：inspect 解析 + 折叠 + 栈对齐边界（空 branch、中间空 branch、栈底 base）；parse 路由；registry 路由；route 层 `kind=git/none`
 - [ ] e2e：跳过（CI 无 but 二进制，靠手测 + 单测覆盖 provider）
 
 ### Phase 3 — UI 收尾 ☐
