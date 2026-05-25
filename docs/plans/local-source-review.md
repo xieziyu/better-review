@@ -89,7 +89,7 @@ type SessionSource =
 - [x] PRDetail：local session 隐藏 Submit 按钮 + 标 "Read-only review"
 - [x] Sidebar/RecentRow：local session 不再 render `owner/repo#number`，改 render `<basename> · <branch>`
 - [x] i18n：补 en + zh-CN
-- [ ] e2e：补一个 local-branch 走通的 happy path（推后到 Phase 3 e2e 收尾时一起加）
+- [x] e2e：补一个 local-branch 走通的 happy path（Phase 3 收尾时一起补完；测试在 tests/e2e/local-branch-happy-path.spec.ts，顺手暴露并修了 ExportPopover 在 local 源下因 prNumber=0 崩溃的 bug）
 
 **退出标准**：在本仓库挑一个分支能跑出 findings，UI 全程可用，没有 Submit 入口；PR 路径仍然完整可用。
 
