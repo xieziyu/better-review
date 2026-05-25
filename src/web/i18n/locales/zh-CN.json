@@ -194,12 +194,12 @@
     "title": "在本地评审 GitHub PR",
     "subtitle": "贴入一个 PR 链接来开始评审。",
     "subtitleLocal": "选择一个本地仓库，直接评审某个分支 —— 无需 PR。",
+    "subtitleVbranch": "选择一个 GitButler 项目，评审单个虚拟分支。",
     "tabs": {
       "ariaLabel": "评审来源",
       "pr": "GitHub PR",
       "local": "本地分支",
-      "vbranch": "GitButler vbranch",
-      "phase2Hint": "Phase 2"
+      "vbranch": "GitButler vbranch"
     },
     "local": {
       "repoPlaceholder": "本地仓库路径 —— /Users/you/code/owner/repo",
@@ -211,6 +211,19 @@
       "basePlaceholder": "auto（origin/HEAD → main → master）",
       "baseAriaLabel": "diff base ref",
       "readOnlyHint": "本地评审仅在 UI 内可用 —— findings 不会被提交到 GitHub。"
+    },
+    "vbranch": {
+      "repoPlaceholder": "GitButler 项目路径 —— /Users/you/code/owner/repo",
+      "repoAriaLabel": "GitButler 项目路径",
+      "label": "vbranch",
+      "ariaLabel": "选择虚拟分支",
+      "pickOne": "—— 选择一个虚拟分支 ——",
+      "pickFirst": "请先选一个 GitButler 项目路径，下面会列出其虚拟分支。",
+      "inspecting": "正在检测项目中的虚拟分支…",
+      "notARepo": "该路径不是 git 仓库。",
+      "notGitButler": "这是一个普通的 git 仓库 —— 用 `but setup` 初始化后才能按虚拟分支评审，或切到「本地分支」标签。",
+      "empty": "没有可评审的虚拟分支（所有分支都是空的）。",
+      "readOnlyHint": "vbranch 评审仅在 UI 内查看 —— findings 不会被提交到任何位置。"
     },
     "prUrlPlaceholder": "https://github.com/owner/repo/pull/123",
     "prAriaLabel": "PR 目标",
