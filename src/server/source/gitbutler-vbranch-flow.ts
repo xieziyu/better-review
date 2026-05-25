@@ -11,10 +11,10 @@
 // is gated as not-supported by the API layer.
 
 import type { GitButlerVBranchSource } from '../../shared/source'
-import { butStatus } from '../gitbutler/cli'
-import { foldStatusToVBranches, type VBranchInfo } from '../gitbutler/inspect'
 import { assertGitRepo, readCommitMeta, readDiff } from '../git/local-branch'
 import { prepareLocalSourceContext } from '../git/local-source-prep'
+import { butStatus } from '../gitbutler/cli'
+import { foldStatusToVBranches, type VBranchInfo } from '../gitbutler/inspect'
 import type {
   LoadPriorContextArgs,
   PrepareSourceTreeArgs,
@@ -33,9 +33,7 @@ export class VBranchNotFoundError extends Error {
 
 export class VBranchEmptyError extends Error {
   constructor(repoPath: string, vbranchName: string) {
-    super(
-      `virtual branch "${vbranchName}" at ${repoPath} has no commits — nothing to review`,
-    )
+    super(`virtual branch "${vbranchName}" at ${repoPath} has no commits — nothing to review`)
     this.name = 'VBranchEmptyError'
   }
 }

@@ -48,7 +48,8 @@ export async function butJson<T = unknown>(repoPath: string, args: string[]): Pr
     // Try to parse for a recognizable code; fall back to a generic
     // 'unknown' wrap so callers always get a typed throw.
     const parsed = safeParse(stdout)
-    const errCode = parsed && typeof parsed === 'object' ? (parsed as { error?: unknown }).error : undefined
+    const errCode =
+      parsed && typeof parsed === 'object' ? (parsed as { error?: unknown }).error : undefined
     const message =
       parsed && typeof parsed === 'object'
         ? ((parsed as { message?: unknown }).message as string | undefined)

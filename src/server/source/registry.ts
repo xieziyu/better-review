@@ -4,8 +4,8 @@
 
 import type { SessionSource } from '../../shared/source'
 import type { GhClient } from '../github/gh-client'
-import { makeGithubPrFlow } from './github-pr-flow'
 import { makeGitButlerVBranchFlow } from './gitbutler-vbranch-flow'
+import { makeGithubPrFlow } from './github-pr-flow'
 import { makeLocalBranchFlow } from './local-branch-flow'
 import type { SourceFlow } from './types'
 

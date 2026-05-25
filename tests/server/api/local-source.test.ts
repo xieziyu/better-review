@@ -20,9 +20,7 @@ describe('local-source API', () => {
   it('GET /api/local-source/inspect returns kind=none for a non-git dir', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'br-inspect-none-'))
     const app = createApp(makeTestDeps())
-    const res = await app.request(
-      `/api/local-source/inspect?path=${encodeURIComponent(dir)}`,
-    )
+    const res = await app.request(`/api/local-source/inspect?path=${encodeURIComponent(dir)}`)
     expect(res.status).toBe(200)
     const body = (await res.json()) as LocalSourceInspect
     expect(body.kind).toBe('none')
@@ -34,9 +32,7 @@ describe('local-source API', () => {
     const dir = mkdtempSync(join(tmpdir(), 'br-inspect-git-'))
     await execa('git', ['-C', dir, 'init', '-b', 'main'])
     const app = createApp(makeTestDeps())
-    const res = await app.request(
-      `/api/local-source/inspect?path=${encodeURIComponent(dir)}`,
-    )
+    const res = await app.request(`/api/local-source/inspect?path=${encodeURIComponent(dir)}`)
     expect(res.status).toBe(200)
     const body = (await res.json()) as LocalSourceInspect
     // We don't assert against 'gitbutler' here — if the dev machine has

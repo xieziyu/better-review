@@ -35,4 +35,3 @@ export function sessionDisplayLabel(session: PRSession): string {
 export function sameSource(a: PRSession, b: PRSession): boolean {
   return serializeSource(a.source) === serializeSource(b.source)
 }
-

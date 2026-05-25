@@ -393,7 +393,9 @@ describe('SessionDetail', () => {
 
     it('renders historical findings even though all rows are archived', async () => {
       const user = userEvent.setup()
-      render(withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       // Page lands on Files changed by default — switch to Findings to see
       // the list. The archived row would normally be filtered, but historical
       // sessions surface every entry.
@@ -402,23 +404,31 @@ describe('SessionDetail', () => {
     })
 
     it('shows the historical banner', () => {
-      render(withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.getByText(/Historical view/i)).toBeInTheDocument()
     })
 
     it('hides Submit and Rerun buttons', () => {
-      render(withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.queryByRole('button', { name: /^Submit/i })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^Rerun$/i })).not.toBeInTheDocument()
     })
 
     it('keeps the Delete session button available', () => {
-      render(withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.getByRole('button', { name: /Delete session/i })).toBeInTheDocument()
     })
 
     it('hides the extra-context add affordance', () => {
-      render(withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(
         screen.queryByRole('button', { name: /Add extra context for rerun/i }),
       ).not.toBeInTheDocument()
