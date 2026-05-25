@@ -120,13 +120,13 @@ type SessionSource =
 - [x] 单测：inspect 解析 + 折叠 + 栈对齐边界（空 branch、中间空 branch、栈底 base）；parse 路由；registry 路由；route 层 `kind=git/none`
 - [ ] e2e：跳过（CI 无 but 二进制，靠手测 + 单测覆盖 provider）
 
-### Phase 3 — UI 收尾 ☐
+### Phase 3 — UI 收尾 ✅ done
 
-- [ ] Sidebar：分两段 "PR" / "Local repos"，本地仓库按 repoPath 分组
-- [ ] 路由：`/session/:id` 主路径；`/pr/:id` 保留 301
-- [ ] PRDetail 改名 `SessionDetail`；按 source kind 条件渲染 (external link / rounds 只在 PR 上显示)
-- [ ] i18n：补 `en.json`/`zh-CN.json` 的本地 review 文案
-- [ ] README + README.zh-CN：加 "Local branch review" 章节，更新截图
+- [x] Sidebar：分两段 "PR" / "Local repos"，本地仓库按 repoPath 分组
+- [x] 路由：`/session/:id` 主路径；`/pr/:id` 保留为 SPA 重定向（Navigate replace）
+- [x] PRDetail 改名 `SessionDetail`；按 source kind 条件渲染 (external link / rounds 只在 PR 上显示，vbranch 与 local-branch 都按 local 处理)
+- [x] i18n：补 `en.json`/`zh-CN.json` 的本地 review 文案（`sidebar.section.{pr,local,localUnknownRepo}`；`readOnlyReviewTitle` 中性化）
+- [x] README + README.zh-CN：加 "Local branch + GitButler vbranch" 章节（截图 TODO，等 UI 稳定后补）
 
 ## 五、风险 / 未决
 
