@@ -31,7 +31,8 @@ function mkFinding(overrides: Partial<Finding> = {}): Finding {
 
 function mkInput(overrides: Partial<ExportInput> = {}): ExportInput {
   return {
-    pr: {
+    source: {
+      kind: 'github-pr',
       owner: 'xieziyu',
       repo: 'better-review',
       number: 42,
@@ -63,7 +64,8 @@ describe('renderFindingsMarkdown', () => {
   it('omits PR title / URL header rows when those are null', () => {
     const md = renderFindingsMarkdown(
       mkInput({
-        pr: {
+        source: {
+          kind: 'github-pr',
           owner: 'a',
           repo: 'b',
           number: 1,
@@ -75,6 +77,43 @@ describe('renderFindingsMarkdown', () => {
     expect(md).not.toContain('**PR:**')
     expect(md).not.toContain('**URL:**')
     expect(md).toContain('- **Scope:**')
+  })
+
+  it('renders a local-branch session with branch + repo header rows', () => {
+    const md = renderFindingsMarkdown(
+      mkInput({
+        source: {
+          kind: 'local-branch',
+          repoPath: '/Users/me/Projects/foo',
+          branch: 'feat/login',
+          title: 'feat(auth): add login',
+        },
+        findings: [mkFinding({ file: null, line: null, dbId: 'w1' })],
+      }),
+    )
+    expect(md).toContain('# Findings · foo · feat/login')
+    expect(md).toContain('- **Branch:** feat(auth): add login')
+    expect(md).toContain('- **Repo:** /Users/me/Projects/foo')
+    expect(md).not.toContain('**PR:**')
+    // PR-wide heading should rename to "Whole review" outside the PR path.
+    expect(md).toContain('## Whole review')
+    expect(md).not.toContain('## Whole PR')
+  })
+
+  it('renders a gitbutler-vbranch session with vbranch + repo header rows', () => {
+    const md = renderFindingsMarkdown(
+      mkInput({
+        source: {
+          kind: 'gitbutler-vbranch',
+          repoPath: '/Users/me/Projects/bar',
+          vbranchName: 'feat-stack',
+          title: 'feat: stack item',
+        },
+      }),
+    )
+    expect(md).toContain('# Findings · bar · feat-stack')
+    expect(md).toContain('- **VBranch:** feat: stack item')
+    expect(md).toContain('- **Repo:** /Users/me/Projects/bar')
   })
 
   it('uses "<n> of <total> findings" phrasing for the `all` scope', () => {
@@ -197,7 +236,8 @@ describe('renderFindingsJson', () => {
     )
     const parsed = JSON.parse(json)
     expect(parsed.schemaVersion).toBe(1)
-    expect(parsed.pr).toEqual({
+    expect(parsed.source).toEqual({
+      kind: 'github-pr',
       owner: 'xieziyu',
       repo: 'better-review',
       number: 42,
@@ -262,14 +302,53 @@ describe('renderFindingsJson', () => {
 })
 
 describe('buildExportFilename', () => {
-  it('formats the canonical filename for both formats', () => {
-    expect(buildExportFilename(42, 'selected', 'md')).toBe('findings-pr-42-selected.md')
-    expect(buildExportFilename(42, 'all', 'json')).toBe('findings-pr-42-all.json')
+  it('formats the canonical filename for a github-pr source', () => {
+    const src = {
+      kind: 'github-pr' as const,
+      owner: 'a',
+      repo: 'b',
+      number: 42,
+      title: null,
+      url: null,
+    }
+    expect(buildExportFilename(src, 'selected', 'md')).toBe('findings-pr-42-selected.md')
+    expect(buildExportFilename(src, 'all', 'json')).toBe('findings-pr-42-all.json')
   })
 
   it('rejects non-positive or non-integer PR numbers', () => {
-    expect(() => buildExportFilename(0, 'selected', 'md')).toThrow()
-    expect(() => buildExportFilename(-3, 'selected', 'md')).toThrow()
-    expect(() => buildExportFilename(1.5, 'selected', 'md')).toThrow()
+    const base = { kind: 'github-pr' as const, owner: 'a', repo: 'b', title: null, url: null }
+    expect(() => buildExportFilename({ ...base, number: 0 }, 'selected', 'md')).toThrow()
+    expect(() => buildExportFilename({ ...base, number: -3 }, 'selected', 'md')).toThrow()
+    expect(() => buildExportFilename({ ...base, number: 1.5 }, 'selected', 'md')).toThrow()
+  })
+
+  it('uses <basename>-<branch> for local-branch sources', () => {
+    expect(
+      buildExportFilename(
+        {
+          kind: 'local-branch',
+          repoPath: '/Users/me/Projects/foo/',
+          branch: 'feat/login',
+          title: null,
+        },
+        'selected',
+        'md',
+      ),
+    ).toBe('findings-foo-feat-login-selected.md')
+  })
+
+  it('uses <basename>-vb-<vbranchName> for gitbutler-vbranch sources', () => {
+    expect(
+      buildExportFilename(
+        {
+          kind: 'gitbutler-vbranch',
+          repoPath: '/Users/me/Projects/bar',
+          vbranchName: 'feat / stack',
+          title: null,
+        },
+        'all',
+        'json',
+      ),
+    ).toBe('findings-bar-vb-feat-stack-all.json')
   })
 })

@@ -5,14 +5,34 @@ import type { Finding } from './types'
 // resolved which findings to include and what scope label they represent;
 // the renderer only formats. Keeping the surface narrow means changes to
 // the Finding shape don't ripple into header / filename concerns.
+
+// One of these per session kind. All three carry a `title` (PR title or the
+// commit/vbranch subject) and a display-only `url` that's null for local
+// sources. The renderer keys off `kind` for headings and filenames.
+export type ExportSourceMeta =
+  | {
+      kind: 'github-pr'
+      owner: string
+      repo: string
+      number: number
+      title: string | null
+      url: string | null
+    }
+  | {
+      kind: 'local-branch'
+      repoPath: string
+      branch: string
+      title: string | null
+    }
+  | {
+      kind: 'gitbutler-vbranch'
+      repoPath: string
+      vbranchName: string
+      title: string | null
+    }
+
 export interface ExportInput {
-  pr: {
-    owner: string
-    repo: string
-    number: number
-    title: string | null
-    url: string | null
-  }
+  source: ExportSourceMeta
   session: {
     roundNumber: number
     agent: AgentKind
@@ -32,15 +52,34 @@ export interface ExportInput {
 
 const SEVERITY_EMOJI = { must: '🔴', should: '🟡', nit: '🔵' } as const
 
+function repoBasename(repoPath: string): string {
+  return repoPath.replace(/\/+$/, '').split('/').pop() ?? repoPath
+}
+
+// Headline for the markdown / json title and the rendered header. Mirrors
+// the in-app `sessionDisplayLabel` so exports read the same as the UI.
+function sourceHeadline(source: ExportSourceMeta): string {
+  if (source.kind === 'github-pr') return `${source.owner}/${source.repo}#${source.number}`
+  if (source.kind === 'local-branch') return `${repoBasename(source.repoPath)} · ${source.branch}`
+  return `${repoBasename(source.repoPath)} · ${source.vbranchName}`
+}
+
 export function renderFindingsMarkdown(input: ExportInput): string {
-  const { pr, session, scope, totalFindings, findings } = input
-  const prCoord = `${pr.owner}/${pr.repo}#${pr.number}`
+  const { source, session, scope, totalFindings, findings } = input
   const out: string[] = []
 
-  out.push(`# Findings · ${prCoord}`)
+  out.push(`# Findings · ${sourceHeadline(source)}`)
   out.push('')
-  if (pr.title) out.push(`- **PR:** ${pr.title}`)
-  if (pr.url) out.push(`- **URL:** ${pr.url}`)
+  if (source.kind === 'github-pr') {
+    if (source.title) out.push(`- **PR:** ${source.title}`)
+    if (source.url) out.push(`- **URL:** ${source.url}`)
+  } else if (source.kind === 'local-branch') {
+    if (source.title) out.push(`- **Branch:** ${source.title}`)
+    out.push(`- **Repo:** ${source.repoPath}`)
+  } else {
+    if (source.title) out.push(`- **VBranch:** ${source.title}`)
+    out.push(`- **Repo:** ${source.repoPath}`)
+  }
   const scopeLine =
     scope === 'selected'
       ? `${findings.length} selected of ${totalFindings} (round ${session.roundNumber})`
@@ -72,7 +111,9 @@ export function renderFindingsMarkdown(input: ExportInput): string {
 
   if (prWide.length > 0) {
     out.push('')
-    out.push('## Whole PR')
+    // PR-wide for GitHub PRs; "whole review" for local sources so the
+    // heading isn't misleading when there's no PR involved.
+    out.push(source.kind === 'github-pr' ? '## Whole PR' : '## Whole review')
     for (const f of prWide) {
       out.push('')
       out.push(...renderFindingBlock(f, { lineLabel: null }))
@@ -127,16 +168,10 @@ function renderFindingBlock(f: Finding, opts: { lineLabel: string | null }): str
 // because none of them are meaningful to a downstream consumer. Returns
 // pretty-printed text with a trailing newline.
 export function renderFindingsJson(input: ExportInput): string {
-  const { pr, session, scope, totalFindings, findings } = input
+  const { source, session, scope, totalFindings, findings } = input
   const payload = {
     schemaVersion: 1,
-    pr: {
-      owner: pr.owner,
-      repo: pr.repo,
-      number: pr.number,
-      title: pr.title,
-      url: pr.url,
-    },
+    source,
     session: {
       roundNumber: session.roundNumber,
       agent: session.agent,
@@ -160,15 +195,37 @@ export function renderFindingsJson(input: ExportInput): string {
   return `${JSON.stringify(payload, null, 2)}\n`
 }
 
+// Sanitize an arbitrary branch / vbranch name for filename use. Maps any
+// non `[A-Za-z0-9._-]` run to a single `-` so paths/slashes don't escape
+// the download directory and the filename stays portable across OSes.
+function sanitize(s: string): string {
+  return s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
 // Filename pattern used for downloads. Kept deterministic so tests and
 // the popover footer hint agree.
+//
+//   github-pr        → findings-pr-<n>-<scope>.<ext>
+//   local-branch     → findings-<basename>-<branch>-<scope>.<ext>
+//   gitbutler-vbranch→ findings-<basename>-vb-<vbranchName>-<scope>.<ext>
 export function buildExportFilename(
-  prNumber: number,
+  source: ExportSourceMeta,
   scope: ExportInput['scope'],
   ext: 'md' | 'json',
 ): string {
-  if (!Number.isInteger(prNumber) || prNumber <= 0) {
-    throw new Error(`buildExportFilename: prNumber must be a positive integer, got ${prNumber}`)
+  if (source.kind === 'github-pr') {
+    if (!Number.isInteger(source.number) || source.number <= 0) {
+      throw new Error(
+        `buildExportFilename: github-pr source must carry a positive integer number, got ${source.number}`,
+      )
+    }
+    return `findings-pr-${source.number}-${scope}.${ext}`
   }
-  return `findings-pr-${prNumber}-${scope}.${ext}`
+  const base = sanitize(repoBasename(source.repoPath)) || 'repo'
+  if (source.kind === 'local-branch') {
+    const branch = sanitize(source.branch) || 'head'
+    return `findings-${base}-${branch}-${scope}.${ext}`
+  }
+  const vb = sanitize(source.vbranchName) || 'vbranch'
+  return `findings-${base}-vb-${vb}-${scope}.${ext}`
 }

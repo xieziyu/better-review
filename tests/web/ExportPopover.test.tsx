@@ -7,6 +7,7 @@ import { ExportPopover } from '@/components/ExportPopover'
 
 const session: PRSession = {
   id: 's1',
+  source: { kind: 'github-pr', owner: 'xieziyu', repo: 'better-review', number: 42 },
   owner: 'xieziyu',
   repo: 'better-review',
   number: 42,
@@ -157,7 +158,8 @@ describe('ExportPopover', () => {
     expect(mime).toBe('application/json')
     const parsed = JSON.parse(text)
     expect(parsed.schemaVersion).toBe(1)
-    expect(parsed.pr.number).toBe(42)
+    expect(parsed.source.kind).toBe('github-pr')
+    expect(parsed.source.number).toBe(42)
   })
 
   it('falls back to scope=all when nothing is selected, and disables Selected', async () => {
