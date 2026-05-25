@@ -54,24 +54,41 @@ type SessionSource =
 
 **退出标准**：跑完所有测试，UI 行为零变化，DB 中老 PR session 仍可打开/rerun，新 session 的 `source_json` 正确写入。
 
-### Phase 1 — Local branch source + provider 抽象 ☐
+### Phase 1 — Local branch source + provider 抽象 ☐ in progress (1a+1b+1c done, 1d pending)
 
 > 引入 provider 接口（Metadata / Diff / SourceTree / Submission），同步实现 `GithubPrProvider` (包装现有逻辑) 和 `LocalBranchProvider`。这样抽象一上来就有两个实现验证。
 
-- [ ] 新建 `src/server/source/` 目录，定义四个 provider 接口
-- [ ] 实现 `GithubPrProvider`，把现有 `gh-client + worktree + snapshot + submit` 包进去
-- [ ] `start-session.ts`：`parseInput → SessionSource → providers.dispatch(...)`
-- [ ] `parseSessionInput()`：URL → PR；绝对路径/`~` → local-branch
-- [ ] `LocalBranchProvider`：
-  - metadata：`git log -1 --format=%H/%an/%s` + `url = null`
-  - diff：`git diff <base>..<head>`；base 默认 `merge-base(HEAD, refs/remotes/<default>/HEAD)`，兜底 `origin/main`
-  - sourceTree：复用 worktree.ts，去掉 fetch；`git worktree add --detach <workdir>/repo <head-sha>`
-  - submit：返回 not-supported
-- [ ] `framework.{en,zh-CN}.md`：加 `{{#SOURCE_KIND:local}}…{{/SOURCE_KIND}}` 分支；`{{PR_META}}` → `{{SOURCE_META}}`
-- [ ] Prior review context：local kind 跳过（`priorCtx = null`）
-- [ ] Rerun：复用 `session.source` 直接重投
-- [ ] Home：方案 A 顶部 Tab（GitHub PR / Local branch），vbranch tab 灰显标 "Phase 2"
+**1a — SourceFlow 抽取（565b300）**
+
+- [x] 新建 `src/server/source/`：`SourceFlow` 接口（不是四个分散的 provider）+ `getSourceFlow(source, deps)` dispatcher
+- [x] `GithubPrFlow` 包装现有 `gh-client + source-prep + rerun-context`；`buildSourceMeta` 与旧 `prMeta` 字符串字节一致
+- [x] `start-session.ts.prepareReview` 改走 `flow.fetchMetadata/fetchDiff/prepareSourceTree/loadPriorContext`
+
+**1b — LocalBranchFlow + 路由 + submit gate（a811a21）**
+
+- [x] `parseSessionInput()`：URL → PR；绝对路径/`~` → local-branch；可选 `localBranchHead` / `localBranchBase`
+- [x] `LocalBranchFlow`：
+  - metadata：`git log -1 --format=%an%x00%s%x00%b`，`url = null`
+  - diff：`git diff <base>...<head>` 三点；base 默认走 `refs/remotes/origin/HEAD → origin/main → origin/master`
+  - sourceTree：`git worktree add --detach <workdir>/repo <head-sha>`，复用 `cleanupWorktree(refName: null)`
+  - submit：not-supported
+- [x] Prior review context：local kind 返回 null
+- [x] `StartSessionInput.source` 替换 `prInput`；rerun 直接复用 `session.source`；workdir 按 source kind 命名；PR-dedup 仅对 github-pr 触发
+- [x] Submit route 对非 PR session 返回 409；engine 层 `SubmitNotSupportedError` 兜底
+
+**1c — Prompt voice per session kind（282d9bf）**
+
+- [x] `renderer.ts` 加 `{{#SESSION_KIND:<kind>}}…{{/SESSION_KIND}}` 机制（默认 github-pr，保持老 prompt 字节一致）
+- [x] `framework.{en,zh-CN}.md`：opener 按 session kind 切换；中性化 "PR-wide" / "this PR" 文案
+- [x] `start-session.ts` 把 `flow.source.kind` 喂给 `sessionKind` promptVar
+
+**1d — UI（待做）**
+
+- [ ] Home：方案 A 顶部 Tab（GitHub PR active / Local branch active / GitButler vbranch 灰显并标 "Phase 2"）
+- [ ] Home Local Tab：repoPath picker + 可选 head/base
 - [ ] PRDetail：local session 隐藏 Submit 按钮 + 标 "Read-only review"
+- [ ] Sidebar/RecentRow：local session 不再 render `owner/repo#number`，改 render `<basename> · <branch>`
+- [ ] i18n：补 en + zh-CN
 - [ ] e2e：补一个 local-branch 走通的 happy path
 
 **退出标准**：在本仓库挑一个分支能跑出 findings，UI 全程可用，没有 Submit 入口；PR 路径仍然完整可用。
