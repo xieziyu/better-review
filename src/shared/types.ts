@@ -222,6 +222,13 @@ export interface CreateSessionRequest {
   // judgment guidance, etc.). Merged into the rendered prompt; persisted on
   // the session so reruns can reuse or edit it.
   extraPrompt?: string
+  // Only consumed when `prInput` parses as a local-branch source (i.e. a
+  // local repo path). Branch / ref / sha to review; defaults to HEAD.
+  localBranchHead?: string
+  // Diff base when `prInput` is a local-branch source. Defaults to 'auto',
+  // which the server resolves via refs/remotes/origin/HEAD → origin/main →
+  // origin/master.
+  localBranchBase?: string
 }
 export interface RerunSessionRequest {
   agent?: AgentKind

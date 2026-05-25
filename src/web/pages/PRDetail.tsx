@@ -51,6 +51,16 @@ const STATUS_TONE: Record<SessionStatus, 'running' | 'success' | 'warning' | 'da
     cancelled: 'neutral',
   }
 
+function sessionHeaderLabel(session: PRSession): string {
+  if (session.source.kind === 'local-branch') {
+    const base =
+      session.source.repoPath.replace(/\/+$/, '').split('/').pop() ?? session.source.repoPath
+    const branch = session.headRef ?? session.source.head
+    return `${base} · ${branch}`
+  }
+  return `${session.owner}/${session.repo}#${session.number}`
+}
+
 function SourceKindBadge({ session }: { session: PRSession }) {
   const { t } = useTranslation()
   const kind = session.sourceKind
@@ -117,6 +127,8 @@ function PRHeader({
   justSwitched,
 }: PRHeaderProps) {
   const { t } = useTranslation()
+  const isLocal = session.source.kind === 'local-branch'
+  const headerLabel = sessionHeaderLabel(session)
   return (
     <header className="space-y-4">
       <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -128,14 +140,25 @@ function PRHeader({
             {t('prdetail.roundLabel', { n: roundNumber })}
           </Tag>
         ) : null}
+        {isLocal ? (
+          <Tag tone="neutral" title={t('prdetail.readOnlyReviewTitle')}>
+            {t('prdetail.readOnlyReview')}
+          </Tag>
+        ) : null}
         <span
           className="min-w-0 font-mono text-meta text-ink-secondary tabular-nums"
-          aria-label={`${session.owner}/${session.repo}#${session.number}`}
+          aria-label={headerLabel}
         >
-          <span className="inline-block max-w-[38ch] truncate align-bottom">
-            {session.owner}/{session.repo}
-          </span>
-          <span className="text-ink-muted">#{session.number}</span>
+          {isLocal ? (
+            <span className="inline-block max-w-[48ch] truncate align-bottom">{headerLabel}</span>
+          ) : (
+            <>
+              <span className="inline-block max-w-[38ch] truncate align-bottom">
+                {session.owner}/{session.repo}
+              </span>
+              <span className="text-ink-muted">#{session.number}</span>
+            </>
+          )}
         </span>
         {session.author ? (
           <span className="font-mono text-meta text-ink-muted">@{session.author}</span>
@@ -295,7 +318,7 @@ function PRHeader({
             )
           ) : null}
           <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
-          {!isHistorical ? (
+          {!isHistorical && !isLocal ? (
             <Button
               type="button"
               variant="primary"

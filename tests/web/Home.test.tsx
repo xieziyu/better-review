@@ -37,6 +37,7 @@ function withClient(
 
 const session: PRSession = {
   id: 's1',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'api', number: 7 },
   owner: 'acme',
   repo: 'api',
   number: 7,

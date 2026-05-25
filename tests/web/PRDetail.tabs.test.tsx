@@ -51,6 +51,7 @@ function withRoute(
 
 const session: PRSession = {
   id: 's1',
+  source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
   owner: 'o',
   repo: 'r',
   number: 1,

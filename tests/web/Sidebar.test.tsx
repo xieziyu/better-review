@@ -19,6 +19,7 @@ function withClient(ui: React.ReactNode, initial?: { sessions?: PRSession[] }): 
 
 const mkSession = (overrides: Partial<PRSession> = {}): PRSession => ({
   id: 's1',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'web', number: 42 },
   owner: 'acme',
   repo: 'web',
   number: 42,

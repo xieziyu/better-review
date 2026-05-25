@@ -70,6 +70,18 @@ function writeFilter(set: Set<GroupKey>): void {
   window.localStorage.setItem(FILTER_KEY, [...set].join(','))
 }
 
+// Human-readable identity for a session. PR sessions render the familiar
+// `owner/repo#number`; local-branch sessions render `<basename> · <branch>`.
+function sessionIdentityLabel(session: PRSession): string {
+  if (session.source.kind === 'local-branch') {
+    const base =
+      session.source.repoPath.replace(/\/+$/, '').split('/').pop() ?? session.source.repoPath
+    const branch = session.headRef ?? session.source.head
+    return `${base} · ${branch}`
+  }
+  return `${session.owner}/${session.repo}#${session.number}`
+}
+
 // Substring match across the user-visible identifiers. Numeric input (with or
 // without a leading "#") also matches the PR number alone, so "412" finds
 // "acme/web#412".
@@ -77,15 +89,29 @@ export function matchesSearch(session: PRSession, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   const numericQuery = q.replace(/^#/, '')
-  if (/^\d+$/.test(numericQuery) && String(session.number).includes(numericQuery)) return true
-  const haystacks = [
-    session.title ?? '',
-    session.owner,
-    session.repo,
-    `${session.owner}/${session.repo}`,
-    `${session.owner}/${session.repo}#${session.number}`,
-    session.author ?? '',
-  ]
+  if (
+    session.source.kind === 'github-pr' &&
+    /^\d+$/.test(numericQuery) &&
+    String(session.number).includes(numericQuery)
+  ) {
+    return true
+  }
+  const haystacks: string[] = [session.title ?? '', session.author ?? '']
+  if (session.source.kind === 'github-pr') {
+    haystacks.push(
+      session.owner,
+      session.repo,
+      `${session.owner}/${session.repo}`,
+      `${session.owner}/${session.repo}#${session.number}`,
+    )
+  } else if (session.source.kind === 'local-branch') {
+    haystacks.push(
+      session.source.repoPath,
+      session.source.head,
+      session.headRef ?? '',
+      sessionIdentityLabel(session),
+    )
+  }
   return haystacks.some((h) => h.toLowerCase().includes(q))
 }
 
@@ -123,9 +149,9 @@ function SessionRow({ session }: SessionRowProps) {
       </h3>
       <div
         className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
-        title={`${session.owner}/${session.repo}#${session.number}`}
+        title={sessionIdentityLabel(session)}
       >
-        {session.owner}/{session.repo}#{session.number}
+        {sessionIdentityLabel(session)}
       </div>
       <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
         <span

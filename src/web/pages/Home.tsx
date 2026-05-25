@@ -1,7 +1,15 @@
 import type { AgentKind, PRSession } from '@shared/types'
 import { AGENT_KINDS } from '@shared/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, FileText, FolderGit2, FolderOpen, X } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  FolderGit2,
+  FolderOpen,
+  GitBranch,
+  X,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
@@ -10,6 +18,8 @@ import { Button, EmptyState, KbdHint, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
+
+type HomeTab = 'pr' | 'local' | 'vbranch'
 
 const PR_URL_RE = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/
 function parsePrTarget(input: string): { owner: string; repo: string } | null {
@@ -31,6 +41,19 @@ const STATUS_TONE: Record<
   cancelled: 'neutral',
 }
 
+// Human-readable label for a session in the Recent list. Local sessions
+// don't have an owner/repo/number triple, so we fall back to the repo's
+// basename and the branch ref.
+function sessionRecentLabel(session: PRSession): string {
+  if (session.source.kind === 'local-branch') {
+    const base =
+      session.source.repoPath.replace(/\/+$/, '').split('/').pop() ?? session.source.repoPath
+    const branch = session.headRef ?? session.source.head
+    return `${base} · ${branch}`
+  }
+  return `${session.owner}/${session.repo}#${session.number}`
+}
+
 function RecentRow({ session }: { session: PRSession }) {
   const { t } = useTranslation()
   const relativeTime = useRelativeTime()
@@ -41,7 +64,7 @@ function RecentRow({ session }: { session: PRSession }) {
     >
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-meta text-ink-secondary tabular-nums">
-          {session.owner}/{session.repo}#{session.number}
+          {sessionRecentLabel(session)}
         </span>
         <Tag tone={STATUS_TONE[session.status]}>{t(`sidebar.status.${session.status}`)}</Tag>
         <span className="ml-auto text-caps tracking-caps text-ink-muted uppercase">
@@ -58,13 +81,63 @@ function RecentRow({ session }: { session: PRSession }) {
   )
 }
 
+function TopTabButton({
+  active,
+  disabled,
+  onClick,
+  label,
+  hint,
+}: {
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+  label: string
+  hint?: string
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      disabled={disabled}
+      title={hint}
+      className={cn(
+        'relative px-3 py-2 text-meta font-medium flex items-center gap-1.5 transition-colors duration-180 ease-out-quart',
+        disabled
+          ? 'text-ink-muted cursor-not-allowed'
+          : active
+            ? 'text-ink-primary'
+            : 'text-ink-secondary hover:text-ink-primary',
+      )}
+    >
+      {label}
+      {hint ? (
+        <span className="font-mono text-[10px] text-ink-muted border border-rule rounded px-1 py-px">
+          {hint}
+        </span>
+      ) : null}
+      {active ? (
+        <span aria-hidden="true" className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand" />
+      ) : null}
+    </button>
+  )
+}
+
 export function Home() {
   const { t } = useTranslation()
   const relativeTime = useRelativeTime()
+  const [tab, setTab] = useState<HomeTab>('pr')
+  // PR tab state.
   const [input, setInput] = useState('')
   const [localRepo, setLocalRepo] = useState('')
   const [localRepoTouched, setLocalRepoTouched] = useState(false)
   const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
+  // Local-branch tab state.
+  const [localTabRepo, setLocalTabRepo] = useState('')
+  const [localTabHead, setLocalTabHead] = useState('')
+  const [localTabBase, setLocalTabBase] = useState('')
+  // Shared state.
   const [agent, setAgent] = useState<AgentKind | null>(null)
   const [extraPrompt, setExtraPrompt] = useState('')
   const [extraOpen, setExtraOpen] = useState(false)
@@ -126,23 +199,152 @@ export function Home() {
     !localRepoTouched && target && autoFilledFor === `${target.owner}/${target.repo}`
   const folderPickerSupported = health?.fs?.folderPicker?.supported ?? false
   const [pickerError, setPickerError] = useState<string | null>(null)
-  const [pickerBusy, setPickerBusy] = useState(false)
+  const [pickerBusy, setPickerBusy] = useState<null | 'pr' | 'local'>(null)
 
-  async function browseLocalRepo(): Promise<void> {
+  async function browseLocalRepo(into: 'pr' | 'local'): Promise<void> {
     setPickerError(null)
-    setPickerBusy(true)
+    setPickerBusy(into)
     try {
-      const r = await api.pickDirectory('Select repository for review')
+      const r = await api.pickDirectory(
+        into === 'pr' ? 'Select repository for review' : 'Select local repository to review',
+      )
       if (r.path) {
-        setLocalRepo(r.path)
-        setLocalRepoTouched(true)
+        if (into === 'pr') {
+          setLocalRepo(r.path)
+          setLocalRepoTouched(true)
+        } else {
+          setLocalTabRepo(r.path)
+        }
       }
     } catch (e) {
       setPickerError(e instanceof ApiError ? e.message : t('home.pickerError'))
     } finally {
-      setPickerBusy(false)
+      setPickerBusy(null)
     }
   }
+
+  const localTabRepoTrim = localTabRepo.trim()
+  const localTabCanSubmit = localTabRepoTrim.length > 0 && !create.isPending
+  const prCanSubmit = trimmed.length > 0 && !create.isPending
+
+  function submitPrTab(): void {
+    if (!prCanSubmit) return
+    const payload: Parameters<typeof create.mutate>[0] = {
+      prInput: trimmed,
+      agent: effectiveAgent,
+    }
+    const repo = localRepo.trim()
+    if (repo) payload.localRepoPath = repo
+    const extra = extraPrompt.trim()
+    if (extra) payload.extraPrompt = extra
+    create.mutate(payload)
+  }
+
+  function submitLocalTab(): void {
+    if (!localTabCanSubmit) return
+    const payload: Parameters<typeof create.mutate>[0] = {
+      // The server's parseSessionInput() resolves a path-shaped prInput to a
+      // local-branch source. Pin localRepoPath to the same path so the
+      // project-tier prompt resolver picks up `.better-review/review.md`
+      // from this repo.
+      prInput: localTabRepoTrim,
+      localRepoPath: localTabRepoTrim,
+      agent: effectiveAgent,
+    }
+    const head = localTabHead.trim()
+    if (head) payload.localBranchHead = head
+    const base = localTabBase.trim()
+    if (base) payload.localBranchBase = base
+    const extra = extraPrompt.trim()
+    if (extra) payload.extraPrompt = extra
+    create.mutate(payload)
+  }
+
+  const agentFieldset = (
+    <fieldset
+      className="flex flex-wrap items-center gap-1.5 text-meta text-ink-secondary"
+      aria-label={t('home.agent.legend')}
+    >
+      <legend className="sr-only">{t('home.agent.legend')}</legend>
+      <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">
+        {t('home.agent.label')}
+      </span>
+      {AGENT_KINDS.map((k) => {
+        const found = health?.agents[k].found ?? true
+        const selected = effectiveAgent === k
+        return (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setAgent(k)}
+            disabled={!found}
+            aria-pressed={selected}
+            title={found ? undefined : t('home.agent.notFoundTitle', { kind: k })}
+            className={cn(
+              'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
+              selected
+                ? 'border-ink-primary bg-ink-primary text-canvas'
+                : 'border-rule bg-raised/25 text-ink-secondary hover:text-ink-primary hover:bg-raised hover:border-ink-muted',
+              !found && 'opacity-40 cursor-not-allowed',
+            )}
+          >
+            {k}
+            {health && k === health.defaultAgent ? (
+              <span
+                className={cn(
+                  'ml-1.5 text-[10px]',
+                  selected ? 'text-canvas/70' : 'text-ink-muted',
+                )}
+              >
+                {t('home.agent.defaultSuffix')}
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </fieldset>
+  )
+
+  const extraPromptPanel = extraOpen ? (
+    <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-caps tracking-caps text-ink-muted uppercase">
+          {t('home.extra.header')}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setExtraOpen(false)
+            setExtraPrompt('')
+          }}
+          className="inline-flex items-center gap-1 text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+          aria-label={t('home.extra.removeAriaLabel')}
+        >
+          <X size={12} aria-hidden="true" />
+          {t('home.extra.remove')}
+        </button>
+      </div>
+      <textarea
+        aria-label={t('home.extra.ariaLabel')}
+        value={extraPrompt}
+        onChange={(e) => setExtraPrompt(e.target.value)}
+        placeholder={t('home.extra.placeholder')}
+        className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+        spellCheck={false}
+      />
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setExtraOpen(true)}
+      className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+      aria-label={t('home.extra.addAriaLabel')}
+    >
+      <FileText size={14} aria-hidden="true" />
+      <span>{t('home.extra.addLabel')}</span>
+      <ChevronDown size={14} aria-hidden="true" />
+    </button>
+  )
 
   return (
     <div className="px-8 py-12 mx-auto" style={{ width: 'clamp(680px, 80vw, 880px)' }}>
@@ -152,194 +354,209 @@ export function Home() {
             {t('home.eyebrow')}
           </div>
           <h1 className="text-display text-ink-primary">{t('home.title')}</h1>
-          <p className="mt-3 text-h2 text-ink-secondary font-normal">{t('home.subtitle')}</p>
+          <p className="mt-3 text-h2 text-ink-secondary font-normal">
+            {tab === 'local' ? t('home.subtitleLocal') : t('home.subtitle')}
+          </p>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (trimmed && !create.isPending) {
-              const payload: Parameters<typeof create.mutate>[0] = {
-                prInput: trimmed,
-                agent: effectiveAgent,
-              }
-              const repo = localRepo.trim()
-              if (repo) payload.localRepoPath = repo
-              const extra = extraPrompt.trim()
-              if (extra) payload.extraPrompt = extra
-              create.mutate(payload)
-            }
-          }}
-          className="space-y-3"
+        <div
+          role="tablist"
+          aria-label={t('home.tabs.ariaLabel')}
+          className="flex items-stretch gap-1 border-b border-rule"
         >
-          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-1.5 py-1.5 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-            <ChevronRight size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t('home.prUrlPlaceholder')}
-              className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
-              aria-label={t('home.prAriaLabel')}
-              autoFocus
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              disabled={!trimmed || create.isPending}
-            >
-              {create.isPending ? t('home.starting') : t('home.startReview')}
-            </Button>
-          </div>
+          <TopTabButton
+            active={tab === 'pr'}
+            onClick={() => setTab('pr')}
+            label={t('home.tabs.pr')}
+          />
+          <TopTabButton
+            active={tab === 'local'}
+            onClick={() => setTab('local')}
+            label={t('home.tabs.local')}
+          />
+          <TopTabButton
+            active={false}
+            disabled
+            onClick={() => {
+              /* noop */
+            }}
+            label={t('home.tabs.vbranch')}
+            hint={t('home.tabs.phase2Hint')}
+          />
+        </div>
 
-          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
-            <FolderGit2 size={16} className="text-ink-muted shrink-0" aria-hidden="true" />
-            <input
-              type="text"
-              list="recent-repos"
-              value={localRepo}
-              onChange={(e) => {
-                setLocalRepo(e.target.value)
-                setLocalRepoTouched(true)
-              }}
-              placeholder={t('home.localRepoPlaceholder')}
-              className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-              aria-label={t('home.localRepoAriaLabel')}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            {folderPickerSupported ? (
-              <button
-                type="button"
-                onClick={browseLocalRepo}
-                disabled={pickerBusy}
-                className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
-                aria-label={t('home.browseAriaLabel')}
-                title={t('home.browseTitle')}
-              >
-                <FolderOpen size={14} aria-hidden="true" />
-                {pickerBusy ? t('home.opening') : t('home.browse')}
-              </button>
-            ) : null}
-            {localRepo ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setLocalRepo('')
+        {tab === 'pr' ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              submitPrTab()
+            }}
+            className="space-y-3"
+          >
+            <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-1.5 py-1.5 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+              <ChevronRight size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={t('home.prUrlPlaceholder')}
+                className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none"
+                aria-label={t('home.prAriaLabel')}
+                autoFocus
+              />
+              <Button type="submit" variant="primary" size="md" disabled={!prCanSubmit}>
+                {create.isPending ? t('home.starting') : t('home.startReview')}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+              <FolderGit2 size={16} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <input
+                type="text"
+                list="recent-repos"
+                value={localRepo}
+                onChange={(e) => {
+                  setLocalRepo(e.target.value)
                   setLocalRepoTouched(true)
                 }}
-                className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                aria-label={t('home.clearAriaLabel')}
-              >
-                {t('home.clear')}
-              </button>
-            ) : null}
-          </div>
-          {pickerError ? (
-            <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
-          ) : null}
-          <datalist id="recent-repos">
-            {recentRepos?.items.map((r) => (
-              <option key={r.path} value={r.path}>
-                {r.matchedCurrentRepo ? t('home.recentRepoMatch') : ''}
-                {t('home.recentRepoMeta', {
-                  when: relativeTime(r.lastUsedAt),
-                  count: r.useCount,
-                })}
-              </option>
-            ))}
-          </datalist>
-          {showAutoFillHint ? (
-            <div className="text-meta text-ink-muted -mt-1 pl-1">
-              {t('home.autoFillHint', { owner: target!.owner, repo: target!.repo })}
-            </div>
-          ) : null}
-
-          {extraOpen ? (
-            <div className="rounded-lg bg-raised border border-rule p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-caps tracking-caps text-ink-muted uppercase">
-                  {t('home.extra.header')}
-                </span>
+                placeholder={t('home.localRepoPlaceholder')}
+                className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+                aria-label={t('home.localRepoAriaLabel')}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              {folderPickerSupported ? (
+                <button
+                  type="button"
+                  onClick={() => void browseLocalRepo('pr')}
+                  disabled={pickerBusy !== null}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                  aria-label={t('home.browseAriaLabel')}
+                  title={t('home.browseTitle')}
+                >
+                  <FolderOpen size={14} aria-hidden="true" />
+                  {pickerBusy === 'pr' ? t('home.opening') : t('home.browse')}
+                </button>
+              ) : null}
+              {localRepo ? (
                 <button
                   type="button"
                   onClick={() => {
-                    setExtraOpen(false)
-                    setExtraPrompt('')
+                    setLocalRepo('')
+                    setLocalRepoTouched(true)
                   }}
-                  className="inline-flex items-center gap-1 text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                  aria-label={t('home.extra.removeAriaLabel')}
+                  className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                  aria-label={t('home.clearAriaLabel')}
                 >
-                  <X size={12} aria-hidden="true" />
-                  {t('home.extra.remove')}
+                  {t('home.clear')}
                 </button>
-              </div>
-              <textarea
-                aria-label={t('home.extra.ariaLabel')}
-                value={extraPrompt}
-                onChange={(e) => setExtraPrompt(e.target.value)}
-                placeholder={t('home.extra.placeholder')}
-                className="w-full min-h-[8rem] p-3 font-mono text-code rounded-md bg-canvas border border-rule text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
-                spellCheck={false}
-              />
+              ) : null}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setExtraOpen(true)}
-              className="inline-flex items-center gap-1.5 text-meta text-ink-secondary hover:text-ink-primary transition-colors duration-180 ease-out-quart"
-              aria-label={t('home.extra.addAriaLabel')}
-            >
-              <FileText size={14} aria-hidden="true" />
-              <span>{t('home.extra.addLabel')}</span>
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
-          )}
+            {pickerError ? (
+              <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
+            ) : null}
+            <datalist id="recent-repos">
+              {recentRepos?.items.map((r) => (
+                <option key={r.path} value={r.path}>
+                  {r.matchedCurrentRepo ? t('home.recentRepoMatch') : ''}
+                  {t('home.recentRepoMeta', {
+                    when: relativeTime(r.lastUsedAt),
+                    count: r.useCount,
+                  })}
+                </option>
+              ))}
+            </datalist>
+            {showAutoFillHint ? (
+              <div className="text-meta text-ink-muted -mt-1 pl-1">
+                {t('home.autoFillHint', { owner: target!.owner, repo: target!.repo })}
+              </div>
+            ) : null}
 
-          <fieldset
-            className="flex flex-wrap items-center gap-1.5 text-meta text-ink-secondary"
-            aria-label={t('home.agent.legend')}
+            {extraPromptPanel}
+            {agentFieldset}
+          </form>
+        ) : tab === 'local' ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              submitLocalTab()
+            }}
+            className="space-y-3"
           >
-            <legend className="sr-only">{t('home.agent.legend')}</legend>
-            <span className="mr-1 text-caps tracking-caps text-ink-muted uppercase">
-              {t('home.agent.label')}
-            </span>
-            {AGENT_KINDS.map((k) => {
-              const found = health?.agents[k].found ?? true
-              const selected = effectiveAgent === k
-              return (
+            <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-1.5 py-1.5 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+              <FolderGit2 size={18} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <input
+                type="text"
+                value={localTabRepo}
+                onChange={(e) => setLocalTabRepo(e.target.value)}
+                placeholder={t('home.local.repoPlaceholder')}
+                className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+                aria-label={t('home.local.repoAriaLabel')}
+                spellCheck={false}
+                autoComplete="off"
+                autoFocus
+              />
+              {folderPickerSupported ? (
                 <button
-                  key={k}
                   type="button"
-                  onClick={() => setAgent(k)}
-                  disabled={!found}
-                  aria-pressed={selected}
-                  title={found ? undefined : t('home.agent.notFoundTitle', { kind: k })}
-                  className={cn(
-                    'h-7 px-2.5 rounded-sm border font-mono text-meta tabular-nums transition-colors duration-180 ease-out-quart',
-                    selected
-                      ? 'border-ink-primary bg-ink-primary text-canvas'
-                      : 'border-rule bg-raised/25 text-ink-secondary hover:text-ink-primary hover:bg-raised hover:border-ink-muted',
-                    !found && 'opacity-40 cursor-not-allowed',
-                  )}
+                  onClick={() => void browseLocalRepo('local')}
+                  disabled={pickerBusy !== null}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                  aria-label={t('home.browseAriaLabel')}
+                  title={t('home.browseTitle')}
                 >
-                  {k}
-                  {health && k === health.defaultAgent ? (
-                    <span
-                      className={cn(
-                        'ml-1.5 text-[10px]',
-                        selected ? 'text-canvas/70' : 'text-ink-muted',
-                      )}
-                    >
-                      {t('home.agent.defaultSuffix')}
-                    </span>
-                  ) : null}
+                  <FolderOpen size={14} aria-hidden="true" />
+                  {pickerBusy === 'local' ? t('home.opening') : t('home.browse')}
                 </button>
-              )
-            })}
-          </fieldset>
-        </form>
+              ) : null}
+              <Button type="submit" variant="primary" size="md" disabled={!localTabCanSubmit}>
+                {create.isPending ? t('home.starting') : t('home.startReview')}
+              </Button>
+            </div>
+            {pickerError ? (
+              <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+                <GitBranch size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+                <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+                  {t('home.local.headLabel')}
+                </span>
+                <input
+                  type="text"
+                  value={localTabHead}
+                  onChange={(e) => setLocalTabHead(e.target.value)}
+                  placeholder={t('home.local.headPlaceholder')}
+                  className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+                  aria-label={t('home.local.headAriaLabel')}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+                <GitBranch size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+                <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+                  {t('home.local.baseLabel')}
+                </span>
+                <input
+                  type="text"
+                  value={localTabBase}
+                  onChange={(e) => setLocalTabBase(e.target.value)}
+                  placeholder={t('home.local.basePlaceholder')}
+                  className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+                  aria-label={t('home.local.baseAriaLabel')}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+            <div className="text-meta text-ink-muted -mt-1 pl-1">{t('home.local.readOnlyHint')}</div>
+
+            {extraPromptPanel}
+            {agentFieldset}
+          </form>
+        ) : null}
 
         <div className="flex items-center gap-3 text-meta text-ink-muted pl-1">
           <KbdHint keys={['⏎']} label={t('home.footer.startReviewLabel')} />
