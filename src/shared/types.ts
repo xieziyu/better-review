@@ -229,6 +229,29 @@ export interface CreateSessionRequest {
   // which the server resolves via refs/remotes/origin/HEAD → origin/main →
   // origin/master.
   localBranchBase?: string
+  // When set with a path-shaped `prInput`, switches the source kind to
+  // gitbutler-vbranch — the server resolves the vbranch's tip+base via
+  // `but status` at runtime.
+  vbranchName?: string
+}
+
+// Public shape returned by GET /api/local-source/inspect. Mirrors the
+// server's `InspectResult` (src/server/gitbutler/inspect.ts) — kept in
+// shared so both the API client and the route handler agree.
+export interface LocalSourceVBranch {
+  name: string
+  tipSha: string
+  baseSha: string
+  commitCount: number
+  stackPosition: number
+  stackSize: number
+}
+export interface LocalSourceInspect {
+  kind: 'none' | 'git' | 'gitbutler'
+  repoPath: string
+  vbranches?: LocalSourceVBranch[]
+  mergeBaseSha?: string
+  warning?: string
 }
 export interface RerunSessionRequest {
   agent?: AgentKind

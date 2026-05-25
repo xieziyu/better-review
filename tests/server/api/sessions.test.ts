@@ -166,6 +166,43 @@ describe('sessions API', () => {
     expect(res.status).toBe(400)
   })
 
+  it('POST /api/sessions with a path + vbranchName builds a gitbutler-vbranch source', async () => {
+    let received: { source: unknown } | null = null
+    const deps = makeTestDeps({
+      startSession: async (input) => {
+        received = input
+        return { id: 'vb1' }
+      },
+    })
+    const repoDir = mkdtempSync(join(tmpdir(), 'br-api-vb-'))
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prInput: repoDir, vbranchName: 'feature-x' }),
+    })
+    expect(res.status).toBe(201)
+    expect(received).toEqual({
+      source: {
+        kind: 'gitbutler-vbranch',
+        repoPath: repoDir,
+        vbranchName: 'feature-x',
+        base: 'auto',
+      },
+    })
+  })
+
+  it('POST /api/sessions rejects non-string vbranchName', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prInput: '/tmp/x', vbranchName: 99 }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('POST /api/sessions rejects non-string localRepoPath', async () => {
     const deps = makeTestDeps()
     const app = createApp(deps)

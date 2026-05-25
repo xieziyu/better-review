@@ -20,6 +20,7 @@ import { eventsRoutes } from './routes/events'
 import { findingsRoutes } from './routes/findings'
 import { fsRoutes } from './routes/fs'
 import { healthRoutes } from './routes/health'
+import { localSourceRoutes } from './routes/local-source'
 import { promptsRoutes } from './routes/prompts'
 import { recentReposRoutes } from './routes/recent-repos'
 import { sessionsRoutes } from './routes/sessions'
@@ -71,6 +72,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api', sessionsRoutes(deps))
   app.route('/api', recentReposRoutes(deps))
   app.route('/api', fsRoutes(deps))
+  app.route('/api', localSourceRoutes(deps))
   app.route('/api', findingsRoutes(deps))
   app.route('/api', promptsRoutes(deps))
   app.route('/api', eventsRoutes(deps))

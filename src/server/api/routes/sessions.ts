@@ -37,6 +37,10 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       // already drive local-branch reviews.
       localBranchHead?: unknown
       localBranchBase?: unknown
+      // When set with a path-shaped prInput, switches the source kind
+      // to gitbutler-vbranch. The flow resolves the vbranch's tip+base
+      // via `but status` at runtime — see source/gitbutler-vbranch-flow.
+      vbranchName?: unknown
     }>()
     if (!body?.prInput) return c.json({ error: 'prInput required' }, 400)
     if (body.agent !== undefined && !isAgentKind(body.agent)) {
@@ -54,10 +58,14 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     if (body.localBranchBase !== undefined && typeof body.localBranchBase !== 'string') {
       return c.json({ error: 'localBranchBase must be a string' }, 400)
     }
+    if (body.vbranchName !== undefined && typeof body.vbranchName !== 'string') {
+      return c.json({ error: 'vbranchName must be a string' }, 400)
+    }
     try {
       const parseOpts: Parameters<typeof parseSessionInput>[1] = {}
       if (typeof body.localBranchHead === 'string') parseOpts.localBranchHead = body.localBranchHead
       if (typeof body.localBranchBase === 'string') parseOpts.localBranchBase = body.localBranchBase
+      if (typeof body.vbranchName === 'string') parseOpts.vbranchName = body.vbranchName
       const source = parseSessionInput(body.prInput, parseOpts)
 
       const input: Parameters<typeof deps.startSession>[0] = { source }
