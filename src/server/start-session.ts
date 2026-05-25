@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import type { SessionSource } from '../shared/source'
 import type { AgentKind } from '../shared/types'
 import type { Config } from './config'
 import type { FindingsRepo } from './db/findings'
@@ -99,6 +100,15 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     extraPrompt: rawExtra,
   }) {
     const target = parsePRTarget(prInput)
+    // Construct the durable SessionSource. Phase 0 always resolves to a
+    // `github-pr` source; later phases pick a different kind based on the
+    // parsed input shape.
+    const source: SessionSource = {
+      kind: 'github-pr',
+      owner: target.owner,
+      repo: target.repo,
+      number: target.number,
+    }
     const localRepoPath =
       rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
     const extraPrompt =
@@ -126,6 +136,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     // while the rest of prep runs in the queue worker.
     deps.sessions.insert({
       id,
+      source,
       owner: target.owner,
       repo: target.repo,
       number: target.number,

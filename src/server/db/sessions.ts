@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 
+import { parseSource, serializeSource, type SessionSource } from '../../shared/source'
 import type {
   AgentKind,
   ExcludedFile,
@@ -15,6 +16,11 @@ export interface NewSessionInput {
   owner: string
   repo: string
   number: number
+  // The SessionSource for this row. Optional on input only so older test
+  // fixtures that synthesize PR rows from (owner, repo, number) keep
+  // working — when omitted, the repo builds a `github-pr` source from
+  // those fields. Real callers (start-session.ts) always pass it.
+  source?: SessionSource
   title: string | null
   author: string | null
   url: string | null
@@ -60,6 +66,7 @@ interface Row {
   error: string | null
   summary_json: string | null
   excluded_files_json: string | null
+  source_json: string | null
 }
 
 // Parse a JSON column, tolerating NULL and malformed content (a corrupt blob
@@ -73,9 +80,25 @@ function parseJsonColumn<T>(raw: string | null, fallback: T): T {
   }
 }
 
+// Reconstruct a SessionSource for the row. Post-migration every row has
+// `source_json` populated, but we still defend against a NULL (corrupt or
+// hand-written row) by synthesizing a `github-pr` source from the legacy
+// triple — that matches what the migration would have written anyway.
+function rowSource(r: Row): SessionSource {
+  if (r.source_json) {
+    try {
+      return parseSource(r.source_json)
+    } catch {
+      // fall through to synthesis below
+    }
+  }
+  return { kind: 'github-pr', owner: r.owner, repo: r.repo, number: r.number }
+}
+
 function rowToSession(r: Row): PRSession {
   return {
     id: r.id,
+    source: rowSource(r),
     owner: r.owner,
     repo: r.repo,
     number: r.number,
@@ -106,16 +129,24 @@ export class SessionsRepo {
 
   insert(s: NewSessionInput): void {
     const now = Date.now()
+    const source: SessionSource = s.source ?? {
+      kind: 'github-pr',
+      owner: s.owner,
+      repo: s.repo,
+      number: s.number,
+    }
     this.db
       .prepare(
         `
       INSERT INTO pr_sessions
         (id, owner, repo, number, title, author, url, base_ref, head_ref,
          status, agent, created_at, updated_at, workdir, local_repo_path,
-         source_kind, source_ref_name, prompt_used, extra_prompt, head_sha, error)
+         source_kind, source_ref_name, prompt_used, extra_prompt, head_sha,
+         source_json, error)
       VALUES (@id, @owner, @repo, @number, @title, @author, @url, @baseRef, @headRef,
               @status, @agent, @now, @now, @workdir, @localRepoPath,
-              @sourceKind, @sourceRefName, @promptUsed, @extraPrompt, @headSha, NULL)
+              @sourceKind, @sourceRefName, @promptUsed, @extraPrompt, @headSha,
+              @sourceJson, NULL)
     `,
       )
       .run({
@@ -124,6 +155,7 @@ export class SessionsRepo {
         sourceRefName: s.sourceRefName ?? null,
         extraPrompt: s.extraPrompt ?? null,
         headSha: s.headSha ?? null,
+        sourceJson: serializeSource(source),
         now,
       })
   }

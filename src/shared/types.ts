@@ -1,5 +1,8 @@
 import type { FindingFromAgent, Severity } from './findings-schema'
+import type { SessionSource } from './source'
 import type { ReviewSummaryFromAgent } from './summary-schema'
+
+export type { SessionSource, SessionSourceKind } from './source'
 
 export type { ReviewSummaryFromAgent, ManualReviewItem } from './summary-schema'
 
@@ -40,6 +43,12 @@ export type SourceKind = 'worktree' | 'snapshot' | 'none'
 
 export interface PRSession {
   id: string
+  // The durable identity of *what* this session reviews. Phase 0 always
+  // resolves to a `github-pr` source so behavior is unchanged; later
+  // phases add `local-branch` and `gitbutler-vbranch`. The PR-specific
+  // fields below (owner/repo/number/title/author/url/...) stay populated
+  // for github-pr sources and are null for local sources.
+  source: SessionSource
   owner: string
   repo: string
   number: number
