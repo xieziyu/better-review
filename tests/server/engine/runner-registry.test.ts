@@ -23,6 +23,27 @@ describe('RunnerRegistry', () => {
     await expect(reg.cancel('missing')).resolves.toBeUndefined()
   })
 
+  it('cancelAll invokes every registered handle and empties the registry', async () => {
+    const reg = new RunnerRegistry()
+    const calls: string[] = []
+    reg.register('a', async () => {
+      calls.push('a')
+    })
+    reg.register('b', async () => {
+      calls.push('b')
+    })
+    reg.register('c', async () => {
+      throw new Error('c blew up')
+    })
+
+    await reg.cancelAll()
+
+    expect(calls.sort()).toEqual(['a', 'b'])
+    expect(reg.isRunning('a')).toBe(false)
+    expect(reg.isRunning('b')).toBe(false)
+    expect(reg.isRunning('c')).toBe(false)
+  })
+
   it('unregister removes a handle without invoking it', async () => {
     const reg = new RunnerRegistry()
     let called = 0

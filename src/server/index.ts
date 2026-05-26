@@ -284,6 +284,18 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       server.close(() => res())
       if ('closeAllConnections' in server) server.closeAllConnections()
     })
+    // Kick any active agent children so their runners settle into a
+    // final status, then wait for the queue to drain so in-flight
+    // start-session promises write their final rows on a still-open
+    // connection. Without this the catch handlers in start-session /
+    // runner can fire after db.close() and crash with "database
+    // connection is not open".
+    try {
+      await runners.cancelAll()
+    } catch (e) {
+      log.warn('cancelAll errored during shutdown', { error: (e as Error).message })
+    }
+    await queue.quiesce(5_000)
     try {
       db.close()
     } catch {
