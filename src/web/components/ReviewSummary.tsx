@@ -47,7 +47,6 @@ const SEV_TEXT: Record<Severity, string> = {
 export function ReviewSummary({ session, findings, unifiedDiff, onJumpToFile }: Props) {
   const { t } = useTranslation()
   const files = useMemo(() => (unifiedDiff ? parseFileList(unifiedDiff) : []), [unifiedDiff])
-  const reviewInProgress = session.status === 'pending' || session.status === 'running'
   const coverage = useMemo(
     () =>
       computeReviewCoverage(
@@ -55,9 +54,9 @@ export function ReviewSummary({ session, findings, unifiedDiff, onJumpToFile }: 
         findings,
         session.excludedFiles,
         session.reviewSummary,
-        reviewInProgress,
+        session.status,
       ),
-    [files, findings, session.excludedFiles, session.reviewSummary, reviewInProgress],
+    [files, findings, session.excludedFiles, session.reviewSummary, session.status],
   )
 
   return (
@@ -302,6 +301,7 @@ const STATUS_TONE: Record<CoverageStatus, string> = {
   flagged: 'text-[color:var(--severity-must)]',
   found: 'text-ink-primary',
   pending: 'text-ink-secondary',
+  incomplete: 'text-[color:var(--severity-should)]',
   clean: 'text-[color:var(--accent-ready)]',
   excluded: 'text-ink-muted',
 }
@@ -309,6 +309,7 @@ const STATUS_ICON: Record<CoverageStatus, string> = {
   flagged: '⚑',
   found: '●',
   pending: '◌',
+  incomplete: '!',
   clean: '✓',
   excluded: '⊘',
 }
@@ -372,9 +373,11 @@ function CoverageRowItem({
         ? t('summary.statusFound', { count: row.findingCount })
         : row.status === 'pending'
           ? t('summary.statusPending')
-          : row.status === 'clean'
-            ? t('summary.statusClean')
-            : t('summary.statusExcluded')
+          : row.status === 'incomplete'
+            ? t('summary.statusIncomplete')
+            : row.status === 'clean'
+              ? t('summary.statusClean')
+              : t('summary.statusExcluded')
   return (
     <button
       type="button"

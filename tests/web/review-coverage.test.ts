@@ -122,18 +122,43 @@ describe('computeReviewCoverage', () => {
   })
 
   it('marks findings-free files as pending while the agent is still running', () => {
-    const cov = computeReviewCoverage(
-      [file('a.ts'), file('b.ts')],
-      [finding({ severity: 'must', file: 'a.ts', line: 1 })],
-      [],
-      null,
-      true,
-    )
-    const byPath = Object.fromEntries(cov.rows.map((r) => [r.path, r.status]))
-    // a.ts has a must finding — flagged regardless of in-progress flag.
-    expect(byPath['a.ts']).toBe('flagged')
-    // b.ts has no findings yet — must not be reported as "clean" while running.
-    expect(byPath['b.ts']).toBe('pending')
+    for (const status of ['pending', 'running'] as const) {
+      const cov = computeReviewCoverage(
+        [file('a.ts'), file('b.ts')],
+        [finding({ severity: 'must', file: 'a.ts', line: 1 })],
+        [],
+        null,
+        status,
+      )
+      const byPath = Object.fromEntries(cov.rows.map((r) => [r.path, r.status]))
+      // a.ts has a must finding — flagged regardless of session status.
+      expect(byPath['a.ts']).toBe('flagged')
+      // b.ts has no findings yet — must not be reported as "clean" while running.
+      expect(byPath['b.ts']).toBe('pending')
+    }
+  })
+
+  it('marks findings-free files as incomplete after failed/cancelled runs', () => {
+    for (const status of ['failed', 'cancelled'] as const) {
+      const cov = computeReviewCoverage(
+        [file('a.ts'), file('b.ts')],
+        [finding({ severity: 'must', file: 'a.ts', line: 1 })],
+        [],
+        null,
+        status,
+      )
+      const byPath = Object.fromEntries(cov.rows.map((r) => [r.path, r.status]))
+      expect(byPath['a.ts']).toBe('flagged')
+      // The run stopped early — we can't claim b.ts was actually reviewed.
+      expect(byPath['b.ts']).toBe('incomplete')
+    }
+  })
+
+  it('only reports findings-free files as clean once the run completes', () => {
+    for (const status of ['ready', 'submitted', 'archived'] as const) {
+      const cov = computeReviewCoverage([file('a.ts')], [], [], null, status)
+      expect(cov.rows[0]!.status).toBe('clean')
+    }
   })
 
   it('canonicalises a renamed file so old-path findings line up', () => {
