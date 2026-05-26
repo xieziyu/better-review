@@ -1016,6 +1016,7 @@ export function SessionDetail() {
         prepSteps={prepSteps}
         prepCalls={prepCalls}
         status={session.status}
+        agent={session.agent}
         open={transcriptDrawer.open}
         onToggle={transcriptDrawer.toggle}
         onClose={() => transcriptDrawer.setOpen(false)}

@@ -1,10 +1,9 @@
-import type { PrepCall, PrepStep, SessionStatus } from '@shared/types'
+import type { AgentKind, PrepCall, PrepStep, SessionStatus } from '@shared/types'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PrepPhasesPanel } from '@/components/PrepPhasesPanel'
-import { TranscriptStream } from '@/components/TranscriptStream'
+import { ActivityTimeline } from '@/components/ActivityTimeline'
 import { useResizable } from '@/lib/use-resizable'
 import { cn } from '@/lib/utils'
 
@@ -56,6 +55,7 @@ interface TranscriptDrawerProps {
   prepSteps: PrepStep[]
   prepCalls: PrepCall[]
   status: SessionStatus
+  agent?: AgentKind | undefined
   open: boolean
   onToggle: () => void
   onClose: () => void
@@ -68,6 +68,7 @@ export function TranscriptDrawer({
   prepSteps,
   prepCalls,
   status,
+  agent,
   open,
   onToggle,
   onClose,
@@ -84,7 +85,7 @@ export function TranscriptDrawer({
   if (!isRunning && !isPending && chunks.length === 0 && !hasPrep) return null
 
   const linesLabel = hasPrep
-    ? t('transcriptDrawer.linesAndPrep', { lines: chunks.length, prep: prepSteps.length })
+    ? t('transcriptDrawer.phasesAndLines', { phases: prepSteps.length, lines: chunks.length })
     : t('transcriptDrawer.linesLabel', { count: chunks.length })
 
   return (
@@ -100,12 +101,13 @@ export function TranscriptDrawer({
       closeAria={t('transcriptDrawer.closeAria')}
       resizeAria={t('transcriptDrawer.resizeAria')}
     >
-      <div className="flex flex-col min-h-0 h-full w-full">
-        {hasPrep ? <PrepPhasesPanel steps={prepSteps} calls={prepCalls} /> : null}
-        <div className="flex-1 min-h-0">
-          <TranscriptStream chunks={chunks} status={status} />
-        </div>
-      </div>
+      <ActivityTimeline
+        prepSteps={prepSteps}
+        prepCalls={prepCalls}
+        chunks={chunks}
+        status={status}
+        agent={agent}
+      />
     </DrawerShell>
   )
 }

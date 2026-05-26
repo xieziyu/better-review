@@ -42,7 +42,7 @@ describe('TranscriptDrawer', () => {
 
   it('renders the handle but hides the body when collapsed', () => {
     render(<TranscriptDrawer {...drawerProps()} />)
-    expect(screen.getByRole('button', { name: /Open transcript drawer/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Open activity drawer/i })).toBeInTheDocument()
     expect(screen.queryByRole('log')).not.toBeInTheDocument()
   })
 
@@ -51,7 +51,7 @@ describe('TranscriptDrawer', () => {
     const log = screen.getByRole('log')
     expect(log).toHaveTextContent(/line a/)
     expect(log).toHaveTextContent(/line b/)
-    expect(screen.getByRole('button', { name: /Close transcript drawer/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Close activity drawer/i })).toBeInTheDocument()
   })
 
   it('shows the streaming marker on the handle only while running', () => {
@@ -64,7 +64,7 @@ describe('TranscriptDrawer', () => {
   it('calls onToggle when the handle is clicked', () => {
     let toggled = 0
     render(<TranscriptDrawer {...drawerProps({ chunks: ['x'], onToggle: () => (toggled += 1) })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Open transcript drawer/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Open activity drawer/i }))
     expect(toggled).toBe(1)
   })
 
@@ -75,7 +75,7 @@ describe('TranscriptDrawer', () => {
         {...drawerProps({ chunks: ['x'], open: true, onClose: () => (closed += 1) })}
       />,
     )
-    const handle = screen.getByRole('button', { name: /Close transcript drawer/i })
+    const handle = screen.getByRole('button', { name: /Close activity drawer/i })
     act(() => {
       handle.focus()
       fireEvent.keyDown(window, { key: 'Escape' })
@@ -110,7 +110,7 @@ describe('TranscriptDrawer', () => {
     expect(sep).toHaveAttribute('aria-valuenow', '320')
   })
 
-  it('renders the prep panel when prep data is present, even with no agent chunks', () => {
+  it('renders the prep timeline when prep data is present, even with no agent chunks', () => {
     render(
       <TranscriptDrawer
         {...drawerProps({
@@ -131,7 +131,7 @@ describe('TranscriptDrawer', () => {
         })}
       />,
     )
-    expect(screen.getByText(/prep phases/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 phases · 0 lines/i)).toBeInTheDocument()
     expect(screen.getByText(/Fetching PR metadata/i)).toBeInTheDocument()
   })
 
