@@ -1,15 +1,29 @@
 import type { Severity } from '@shared/findings-schema'
-import type { ExcludedFile, Finding, ReviewSummaryFromAgent } from '@shared/types'
+import type {
+  ExcludedFile,
+  Finding,
+  ReviewSummaryFromAgent,
+  SessionStatus,
+} from '@shared/types'
 
 import { buildFileAliasMap, canonicalFilePath, type FileSummary } from './diff-utils'
 
 // Per-file outcome, in priority order — a file gets the first status that
 // applies, so the coverage table can sort the most-actionable rows to the top.
-//  - excluded: dropped by a skip-review glob; the agent never saw it.
-//  - flagged:  the agent asked for human review, or it carries a `must` finding.
-//  - found:    reviewed, has at least one finding.
-//  - clean:    reviewed, no findings.
-export type CoverageStatus = 'excluded' | 'flagged' | 'found' | 'clean'
+//  - excluded:   dropped by a skip-review glob; the agent never saw it.
+//  - flagged:    the agent asked for human review, or it carries a `must` finding.
+//  - found:      reviewed, has at least one finding.
+//  - pending:    agent is still running and hasn't yet produced findings for this file.
+//  - incomplete: the run stopped before completing (failed/cancelled) — we can't
+//                claim this file was actually reviewed.
+//  - clean:      reviewed, no findings.
+export type CoverageStatus =
+  | 'excluded'
+  | 'flagged'
+  | 'found'
+  | 'pending'
+  | 'incomplete'
+  | 'clean'
 
 const SEV_ORDER: Severity[] = ['must', 'should', 'nit']
 
@@ -54,8 +68,31 @@ export interface ReviewCoverage {
 const STATUS_RANK: Record<CoverageStatus, number> = {
   flagged: 0,
   found: 1,
-  clean: 2,
-  excluded: 3,
+  pending: 2,
+  incomplete: 3,
+  clean: 4,
+  excluded: 5,
+}
+
+// Map session status → the fallback coverage status assigned to a file with no
+// findings. `ready` / `submitted` / `archived` are the only states that mean
+// the agent ran to completion, so only those can show `clean`. Treat any
+// unknown future SessionStatus as `incomplete` to err on the side of not
+// over-claiming coverage.
+function fallbackForStatus(status: SessionStatus | undefined): 'clean' | 'pending' | 'incomplete' {
+  switch (status) {
+    case 'pending':
+    case 'running':
+      return 'pending'
+    case 'failed':
+    case 'cancelled':
+      return 'incomplete'
+    case 'ready':
+    case 'submitted':
+    case 'archived':
+    case undefined:
+      return 'clean'
+  }
 }
 
 /**
@@ -69,6 +106,10 @@ export function computeReviewCoverage(
   findings: Finding[],
   excludedFiles: ExcludedFile[],
   summary: ReviewSummaryFromAgent | null,
+  // Drives the fallback status for files without findings. Omit / undefined to
+  // treat the run as complete (the old behaviour) — used by tests that don't
+  // care about the running/incomplete distinction.
+  sessionStatus?: SessionStatus,
 ): ReviewCoverage {
   const aliasMap = buildFileAliasMap(files)
 
@@ -107,6 +148,7 @@ export function computeReviewCoverage(
     }
   }
 
+  const fallback = fallbackForStatus(sessionStatus)
   const rows: CoverageRow[] = files.map((f) => {
     const excludedGlob = excludedByFile.get(f.path) ?? null
     const findingCount = countByFile.get(f.path) ?? 0
@@ -118,7 +160,7 @@ export function computeReviewCoverage(
         ? 'flagged'
         : findingCount > 0
           ? 'found'
-          : 'clean'
+          : fallback
     return {
       path: f.path,
       additions: f.additions,

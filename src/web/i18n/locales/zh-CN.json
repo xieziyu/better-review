@@ -157,6 +157,8 @@
     "statusFlagged": "重点关注",
     "statusFound_one": "已审查 · {{count}} 个问题",
     "statusFound_other": "已审查 · {{count}} 个问题",
+    "statusPending": "审查进行中",
+    "statusIncomplete": "审查未完成",
     "statusClean": "已审查 · 无问题",
     "statusExcluded": "未送审",
     "excludedNote": "标记为「未送审」的文件已按 review-exclude 规则（依赖锁文件、构建产物、快照等）从评审 diff 中移除 —— agent 未曾看到它们。可在「设置 → review-exclude 规则」中调整。",

@@ -48,8 +48,15 @@ export function ReviewSummary({ session, findings, unifiedDiff, onJumpToFile }: 
   const { t } = useTranslation()
   const files = useMemo(() => (unifiedDiff ? parseFileList(unifiedDiff) : []), [unifiedDiff])
   const coverage = useMemo(
-    () => computeReviewCoverage(files, findings, session.excludedFiles, session.reviewSummary),
-    [files, findings, session.excludedFiles, session.reviewSummary],
+    () =>
+      computeReviewCoverage(
+        files,
+        findings,
+        session.excludedFiles,
+        session.reviewSummary,
+        session.status,
+      ),
+    [files, findings, session.excludedFiles, session.reviewSummary, session.status],
   )
 
   return (
@@ -293,12 +300,16 @@ function AttentionRow({
 const STATUS_TONE: Record<CoverageStatus, string> = {
   flagged: 'text-[color:var(--severity-must)]',
   found: 'text-ink-primary',
+  pending: 'text-ink-secondary',
+  incomplete: 'text-[color:var(--severity-should)]',
   clean: 'text-[color:var(--accent-ready)]',
   excluded: 'text-ink-muted',
 }
 const STATUS_ICON: Record<CoverageStatus, string> = {
   flagged: '⚑',
   found: '●',
+  pending: '◌',
+  incomplete: '!',
   clean: '✓',
   excluded: '⊘',
 }
@@ -360,9 +371,13 @@ function CoverageRowItem({
       ? t('summary.statusFlagged')
       : row.status === 'found'
         ? t('summary.statusFound', { count: row.findingCount })
-        : row.status === 'clean'
-          ? t('summary.statusClean')
-          : t('summary.statusExcluded')
+        : row.status === 'pending'
+          ? t('summary.statusPending')
+          : row.status === 'incomplete'
+            ? t('summary.statusIncomplete')
+            : row.status === 'clean'
+              ? t('summary.statusClean')
+              : t('summary.statusExcluded')
   return (
     <button
       type="button"
