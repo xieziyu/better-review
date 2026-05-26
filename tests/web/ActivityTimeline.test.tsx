@@ -67,10 +67,24 @@ describe('ActivityTimeline', () => {
     expect(screen.getByText(/"number": 12/)).toBeInTheDocument()
   })
 
-  it('disables expand and shows "in-process" tag when a bucket has no calls', () => {
+  it('disables expand and shows "no external output" when a finished bucket has no calls', () => {
     render(<ActivityTimeline {...timelineProps({ prepSteps: [phase('prep:rendering-prompt')] })} />)
     const btn = screen.getByRole('button', { name: /Assembling prompt/i })
     expect(btn).toBeDisabled()
+    expect(screen.getByText(/no external output/i)).toBeInTheDocument()
+    // The completed phase must not be mislabelled as still in-process.
+    expect(screen.queryByText(/in-process/i)).not.toBeInTheDocument()
+  })
+
+  it('shows "in-process" only on the active bucket while the session is pending', () => {
+    render(
+      <ActivityTimeline
+        {...timelineProps({
+          status: 'pending',
+          prepSteps: [phase('prep:rendering-prompt')],
+        })}
+      />,
+    )
     expect(screen.getByText(/in-process/i)).toBeInTheDocument()
   })
 

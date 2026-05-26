@@ -55,6 +55,7 @@
   "activityTimeline": {
     "ariaLabel": "Review activity timeline",
     "inProcess": "in-process",
+    "noCapturedOutput": "no external output",
     "callsCount_one": "{{count}} call",
     "callsCount_other": "{{count}} calls",
     "statusRunning": "running",

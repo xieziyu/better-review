@@ -86,8 +86,14 @@ export function TranscriptDrawer({
   // agent starts streaming.
   if (!isRunning && !isPending && chunks.length === 0 && !hasPrep) return null
 
+  // Count unique phases the way ActivityTimeline.bucketize does: a phase can
+  // be marked multiple times (e.g. renderingPrompt is re-marked for excluded
+  // files), and calls can produce synthetic buckets when no step event fired.
+  // Using prepSteps.length here would diverge from the rendered node count.
+  const phaseCount = new Set([...prepSteps.map((s) => s.phase), ...prepCalls.map((c) => c.phase)])
+    .size
   const linesLabel = hasPrep
-    ? t('transcriptDrawer.phasesAndLines', { phases: prepSteps.length, lines: chunks.length })
+    ? t('transcriptDrawer.phasesAndLines', { phases: phaseCount, lines: chunks.length })
     : t('transcriptDrawer.linesLabel', { count: chunks.length })
 
   return (

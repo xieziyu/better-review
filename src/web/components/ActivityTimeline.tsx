@@ -95,14 +95,29 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, 
     >
       {buckets.map((b, i) => {
         const isLast = i === buckets.length - 1
-        // Wall-clock duration: bounded by next bucket start or now if active.
-        const endTs = isLast
+        const hasCalls = b.calls.length > 0
+        // Sequential fallback: next bucket's start, or now/lastPrepTs for the
+        // tail. This is correct for serial phases but underestimates phases
+        // that run in parallel (loadingPriorReview + source prep are queued
+        // back-to-back, then awaited together — the first appears as ~0ms and
+        // the wall time gets absorbed into the second).
+        const sequentialEndTs = isLast
           ? isPending
             ? now
             : (lastPrepTs ?? b.firstTs)
           : buckets[i + 1]!.firstTs
-        const wallMs = Math.max(0, endTs - b.firstTs)
-        const hasCalls = b.calls.length > 0
+        // When this phase actually captured external calls, their timestamps
+        // are the truth: callStart = ts - durationMs, callEnd = ts. Prefer
+        // those over the sequential bound so parallel phases stop crediting
+        // each other's time. Fall back to the sequential bound when there are
+        // no calls (no observation data available).
+        const callStartTs = hasCalls
+          ? Math.min(...b.calls.map((c) => c.ts - c.durationMs))
+          : b.firstTs
+        const callEndTs = hasCalls ? Math.max(...b.calls.map((c) => c.ts)) : null
+        const startTs = Math.min(b.firstTs, callStartTs)
+        const endTs = callEndTs == null ? sequentialEndTs : Math.max(callEndTs, sequentialEndTs)
+        const wallMs = Math.max(0, endTs - startTs)
         // Active prep bucket = last bucket while session is still in pending.
         const nodeStatus: NodeStatus =
           isPending && isLast ? 'running' : hasCalls ? 'done' : 'done-muted'
@@ -139,8 +154,10 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, 
                       <span className="text-ink-secondary">
                         {t('activityTimeline.callsCount', { count: b.calls.length })}
                       </span>
-                    ) : (
+                    ) : nodeStatus === 'running' ? (
                       <span className="italic">{t('activityTimeline.inProcess')}</span>
+                    ) : (
+                      <span className="italic">{t('activityTimeline.noCapturedOutput')}</span>
                     )}
                     <span>{formatDuration(wallMs)}</span>
                     {hasCalls ? (

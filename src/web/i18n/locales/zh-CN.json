@@ -54,7 +54,8 @@
   },
   "activityTimeline": {
     "ariaLabel": "Review 活动时间线",
-    "inProcess": "无外部输出",
+    "inProcess": "进行中",
+    "noCapturedOutput": "无外部输出",
     "callsCount_one": "{{count}} 次调用",
     "callsCount_other": "{{count}} 次调用",
     "statusRunning": "进行中",
