@@ -170,7 +170,7 @@ function renderFindingBlock(f: Finding, opts: { lineLabel: string | null }): str
 export function renderFindingsJson(input: ExportInput): string {
   const { source, session, scope, totalFindings, findings } = input
   const payload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     source,
     session: {
       roundNumber: session.roundNumber,

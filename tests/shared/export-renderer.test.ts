@@ -235,7 +235,7 @@ describe('renderFindingsJson', () => {
       }),
     )
     const parsed = JSON.parse(json)
-    expect(parsed.schemaVersion).toBe(1)
+    expect(parsed.schemaVersion).toBe(2)
     expect(parsed.source).toEqual({
       kind: 'github-pr',
       owner: 'xieziyu',

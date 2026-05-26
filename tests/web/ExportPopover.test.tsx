@@ -157,7 +157,7 @@ describe('ExportPopover', () => {
     expect(filename).toBe('findings-pr-42-selected.json')
     expect(mime).toBe('application/json')
     const parsed = JSON.parse(text)
-    expect(parsed.schemaVersion).toBe(1)
+    expect(parsed.schemaVersion).toBe(2)
     expect(parsed.source.kind).toBe('github-pr')
     expect(parsed.source.number).toBe(42)
   })
