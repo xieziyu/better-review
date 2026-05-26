@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { SelectionProvider } from '@/lib/selection'
-import { PRDetail } from '@/pages/PRDetail'
+import { SessionDetail } from '@/pages/SessionDetail'
 
 function withRoute(
   ui: React.ReactNode,
@@ -14,7 +14,7 @@ function withRoute(
     session?: PRSession
     findings?: Finding[]
     diff?: string | null
-    // Seed for the global ['sessions'] query so PRDetail can compute
+    // Seed for the global ['sessions'] query so SessionDetail can compute
     // round-number and orphan-archived state without a real fetch.
     allSessions?: PRSession[]
   },
@@ -35,9 +35,9 @@ function withRoute(
   return (
     <QueryClientProvider client={qc}>
       <SelectionProvider>
-        <MemoryRouter initialEntries={[`/pr/${initial?.session?.id ?? 'x'}`]}>
+        <MemoryRouter initialEntries={[`/session/${initial?.session?.id ?? 'x'}`]}>
           <Routes>
-            <Route path="/pr/:id" element={ui} />
+            <Route path="/session/:id" element={ui} />
           </Routes>
         </MemoryRouter>
       </SelectionProvider>
@@ -47,6 +47,7 @@ function withRoute(
 
 const session: PRSession = {
   id: 's1',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'web', number: 42 },
   owner: 'acme',
   repo: 'web',
   number: 42,
@@ -89,9 +90,9 @@ const finding: Finding = {
   source: 'agent',
 }
 
-describe('PRDetail', () => {
+describe('SessionDetail', () => {
   it('renders header with PR title and metadata', () => {
-    render(withRoute(<PRDetail />, { session, findings: [finding] }))
+    render(withRoute(<SessionDetail />, { session, findings: [finding] }))
     expect(screen.getByRole('heading', { name: /feat\(auth\)/ })).toBeInTheDocument()
     expect(screen.getByLabelText('acme/web#42')).toBeInTheDocument()
     expect(screen.getByText(/@alice/)).toBeInTheDocument()
@@ -104,19 +105,19 @@ describe('PRDetail', () => {
   })
 
   it('shows submit button disabled with selection count', () => {
-    render(withRoute(<PRDetail />, { session, findings: [{ ...finding, selected: false }] }))
+    render(withRoute(<SessionDetail />, { session, findings: [{ ...finding, selected: false }] }))
     const submit = screen.getByRole('button', { name: /Submit/i })
     expect(submit).toBeDisabled()
   })
 
   it('shows submit button enabled when selections exist', () => {
-    render(withRoute(<PRDetail />, { session, findings: [finding] }))
+    render(withRoute(<SessionDetail />, { session, findings: [finding] }))
     expect(screen.getByRole('button', { name: /Submit/i })).not.toBeDisabled()
   })
 
   it('renders the local repo path chip when the session has one', () => {
     render(
-      withRoute(<PRDetail />, {
+      withRoute(<SessionDetail />, {
         session: { ...session, localRepoPath: '/Users/me/code/web' },
         findings: [finding],
       }),
@@ -126,13 +127,13 @@ describe('PRDetail', () => {
   })
 
   it('omits the local repo chip when the session has none', () => {
-    render(withRoute(<PRDetail />, { session, findings: [finding] }))
+    render(withRoute(<SessionDetail />, { session, findings: [finding] }))
     expect(screen.queryByLabelText(/Local repo:/)).not.toBeInTheDocument()
   })
 
   it('renders session error banner when present', () => {
     render(
-      withRoute(<PRDetail />, {
+      withRoute(<SessionDetail />, {
         session: { ...session, status: 'failed', error: 'claude crashed' },
         findings: [],
       }),
@@ -142,7 +143,7 @@ describe('PRDetail', () => {
 
   it('shows passive submitted line when status=submitted', () => {
     render(
-      withRoute(<PRDetail />, {
+      withRoute(<SessionDetail />, {
         session: { ...session, status: 'submitted' },
         findings: [finding],
       }),
@@ -206,7 +207,7 @@ describe('PRDetail', () => {
       window.localStorage.setItem('better-review:transcript-drawer:open:v1', '1')
       const running: PRSession = { ...session, status: 'running' }
       render(
-        withRoute(<PRDetail />, {
+        withRoute(<SessionDetail />, {
           session: running,
           findings: [],
         }),
@@ -235,7 +236,7 @@ describe('PRDetail', () => {
 
     it('shows RunStrip while running with elapsed clock and transcript toggle', () => {
       const running: PRSession = { ...session, status: 'running' }
-      render(withRoute(<PRDetail />, { session: running, findings: [] }))
+      render(withRoute(<SessionDetail />, { session: running, findings: [] }))
       const strip = screen.getByRole('status', { name: /Review run progress/i })
       expect(strip).toBeInTheDocument()
       expect(within(strip).getByText('Reviewing')).toBeInTheDocument()
@@ -244,14 +245,14 @@ describe('PRDetail', () => {
 
     it('renders RunStrip in Review mode once the agent finishes', () => {
       // Default fixture session is status:'ready' — agent done, awaiting submit.
-      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session, findings: [finding] }))
       const strip = screen.getByRole('status', { name: /Review run progress/i })
       expect(within(strip).getByText('Review')).toBeInTheDocument()
     })
 
     it('hides RunStrip once the session has terminally settled', () => {
       const submitted: PRSession = { ...session, status: 'submitted' }
-      render(withRoute(<PRDetail />, { session: submitted, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session: submitted, findings: [finding] }))
       expect(screen.queryByRole('status', { name: /Review run progress/i })).not.toBeInTheDocument()
     })
   })
@@ -262,7 +263,7 @@ describe('PRDetail', () => {
     })
 
     it('renders a Delete session button', () => {
-      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session, findings: [finding] }))
       expect(screen.getByRole('button', { name: /Delete session/i })).toBeInTheDocument()
     })
 
@@ -271,7 +272,7 @@ describe('PRDetail', () => {
       const fetchSpy = vi
         .spyOn(window, 'fetch')
         .mockResolvedValue(new Response(null, { status: 204 }))
-      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session, findings: [finding] }))
       await user.click(screen.getByRole('button', { name: /Delete session/i }))
       const dialog = screen.getByRole('dialog', { name: /Delete this session/i })
       await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }))
@@ -285,7 +286,7 @@ describe('PRDetail', () => {
 
     it('shows the existing extraPrompt as a collapsible panel when the session has one', () => {
       render(
-        withRoute(<PRDetail />, {
+        withRoute(<SessionDetail />, {
           session: { ...session, extraPrompt: 'see PRD section 4 — focus on async path' },
           findings: [finding],
         }),
@@ -295,7 +296,7 @@ describe('PRDetail', () => {
     })
 
     it('hides the extra-context affordance label when the session has none', () => {
-      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session, findings: [finding] }))
       expect(
         screen.getByRole('button', { name: /Add extra context for rerun/i }),
       ).toBeInTheDocument()
@@ -347,7 +348,7 @@ describe('PRDetail', () => {
         return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
       })
       render(
-        withRoute(<PRDetail />, {
+        withRoute(<SessionDetail />, {
           session: { ...session, extraPrompt: 'old context' },
           findings: [finding],
         }),
@@ -374,7 +375,7 @@ describe('PRDetail', () => {
     it('skips delete when confirmation is dismissed', async () => {
       const user = userEvent.setup()
       const fetchSpy = vi.spyOn(window, 'fetch')
-      render(withRoute(<PRDetail />, { session, findings: [finding] }))
+      render(withRoute(<SessionDetail />, { session, findings: [finding] }))
       fetchSpy.mockClear()
       await user.click(screen.getByRole('button', { name: /Delete session/i }))
       const dialog = screen.getByRole('dialog', { name: /Delete this session/i })
@@ -392,7 +393,9 @@ describe('PRDetail', () => {
 
     it('renders historical findings even though all rows are archived', async () => {
       const user = userEvent.setup()
-      render(withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       // Page lands on Files changed by default — switch to Findings to see
       // the list. The archived row would normally be filtered, but historical
       // sessions surface every entry.
@@ -401,23 +404,31 @@ describe('PRDetail', () => {
     })
 
     it('shows the historical banner', () => {
-      render(withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.getByText(/Historical view/i)).toBeInTheDocument()
     })
 
     it('hides Submit and Rerun buttons', () => {
-      render(withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.queryByRole('button', { name: /^Submit/i })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^Rerun$/i })).not.toBeInTheDocument()
     })
 
     it('keeps the Delete session button available', () => {
-      render(withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(screen.getByRole('button', { name: /Delete session/i })).toBeInTheDocument()
     })
 
     it('hides the extra-context add affordance', () => {
-      render(withRoute(<PRDetail />, { session: archivedSession, findings: [archivedFinding] }))
+      render(
+        withRoute(<SessionDetail />, { session: archivedSession, findings: [archivedFinding] }),
+      )
       expect(
         screen.queryByRole('button', { name: /Add extra context for rerun/i }),
       ).not.toBeInTheDocument()
@@ -429,7 +440,7 @@ describe('PRDetail', () => {
       // case the server allows recovering from.
       it('restores the Rerun button so the user can recover', () => {
         render(
-          withRoute(<PRDetail />, {
+          withRoute(<SessionDetail />, {
             session: archivedSession,
             findings: [archivedFinding],
             allSessions: [archivedSession],
@@ -440,7 +451,7 @@ describe('PRDetail', () => {
 
       it('shows the orphan banner instead of the historical-replacement banner', () => {
         render(
-          withRoute(<PRDetail />, {
+          withRoute(<SessionDetail />, {
             session: archivedSession,
             findings: [archivedFinding],
             allSessions: [archivedSession],
@@ -452,7 +463,7 @@ describe('PRDetail', () => {
 
       it('still hides Submit even when Rerun is restored', () => {
         render(
-          withRoute(<PRDetail />, {
+          withRoute(<SessionDetail />, {
             session: archivedSession,
             findings: [archivedFinding],
             allSessions: [archivedSession],
@@ -464,7 +475,7 @@ describe('PRDetail', () => {
       it('keeps Rerun hidden when a live head exists for the same PR', () => {
         const liveHead: PRSession = { ...session, id: 's2', status: 'ready' }
         render(
-          withRoute(<PRDetail />, {
+          withRoute(<SessionDetail />, {
             session: archivedSession,
             findings: [archivedFinding],
             allSessions: [archivedSession, liveHead],

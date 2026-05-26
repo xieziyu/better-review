@@ -13,6 +13,7 @@
 ## Highlights
 
 - **Pick the right agent per review.** Swap between `codex`, `claude`, and `pi` from a single UI — no separate tools, no separate workflows. Set a default and override per session.
+- **Review what's in flight, not just what's already a PR.** GitHub PRs, local git branches, or a single [GitButler](https://gitbutler.com/) virtual branch — same triage UI, same findings shape. Local sources stay in the UI (no `gh` round-trip required).
 - **Agents read your real source.** Point at your local clone and the agent reviews a `git worktree` at the PR head — actual files, real callers, not just the diff. No clone? It still pulls the touched files at HEAD.
 - **You stay in charge before anything ships.** Triage every finding, edit wording or severity, add your own, drop the ones that don't matter. Nothing reaches GitHub until you press Submit.
 - **Reruns build on the last round.** Each rerun preserves the prior round as read-only history and feeds the previous review back to the agent, so it can extend past judgment instead of starting from scratch.
@@ -77,13 +78,21 @@ The first run creates `~/.better-review/` (override with `BETTER_REVIEW_HOME`).
 
 ### Create a review
 
-Paste a GitHub PR URL on the home page (only `https://github.com/<owner>/<repo>/pull/<n>` is accepted) and press **Start review**. The form has three optional inputs you can layer on top:
+The home page has three tabs for the kind of source you want to review:
 
-- **Local repo path** — point at your existing clone (e.g. `~/code/owner/repo`). The daemon adds a `git worktree` at the PR head so the agent sees PR-merged source, not just the diff. Auto-filled from history when the URL matches a previously-used path; the **Browse** button opens a native folder picker on platforms that support one. Without a pinned clone, the daemon falls back to a partial `gh api`-backed snapshot of diff-touched files at HEAD.
-- **Extra context** — a per-review prompt addendum (spec snippets, design intent, etc.). Affects only this session; doesn't touch `review.md`. Editable later from the PR detail page and carried into reruns unless overridden.
+- **GitHub PR** — paste a GitHub PR URL (only `https://github.com/<owner>/<repo>/pull/<n>` is accepted) and press **Start review**.
+- **Local branch** — point at a local clone (`~/code/owner/repo` or any absolute path). The daemon reviews the diff between the chosen branch and a base ref. Defaults: head = current `HEAD`, base = auto (`refs/remotes/origin/HEAD` → `origin/main` → `origin/master`). Override head/base inline when you need a different range.
+- **GitButler vbranch** — pick a repo managed by [GitButler](https://gitbutler.com/); the daemon shells out to `but status` to enumerate applied virtual branches in the workspace and lets you pick one. The diff base is the stacked branch immediately below the selection (so a stacked vbranch only sees its own work, not the entire stack).
+
+For every tab, the form has three optional inputs you can layer on top:
+
+- **Local repo path** (PR tab only) — point at your existing clone (e.g. `~/code/owner/repo`). The daemon adds a `git worktree` at the PR head so the agent sees PR-merged source, not just the diff. Auto-filled from history when the URL matches a previously-used path; the **Browse** button opens a native folder picker on platforms that support one. Without a pinned clone, the daemon falls back to a partial `gh api`-backed snapshot of diff-touched files at HEAD. Local-branch and vbranch tabs always use the repo path you pick as their source tree.
+- **Extra context** — a per-review prompt addendum (spec snippets, design intent, etc.). Affects only this session; doesn't touch `review.md`. Editable later from the session detail page and carried into reruns unless overridden.
 - **Agent** — segmented selector to override `defaultAgent` for this session. Disabled buttons mean the CLI isn't on `PATH`.
 
-You can also pass the URL directly on the CLI — it opens the UI at that PR with the default settings.
+You can also pass a PR URL directly on the CLI — it opens the UI at that PR with the default settings.
+
+> Local-branch and GitButler vbranch sessions are **read-only**: findings can be triaged, edited, and exported, but the **Submit to GitHub** action is hidden — there is no PR to post to. Open one as a draft PR first if you want to publish the review.
 
 ### Triage findings
 
@@ -106,7 +115,7 @@ Multi-tab edits sync over SSE.
 
 ### Rerun a review
 
-Every rerun archives the previous round; the live page shows a `Round 2`, `Round 3`, … tag and the prior runs become read-only history (`/pr/<old-id>` still loads, just without Submit/Edit). Reruns also feed the previous review back to the agent: the prior review body, your prior inline comments, plus the PR-conversation thread are inlined into the prompt under a `PRIOR REVIEW` section, so the agent can build on past judgment instead of starting from scratch. Force-pushes are detected and called out explicitly. Cancel a running review with the **Stop** button (sends SIGTERM, then SIGKILL on timeout).
+Every rerun archives the previous round; the live page shows a `Round 2`, `Round 3`, … tag and the prior runs become read-only history (`/session/<old-id>` still loads, just without Submit/Edit; legacy `/pr/<id>` URLs redirect). Reruns also feed the previous review back to the agent: the prior review body, your prior inline comments, plus the PR-conversation thread are inlined into the prompt under a `PRIOR REVIEW` section, so the agent can build on past judgment instead of starting from scratch. Force-pushes are detected and called out explicitly. Cancel a running review with the **Stop** button (sends SIGTERM, then SIGKILL on timeout).
 
 ### Submit to GitHub
 

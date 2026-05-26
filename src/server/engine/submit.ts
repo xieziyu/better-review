@@ -54,9 +54,22 @@ function firstLine(s: string): string {
   return s.split('\n').find((l) => l.trim().length > 0) ?? ''
 }
 
+export class SubmitNotSupportedError extends Error {
+  constructor(kind: string) {
+    super(`submit is not supported for ${kind} sessions`)
+    this.name = 'SubmitNotSupportedError'
+  }
+}
+
 export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   const session = args.sessions.getById(args.sessionId)
   if (!session) throw new Error('session not found')
+  // Only GitHub-PR sessions can be submitted upstream. Local-branch and
+  // gitbutler-vbranch sessions are read-only by design — the UI hides
+  // the Submit button entirely; this guard catches direct API hits.
+  if (session.source.kind !== 'github-pr') {
+    throw new SubmitNotSupportedError(session.source.kind)
+  }
   const all = args.findings.listBySession(args.sessionId)
   const selected = all.filter((f) => f.selected)
   const diff = readFileSync(join(session.workdir, 'diff.cache'), 'utf8')

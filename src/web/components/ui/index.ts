@@ -1,5 +1,6 @@
 export { Button } from './Button'
 export type { ButtonProps } from './Button'
+export { Combobox } from './Combobox'
 export { ConfirmAction } from './ConfirmAction'
 export { EmptyState } from './EmptyState'
 export { Field } from './Field'

@@ -5,6 +5,8 @@ import type {
   Finding,
   HealthStatus,
   CreateSessionRequest,
+  LocalBranchesResult,
+  LocalSourceInspect,
   PrepCall,
   PrepStep,
   RecentRepo,
@@ -104,6 +106,10 @@ export const api = {
     b: SubmitRequest,
   ): Promise<{ url: string; droppedToBody: string[]; skippedDuplicates: number }> =>
     req(`/api/sessions/${id}/submit`, { method: 'POST', body: JSON.stringify(b) }),
+  inspectLocalSource: (path: string): Promise<LocalSourceInspect> =>
+    req(`/api/local-source/inspect?path=${encodeURIComponent(path)}`),
+  listLocalBranches: (path: string): Promise<LocalBranchesResult> =>
+    req(`/api/local-source/branches?path=${encodeURIComponent(path)}`),
   pickDirectory: async (prompt?: string): Promise<{ path: string | null; supported: boolean }> => {
     try {
       const r = await req<{ path: string | null }>('/api/fs/pick-directory', {
@@ -159,4 +165,6 @@ export const queryKeys = {
   prompts: (repo: string | null) => ['prompts', repo] as const,
   config: ['config'] as const,
   recentRepos: (owner: string, repo: string) => ['recent-repos', owner, repo] as const,
+  localSourceInspect: (path: string) => ['local-source-inspect', path] as const,
+  localBranches: (path: string) => ['local-branches', path] as const,
 }

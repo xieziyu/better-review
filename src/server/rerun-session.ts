@@ -1,7 +1,7 @@
 import type { AgentKind } from '../shared/types'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
-import type { StartSessionFn } from './start-session'
+import type { StartSessionFn, StartSessionInput } from './start-session'
 
 export interface RerunSessionDeps {
   sessions: SessionsRepo
@@ -34,19 +34,23 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     // the user to rerun an orphaned archived head — but block rerun when a
     // live head for this PR already exists, which is the case the reviewer
     // actually wants prevented.
-    if (s.status === 'archived') {
-      const liveHead = deps.sessions.findActiveByPR(s.owner, s.repo, s.number)
+    if (s.status === 'archived' && s.source.kind === 'github-pr') {
+      // Same-PR live-head guard. Local-branch sessions are not deduped
+      // today (see start-session.ts), so this protection only applies
+      // to the PR path.
+      const liveHead = deps.sessions.findActiveByPR(s.source.owner, s.source.repo, s.source.number)
       if (liveHead && liveHead.id !== s.id) throw new Error('already archived')
     }
     deps.findings.archiveAllForSession(id)
     deps.sessions.setStatus(id, 'archived')
-    const startInput: {
-      prInput: string
-      agent: AgentKind
-      localRepoPath?: string
-      extraPrompt?: string
-    } = {
-      prInput: `https://github.com/${s.owner}/${s.repo}/pull/${s.number}`,
+
+    // Replay the archived session's source verbatim — for local-branch
+    // that means re-resolving HEAD/auto-base to whatever they point at
+    // right now (the rerun reviews the current state, not last round's
+    // snapshot). PR rerun stays bit-for-bit equivalent to the legacy
+    // URL-reconstruction path.
+    const startInput: StartSessionInput = {
+      source: s.source,
       agent: opts?.agent ?? s.agent,
     }
     if (s.localRepoPath !== null) startInput.localRepoPath = s.localRepoPath

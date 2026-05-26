@@ -8,6 +8,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { EmptyState } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
+import { isLocalSource, repoBasename, sessionDisplayLabel } from '@/lib/session-display'
 import { useSSE } from '@/lib/sse'
 import { useResizable } from '@/lib/use-resizable'
 import { cn } from '@/lib/utils'
@@ -77,15 +78,35 @@ export function matchesSearch(session: PRSession, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   const numericQuery = q.replace(/^#/, '')
-  if (/^\d+$/.test(numericQuery) && String(session.number).includes(numericQuery)) return true
-  const haystacks = [
-    session.title ?? '',
-    session.owner,
-    session.repo,
-    `${session.owner}/${session.repo}`,
-    `${session.owner}/${session.repo}#${session.number}`,
-    session.author ?? '',
-  ]
+  if (
+    session.source.kind === 'github-pr' &&
+    /^\d+$/.test(numericQuery) &&
+    String(session.number).includes(numericQuery)
+  ) {
+    return true
+  }
+  const haystacks: string[] = [session.title ?? '', session.author ?? '']
+  if (session.source.kind === 'github-pr') {
+    haystacks.push(
+      session.owner,
+      session.repo,
+      `${session.owner}/${session.repo}`,
+      `${session.owner}/${session.repo}#${session.number}`,
+    )
+  } else if (session.source.kind === 'local-branch') {
+    haystacks.push(
+      session.source.repoPath,
+      session.source.head,
+      session.headRef ?? '',
+      sessionDisplayLabel(session),
+    )
+  } else if (session.source.kind === 'gitbutler-vbranch') {
+    haystacks.push(
+      session.source.repoPath,
+      session.source.vbranchName,
+      sessionDisplayLabel(session),
+    )
+  }
   return haystacks.some((h) => h.toLowerCase().includes(q))
 }
 
@@ -99,7 +120,7 @@ function SessionRow({ session }: SessionRowProps) {
   const closed = CLOSED_STATUSES.has(session.status)
   return (
     <NavLink
-      to={`/pr/${session.id}`}
+      to={`/session/${session.id}`}
       className={({ isActive }) =>
         cn(
           'group relative block py-3 pl-5 pr-4 transition-colors duration-180 ease-out-quart',
@@ -123,9 +144,9 @@ function SessionRow({ session }: SessionRowProps) {
       </h3>
       <div
         className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
-        title={`${session.owner}/${session.repo}#${session.number}`}
+        title={sessionDisplayLabel(session)}
       >
-        {session.owner}/{session.repo}#{session.number}
+        {sessionDisplayLabel(session)}
       </div>
       <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
         <span
@@ -150,6 +171,44 @@ function SessionRow({ session }: SessionRowProps) {
         </span>
       </div>
     </NavLink>
+  )
+}
+
+// Top-level Sidebar section (PR / Local repos). Caller renders the per-
+// section sub-groups (status for PR, repoPath for Local) as children.
+function SidebarSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="pt-4 first:pt-2">
+      <h2 className="px-5 pb-2 pt-1 text-caps tracking-caps text-ink-primary uppercase font-semibold">
+        {label}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+// One sub-section under a top-level Sidebar section. Status group for PR
+// section, repo basename for Local section.
+function SubGroup({
+  label,
+  count,
+  title,
+  children,
+}: {
+  label: string
+  count: number
+  title?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="pt-3 first:pt-0">
+      <h3 className="flex items-center gap-2 px-5 pb-1.5" title={title}>
+        <span className="text-caps tracking-caps text-ink-muted uppercase truncate">{label}</span>
+        <span className="font-mono text-meta text-ink-muted tabular-nums">{count}</span>
+        <span aria-hidden="true" className="flex-1 h-px bg-rule" />
+      </h3>
+      <div>{children}</div>
+    </div>
   )
 }
 
@@ -241,23 +300,41 @@ export function Sidebar() {
   // not a way to nuke the sidebar.
   const effectiveFilter = filter.size === 0 ? ALL_GROUPS : filter
 
+  // Top-level split: PR (status sub-groups) vs Local repos (repoPath sub-
+  // groups). Status filter chips apply to both halves; within each half items
+  // are sorted by updatedAt desc.
   const visible = useMemo(() => {
-    const grouped = new Map<GroupKey, PRSession[]>()
+    const prByStatus = new Map<GroupKey, PRSession[]>()
+    const localByRepo = new Map<string, PRSession[]>()
     for (const s of sessions) {
       const g = GROUP_OF[s.status]
       if (!effectiveFilter.has(g)) continue
       if (!matchesSearch(s, query)) continue
-      const arr = grouped.get(g) ?? []
-      arr.push(s)
-      grouped.set(g, arr)
+      if (isLocalSource(s.source)) {
+        const path = 'repoPath' in s.source ? s.source.repoPath : ''
+        const arr = localByRepo.get(path) ?? []
+        arr.push(s)
+        localByRepo.set(path, arr)
+      } else {
+        const arr = prByStatus.get(g) ?? []
+        arr.push(s)
+        prByStatus.set(g, arr)
+      }
     }
-    for (const arr of grouped.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
-    return grouped
+    for (const arr of prByStatus.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
+    for (const arr of localByRepo.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
+    // Sort repos by most-recent activity so the repo the user just touched
+    // floats to the top of the local section.
+    const repoOrder = Array.from(localByRepo.entries()).sort(
+      ([, a], [, b]) => (b[0]?.updatedAt ?? 0) - (a[0]?.updatedAt ?? 0),
+    )
+    return { prByStatus, localByRepo, repoOrder }
   }, [sessions, effectiveFilter, query])
 
   const visibleCount = useMemo(() => {
     let n = 0
-    for (const arr of visible.values()) n += arr.length
+    for (const arr of visible.prByStatus.values()) n += arr.length
+    for (const arr of visible.localByRepo.values()) n += arr.length
     return n
   }, [visible])
 
@@ -387,28 +464,38 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="pb-6">
-            {GROUP_ORDER.map((g) => {
-              const items = visible.get(g)
-              if (!items || items.length === 0) return null
-              return (
-                <section key={g} className="pt-5 first:pt-3">
-                  <h3 className="flex items-center gap-2 px-5 pb-1.5">
-                    <span className="text-caps tracking-caps text-ink-muted uppercase">
-                      {t(`sidebar.group.${g}`)}
-                    </span>
-                    <span className="font-mono text-meta text-ink-muted tabular-nums">
-                      {items.length}
-                    </span>
-                    <span aria-hidden="true" className="flex-1 h-px bg-rule" />
-                  </h3>
-                  <div>
+            {Array.from(visible.prByStatus.values()).some((arr) => arr.length > 0) ? (
+              <SidebarSection label={t('sidebar.section.pr')}>
+                {GROUP_ORDER.map((g) => {
+                  const items = visible.prByStatus.get(g)
+                  if (!items || items.length === 0) return null
+                  return (
+                    <SubGroup key={g} label={t(`sidebar.group.${g}`)} count={items.length}>
+                      {items.map((s) => (
+                        <SessionRow key={s.id} session={s} />
+                      ))}
+                    </SubGroup>
+                  )
+                })}
+              </SidebarSection>
+            ) : null}
+
+            {visible.repoOrder.length > 0 ? (
+              <SidebarSection label={t('sidebar.section.local')}>
+                {visible.repoOrder.map(([repoPath, items]) => (
+                  <SubGroup
+                    key={repoPath || '(unknown)'}
+                    label={repoBasename(repoPath) || t('sidebar.section.localUnknownRepo')}
+                    count={items.length}
+                    title={repoPath}
+                  >
                     {items.map((s) => (
                       <SessionRow key={s.id} session={s} />
                     ))}
-                  </div>
-                </section>
-              )
-            })}
+                  </SubGroup>
+                ))}
+              </SidebarSection>
+            ) : null}
           </div>
         )}
       </nav>

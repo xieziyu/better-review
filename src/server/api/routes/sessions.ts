@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 
 import { AGENT_KINDS, type AgentKind, type PrepCall, type PrepStep } from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
+import { parseSessionInput } from '../../source/parse'
 import type { AppDeps } from '../app'
 
 function isAgentKind(value: unknown): value is AgentKind {
@@ -30,6 +31,16 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       agent?: unknown
       localRepoPath?: unknown
       extraPrompt?: unknown
+      // Optional hints used only when prInput parses as a local-branch
+      // source; ignored for GitHub PR URLs. The Home UI populates these
+      // in Phase 1d; the API accepts them now so external callers can
+      // already drive local-branch reviews.
+      localBranchHead?: unknown
+      localBranchBase?: unknown
+      // When set with a path-shaped prInput, switches the source kind
+      // to gitbutler-vbranch. The flow resolves the vbranch's tip+base
+      // via `but status` at runtime — see source/gitbutler-vbranch-flow.
+      vbranchName?: unknown
     }>()
     if (!body?.prInput) return c.json({ error: 'prInput required' }, 400)
     if (body.agent !== undefined && !isAgentKind(body.agent)) {
@@ -41,15 +52,23 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     if (body.extraPrompt !== undefined && typeof body.extraPrompt !== 'string') {
       return c.json({ error: 'extraPrompt must be a string' }, 400)
     }
+    if (body.localBranchHead !== undefined && typeof body.localBranchHead !== 'string') {
+      return c.json({ error: 'localBranchHead must be a string' }, 400)
+    }
+    if (body.localBranchBase !== undefined && typeof body.localBranchBase !== 'string') {
+      return c.json({ error: 'localBranchBase must be a string' }, 400)
+    }
+    if (body.vbranchName !== undefined && typeof body.vbranchName !== 'string') {
+      return c.json({ error: 'vbranchName must be a string' }, 400)
+    }
     try {
-      const input: {
-        prInput: string
-        agent?: AgentKind
-        localRepoPath?: string
-        extraPrompt?: string
-      } = {
-        prInput: body.prInput,
-      }
+      const parseOpts: Parameters<typeof parseSessionInput>[1] = {}
+      if (typeof body.localBranchHead === 'string') parseOpts.localBranchHead = body.localBranchHead
+      if (typeof body.localBranchBase === 'string') parseOpts.localBranchBase = body.localBranchBase
+      if (typeof body.vbranchName === 'string') parseOpts.vbranchName = body.vbranchName
+      const source = parseSessionInput(body.prInput, parseOpts)
+
+      const input: Parameters<typeof deps.startSession>[0] = { source }
       if (body.agent !== undefined) input.agent = body.agent
       if (typeof body.localRepoPath === 'string' && body.localRepoPath.trim().length > 0) {
         input.localRepoPath = body.localRepoPath

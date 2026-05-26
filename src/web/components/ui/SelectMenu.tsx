@@ -4,12 +4,18 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface SelectMenuProps<T> {
-  value: T
+  value: T | null
   options: readonly T[]
   onChange: (value: T) => void
   getKey: (value: T) => string
   /** Content rendered inside the closed trigger button for the current value. */
   renderTrigger: (value: T) => ReactNode
+  /**
+   * Content rendered inside the trigger when `value` is null. Required only
+   * when callers actually pass null; existing callers that always have a
+   * value can omit it.
+   */
+  renderEmpty?: () => ReactNode
   /** Content rendered inside each menu item. */
   renderOption: (value: T, selected: boolean) => ReactNode
   /** aria-label for the trigger button. */
@@ -29,6 +35,7 @@ export function SelectMenu<T>({
   onChange,
   getKey,
   renderTrigger,
+  renderEmpty,
   renderOption,
   ariaLabel,
   menuAriaLabel,
@@ -55,7 +62,7 @@ export function SelectMenu<T>({
 
   const select = (next: T) => {
     setOpen(false)
-    if (getKey(next) !== getKey(value)) onChange(next)
+    if (value === null || getKey(next) !== getKey(value)) onChange(next)
   }
 
   return (
@@ -69,7 +76,7 @@ export function SelectMenu<T>({
         onClick={() => setOpen((o) => !o)}
         className="relative flex h-9 w-full items-center gap-2 rounded-md border border-rule bg-raised pl-3 pr-8 text-left text-body text-ink-primary transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart hover:border-ink-muted focus:outline-none focus:border-brand focus:bg-canvas focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]"
       >
-        {renderTrigger(value)}
+        {value === null ? (renderEmpty ? renderEmpty() : null) : renderTrigger(value)}
         <ChevronDown
           aria-hidden="true"
           size={12}
@@ -83,7 +90,7 @@ export function SelectMenu<T>({
           className="absolute left-0 top-[calc(100%+4px)] z-30 w-full rounded-md border border-rule bg-canvas py-1 text-left shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--ink-primary)_30%,transparent)]"
         >
           {options.map((option) => {
-            const selected = getKey(option) === getKey(value)
+            const selected = value !== null && getKey(option) === getKey(value)
             return (
               <button
                 key={getKey(option)}

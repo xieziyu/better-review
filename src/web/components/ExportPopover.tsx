@@ -1,6 +1,7 @@
 import {
   buildExportFilename,
   type ExportInput,
+  type ExportSourceMeta,
   renderFindingsJson,
   renderFindingsMarkdown,
 } from '@shared/export-renderer'
@@ -118,20 +119,46 @@ export function ExportPopover({ session, findings, roundNumber }: Props) {
     return c
   }, [displayedFindings])
 
-  const filename = useMemo(
-    () => buildExportFilename(session.number, effectiveScope, prefs.format),
-    [session.number, effectiveScope, prefs.format],
-  )
-
-  const buildInput = useCallback((): ExportInput => {
-    return {
-      pr: {
+  // Translate the PRSession row into the renderer's discriminated source
+  // contract. PR sessions keep their PR-shaped header; local-branch and
+  // vbranch sessions get a repo + branch / vbranch header instead so the
+  // export doesn't fabricate an empty `owner/repo#0` coordinate.
+  const exportSource: ExportSourceMeta = useMemo(() => {
+    const s = session.source
+    if (s.kind === 'github-pr') {
+      return {
+        kind: 'github-pr',
         owner: session.owner,
         repo: session.repo,
         number: session.number,
         title: session.title,
         url: session.url,
-      },
+      }
+    }
+    if (s.kind === 'local-branch') {
+      return {
+        kind: 'local-branch',
+        repoPath: s.repoPath,
+        branch: session.headRef ?? s.head,
+        title: session.title,
+      }
+    }
+    return {
+      kind: 'gitbutler-vbranch',
+      repoPath: s.repoPath,
+      vbranchName: s.vbranchName,
+      title: session.title,
+    }
+  }, [session])
+
+  const filename = useMemo(
+    () => buildExportFilename(exportSource, effectiveScope, prefs.format),
+    [exportSource, effectiveScope, prefs.format],
+  )
+
+  const buildInput = useCallback((): ExportInput => {
+    return {
+      source: exportSource,
       session: {
         roundNumber,
         agent: session.agent,
@@ -141,7 +168,7 @@ export function ExportPopover({ session, findings, roundNumber }: Props) {
       scope: effectiveScope,
       findings: displayedFindings,
     }
-  }, [session, roundNumber, totalCount, effectiveScope, displayedFindings])
+  }, [exportSource, roundNumber, session.agent, totalCount, effectiveScope, displayedFindings])
 
   const renderText = useCallback(
     (input: ExportInput): { text: string; mime: string } => {

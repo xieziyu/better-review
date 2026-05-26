@@ -51,6 +51,33 @@ describe('SessionsRepo', () => {
     expect(repo.findActiveByPR('o', 'r', 1)).toBeNull()
   })
 
+  it('synthesizes a github-pr source when none is supplied', () => {
+    repo.insert(sample)
+    const got = repo.getById('s1')!
+    expect(got.source).toEqual({ kind: 'github-pr', owner: 'o', repo: 'r', number: 1 })
+  })
+
+  it('round-trips an explicit local-branch source', () => {
+    repo.insert({
+      ...sample,
+      id: 's3',
+      number: 3,
+      source: {
+        kind: 'local-branch',
+        repoPath: '/abs/repo',
+        head: 'feat/x',
+        base: 'origin/main',
+      },
+    })
+    const got = repo.getById('s3')!
+    expect(got.source).toEqual({
+      kind: 'local-branch',
+      repoPath: '/abs/repo',
+      head: 'feat/x',
+      base: 'origin/main',
+    })
+  })
+
   it('setStatus + setError update timestamps', async () => {
     repo.insert(sample)
     const before = repo.getById('s1')!.updatedAt

@@ -193,6 +193,43 @@
     "eyebrow": "better-review",
     "title": "Review GitHub PRs locally",
     "subtitle": "Paste a pull request to start a session.",
+    "subtitleLocal": "Pick a local repository and review a branch in place — no PR required.",
+    "subtitleVbranch": "Pick a GitButler project and review a single virtual branch.",
+    "tabs": {
+      "ariaLabel": "Review source",
+      "pr": "GitHub PR",
+      "local": "Local branch",
+      "vbranch": "GitButler vbranch"
+    },
+    "local": {
+      "repoPlaceholder": "Local repository path — /Users/you/code/owner/repo",
+      "repoAriaLabel": "Local repository path",
+      "headLabel": "Head",
+      "headPlaceholder": "branch / sha (default HEAD)",
+      "headAriaLabel": "Branch, ref, or SHA to review",
+      "headMenuAriaLabel": "Pick a head branch",
+      "baseLabel": "Base",
+      "basePlaceholder": "auto (origin/HEAD → main → master)",
+      "baseAriaLabel": "Diff base ref",
+      "baseMenuAriaLabel": "Pick a base branch",
+      "branchesEmptyHint": "Pick a local repository above to list its branches.",
+      "branchHeadBadge": "HEAD",
+      "readOnlyHint": "Local reviews are read-only — findings stay in the UI and aren't posted to GitHub."
+    },
+    "vbranch": {
+      "repoPlaceholder": "GitButler project path — /Users/you/code/owner/repo",
+      "repoAriaLabel": "GitButler project path",
+      "label": "vbranch",
+      "ariaLabel": "Pick a virtual branch",
+      "menuAriaLabel": "Virtual branches",
+      "pickOne": "— pick a virtual branch —",
+      "pickFirst": "Pick a GitButler project path to list its virtual branches.",
+      "inspecting": "Inspecting the project for virtual branches…",
+      "notARepo": "That path is not a git repository.",
+      "notGitButler": "This is a plain git repository — set it up with `but setup` to review virtual branches, or switch to the Local branch tab.",
+      "empty": "No reviewable virtual branches (all branches are empty).",
+      "readOnlyHint": "vbranch reviews are read-only — findings stay in the UI and aren't posted anywhere."
+    },
     "prUrlPlaceholder": "https://github.com/owner/repo/pull/123",
     "prAriaLabel": "PR target",
     "startReview": "Start review",
@@ -208,6 +245,9 @@
     "pickerError": "Failed to open folder picker",
     "recentRepoMatch": "★ matches PR · ",
     "recentRepoMeta": "last used {{when}} · ×{{count}}",
+    "recentReposMenuAriaLabel": "Recent local repositories",
+    "recentReposEmptyHint": "No recently-used local repositories. Type a path or click Browse.",
+    "recentRepoCurrentBadge": "current",
     "autoFillHint": "ⓘ Auto-filled from history · matches {{owner}}/{{repo}}",
     "extra": {
       "header": "Extra context for this review",
@@ -308,6 +348,8 @@
     "sourceSnapshotLabel": "Source: snapshot of diff files (partial)",
     "sourceSnapshotTitle": "Only the files touched by the diff are snapshotted at PR head; callers and adjacent modules are not included.",
     "newRunStarted": "new run started",
+    "readOnlyReview": "Read-only review",
+    "readOnlyReviewTitle": "Local source reviews stay in the UI — there is no GitHub destination to submit to.",
     "submittedNote": "Submitted to GitHub.",
     "cancelRunningAriaLabel": "Cancel running review",
     "cancelTitle": "Cancel running review?",
@@ -492,6 +534,11 @@
       "active": "Active",
       "done": "Done",
       "stale": "Stale"
+    },
+    "section": {
+      "pr": "Pull requests",
+      "local": "Local repos",
+      "localUnknownRepo": "(unknown repo)"
     },
     "status": {
       "running": "Running",

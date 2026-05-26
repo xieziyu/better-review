@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import type { SessionSource } from '../shared/source'
 import type { AgentKind } from '../shared/types'
 import type { Config } from './config'
 import type { FindingsRepo } from './db/findings'
@@ -14,16 +15,16 @@ import { annotateDiffWithIncremental, extractNewHunks } from './engine/diff-incr
 import type { EventBus } from './engine/events'
 import { PrepLogger, withCurrentPhase } from './engine/prep-logger'
 import type { ConcurrencyQueue } from './engine/queue'
-import { loadPriorReviewContext, type PriorReviewContext } from './engine/rerun-context'
+import type { PriorReviewContext } from './engine/rerun-context'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
-import { prepareSourceContext } from './git/source-prep'
 import { withGhCallRecorder, type GhClient } from './github/gh-client'
-import { parsePRTarget, type PRTarget } from './github/pr-target-parser'
 import type { Logger } from './logger'
 import { resolveLocalRepoPath } from './paths'
 import { renderPrompt, type PriorReviewVars } from './prompts/renderer'
 import { resolveEffectivePrompt } from './prompts/resolver'
+import { getSourceFlow } from './source/registry'
+import type { SourceFlow } from './source/types'
 
 export interface ResolvedAgent {
   agent: ReviewAgent
@@ -67,8 +68,17 @@ function toPriorReviewVars(ctx: PriorReviewContext): PriorReviewVars {
 }
 
 export interface StartSessionInput {
-  prInput: string
+  // Pre-resolved SessionSource. The API layer calls parseSessionInput()
+  // to turn the raw user string into this; rerun-session reuses the
+  // archived session's source verbatim.
+  source: SessionSource
   agent?: AgentKind
+  // For GitHub-PR sources this pins the local clone the worktree-source
+  // strategy uses. For local-branch and gitbutler-vbranch sources the
+  // caller can omit it — `source.repoPath` already names the repo, and
+  // startSession derives `session.localRepoPath` from it. Passing it
+  // explicitly still works (the UI does, and rerun-session preserves
+  // the prior value); the derivation only kicks in when it's absent.
   localRepoPath?: string
   extraPrompt?: string
 }
@@ -91,21 +101,91 @@ export const PREP_PHASES = {
   renderingPromptWithPrior: 'prep:rendering-prompt:with-prior',
 } as const
 
+// Compact display identifiers per source kind, used to name the session
+// workdir. Kept short + filesystem-safe (no slashes) so the path stays
+// inside sessionsDir and is easy to spot in `ls`.
+function workdirSlug(source: SessionSource): string {
+  switch (source.kind) {
+    case 'github-pr':
+      return `pr-${source.owner}-${source.repo}-${source.number}`
+    case 'local-branch': {
+      // Last path segment of the repo, sanitized to [\w.-]. The
+      // session-id suffix below disambiguates if two sessions hit the
+      // same basename.
+      const base = source.repoPath.replace(/\/+$/, '').split('/').pop() ?? 'repo'
+      const safe = base.replace(/[^\w.-]+/g, '_') || 'repo'
+      return `local-${safe}`
+    }
+    case 'gitbutler-vbranch': {
+      const base = source.repoPath.replace(/\/+$/, '').split('/').pop() ?? 'repo'
+      const safe = base.replace(/[^\w.-]+/g, '_') || 'repo'
+      return `vbranch-${safe}`
+    }
+  }
+}
+
+// Vestigial PR-shaped columns the session row still has (owner / repo /
+// number, all NOT NULL). For non-PR sources we fill them with safe
+// placeholders so existing reads keep working. A future migration can
+// make these nullable and drop the placeholders.
+function placeholderPrFields(source: SessionSource): {
+  owner: string
+  repo: string
+  number: number
+} {
+  if (source.kind === 'github-pr') {
+    return { owner: source.owner, repo: source.repo, number: source.number }
+  }
+  return { owner: '', repo: '', number: 0 }
+}
+
 export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
   return async function startSession({
-    prInput,
+    source,
     agent: agentKind,
     localRepoPath: rawRepo,
     extraPrompt: rawExtra,
   }) {
-    const target = parsePRTarget(prInput)
-    const localRepoPath =
+    // Resolution order: for local-branch and vbranch sources the persisted
+    // `localRepoPath` MUST equal `source.repoPath` — the worktree is
+    // created at `source.repoPath` (see local-branch-flow.ts), so a
+    // divergent override would leave delete-session's cleanupWorktree
+    // pointing at the wrong repo and orphan the real `.git/worktrees/<name>/`
+    // entry. The UI and rerun-session pass an explicit value that already
+    // matches; reject anything else. For GitHub-PR sources the explicit
+    // override is the only signal (the source has no repoPath), so we
+    // honor it as-is and fall back to null. Without the local-source
+    // fallback an API caller that only supplies a path-shaped `prInput`
+    // would create a worktree but leave `session.localRepoPath` null,
+    // silently disabling project-tier prompt resolution and worktree
+    // cleanup.
+    const explicitLocalRepoPath =
       rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
+    const sourceRepoPath =
+      source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch'
+        ? source.repoPath
+        : null
+    if (
+      sourceRepoPath !== null &&
+      explicitLocalRepoPath !== null &&
+      explicitLocalRepoPath !== sourceRepoPath
+    ) {
+      throw new Error(
+        `localRepoPath must match source.repoPath for ${source.kind} sessions (got ${explicitLocalRepoPath} vs ${sourceRepoPath})`,
+      )
+    }
+    const localRepoPath = sourceRepoPath ?? explicitLocalRepoPath
     const extraPrompt =
       rawExtra !== undefined && rawExtra.trim().length > 0 ? rawExtra.trim() : null
-    const existing = deps.sessions.findActiveByPR(target.owner, target.repo, target.number)
-    if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
-      return { id: existing.id }
+
+    // PR dedup: avoid two concurrent reviews of the same PR. Local-branch
+    // and vbranch get a follow-up source_hash-based dedup later — for
+    // Phase 1b we always allow concurrent local sessions.
+    if (source.kind === 'github-pr') {
+      const existing = deps.sessions.findActiveByPR(source.owner, source.repo, source.number)
+      if (existing && existing.status !== 'failed' && existing.status !== 'cancelled')
+        return { id: existing.id }
+    }
 
     const kind = agentKind ?? deps.getConfig().defaultAgent
     // Fail fast (and synchronously to the caller) if the CLI is missing —
@@ -114,21 +194,20 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
 
     const id = randomUUID()
     const sessionShort = id.slice(0, 8)
-    const workdir = join(
-      deps.paths.sessionsDir,
-      `pr-${target.owner}-${target.repo}-${target.number}-${sessionShort}`,
-    )
+    const workdir = join(deps.paths.sessionsDir, `${workdirSlug(source)}-${sessionShort}`)
     mkdirSync(workdir, { recursive: true })
 
+    const prFields = placeholderPrFields(source)
     // Insert with minimal fields populated. prView hasn't run yet, so
     // title/author/url/headSha are all null. The row exists immediately
     // so the UI can navigate to its detail page and start consuming SSE
     // while the rest of prep runs in the queue worker.
     deps.sessions.insert({
       id,
-      owner: target.owner,
-      repo: target.repo,
-      number: target.number,
+      source,
+      owner: prFields.owner,
+      repo: prFields.repo,
+      number: prFields.number,
       title: null,
       author: null,
       url: null,
@@ -146,6 +225,8 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'pending' })
 
+    const flow = getSourceFlow(source, { gh: deps.gh })
+
     void deps.queue.run(id, async () => {
       try {
         const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
@@ -157,7 +238,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
               id,
               workdir,
               sessionShort,
-              target,
+              flow,
               localRepoPath,
               extraPrompt,
               prepLogger,
@@ -197,7 +278,7 @@ interface PrepareReviewArgs {
   id: string
   workdir: string
   sessionShort: string
-  target: PRTarget
+  flow: SourceFlow
   localRepoPath: string | null
   extraPrompt: string | null
   prepLogger: PrepLogger
@@ -209,10 +290,10 @@ interface PrepareReviewResult {
 }
 
 async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResult> {
-  const { deps, id, workdir, sessionShort, target, localRepoPath, extraPrompt, prepLogger } = args
+  const { deps, id, workdir, sessionShort, flow, localRepoPath, extraPrompt, prepLogger } = args
 
   prepLogger.markPhase(PREP_PHASES.fetchingPR)
-  const meta = await deps.gh.prView(target)
+  const meta = await flow.fetchMetadata()
   // Backfill the row so the UI shows title/author as soon as we know them
   // (it's polling the session via React Query + SSE invalidation).
   deps.sessions.updatePRMeta(id, {
@@ -225,7 +306,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   })
 
   prepLogger.markPhase(PREP_PHASES.fetchingDiff)
-  const diff = await deps.gh.prDiff(target)
+  const diff = await flow.fetchDiff()
   writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
 
   // Prior review context + source prep are independent: kick them off in
@@ -241,26 +322,22 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   prepLogger.markPhase(sourcePhase)
   const [priorCtxResult, sourceResult] = await Promise.allSettled([
     withCurrentPhase(PREP_PHASES.loadingPriorReview, () =>
-      loadPriorReviewContext(
-        {
-          sessions: deps.sessions,
-          submissions: deps.submissions,
-          submissionComments: deps.submissionComments,
-          gh: deps.gh,
-          log: deps.log,
-        },
-        { target, currentHeadSha: meta.headSha, prAuthor: meta.author },
-      ),
+      flow.loadPriorContext({
+        sessions: deps.sessions,
+        submissions: deps.submissions,
+        submissionComments: deps.submissionComments,
+        log: deps.log,
+        currentHeadSha: meta.headSha,
+        authorLogin: meta.author,
+      }),
     ),
     withCurrentPhase(sourcePhase, () =>
-      prepareSourceContext({
-        localRepoPath,
-        gh: deps.gh,
-        target,
+      flow.prepareSourceTree({
+        workdir,
+        sessionShort,
         headSha: meta.headSha,
         unifiedDiff: diff.unifiedDiff,
-        sessionWorkdir: workdir,
-        sessionShort,
+        localRepoPath,
         log: deps.log,
       }),
     ),
@@ -277,7 +354,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     // return kind:'none'. Treat an unexpected throw as fatal.
     throw sourceResult.reason
   }
-  const source = sourceResult.value
+  const sourceCtx = sourceResult.value
 
   prepLogger.markPhase(
     priorCtx ? PREP_PHASES.renderingPromptWithPrior : PREP_PHASES.renderingPrompt,
@@ -329,7 +406,7 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   })
   const promptVars: Parameters<typeof renderPrompt>[1] = {
     rules: resolved.rules.content,
-    prMeta: `#${meta.number} ${meta.title} by ${meta.author ?? '?'}\nURL: ${meta.url}\n\n${meta.body}`,
+    prMeta: flow.buildSourceMeta(meta),
     diff: annotatedDiff,
     findingsPath: join(workdir, 'findings.json'),
     schemaJson:
@@ -337,9 +414,10 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     summaryPath: join(workdir, 'summary.json'),
     summarySchema:
       'A single JSON object with fields: overview (string, a short markdown description of the main changes), manualReview (array of objects with fields: file (string repo-relative path, or null for a PR-wide note) and reason (string))',
-    sourceKind: source.kind,
-    sourcePath: source.sourcePath,
-    headSha: source.headSha,
+    sourceKind: sourceCtx.kind,
+    sourcePath: sourceCtx.sourcePath,
+    headSha: sourceCtx.headSha,
+    sessionKind: flow.source.kind,
   }
   if (extraPrompt !== null) promptVars.extraNotes = extraPrompt
   if (priorCtx) promptVars.priorReview = toPriorReviewVars(priorCtx)
@@ -347,12 +425,12 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
 
   deps.sessions.updatePrepArtifacts(id, {
     promptUsed: prompt,
-    sourceKind: source.kind,
-    sourceRefName: source.refName,
+    sourceKind: sourceCtx.kind,
+    sourceRefName: sourceCtx.refName,
   })
 
   return {
     prompt,
-    sourcePath: source.kind !== 'none' && source.sourcePath ? source.sourcePath : null,
+    sourcePath: sourceCtx.kind !== 'none' && sourceCtx.sourcePath ? sourceCtx.sourcePath : null,
   }
 }

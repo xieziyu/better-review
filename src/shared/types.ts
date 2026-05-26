@@ -1,5 +1,8 @@
 import type { FindingFromAgent, Severity } from './findings-schema'
+import type { SessionSource } from './source'
 import type { ReviewSummaryFromAgent } from './summary-schema'
+
+export type { SessionSource, SessionSourceKind } from './source'
 
 export type { ReviewSummaryFromAgent, ManualReviewItem } from './summary-schema'
 
@@ -40,6 +43,12 @@ export type SourceKind = 'worktree' | 'snapshot' | 'none'
 
 export interface PRSession {
   id: string
+  // The durable identity of *what* this session reviews. Phase 0 always
+  // resolves to a `github-pr` source so behavior is unchanged; later
+  // phases add `local-branch` and `gitbutler-vbranch`. The PR-specific
+  // fields below (owner/repo/number/title/author/url/...) stay populated
+  // for github-pr sources and are null for local sources.
+  source: SessionSource
   owner: string
   repo: string
   number: number
@@ -213,6 +222,55 @@ export interface CreateSessionRequest {
   // judgment guidance, etc.). Merged into the rendered prompt; persisted on
   // the session so reruns can reuse or edit it.
   extraPrompt?: string
+  // Only consumed when `prInput` parses as a local-branch source (i.e. a
+  // local repo path). Branch / ref / sha to review; defaults to HEAD.
+  localBranchHead?: string
+  // Diff base when `prInput` is a local-branch source. Defaults to 'auto',
+  // which the server resolves via refs/remotes/origin/HEAD → origin/main →
+  // origin/master.
+  localBranchBase?: string
+  // When set with a path-shaped `prInput`, switches the source kind to
+  // gitbutler-vbranch — the server resolves the vbranch's tip+base via
+  // `but status` at runtime.
+  vbranchName?: string
+}
+
+// Public shape returned by GET /api/local-source/inspect. Mirrors the
+// server's `InspectResult` (src/server/gitbutler/inspect.ts) — kept in
+// shared so both the API client and the route handler agree.
+export interface LocalSourceVBranch {
+  name: string
+  tipSha: string
+  baseSha: string
+  commitCount: number
+  stackPosition: number
+  stackSize: number
+}
+export interface LocalSourceInspect {
+  kind: 'none' | 'git' | 'gitbutler'
+  repoPath: string
+  vbranches?: LocalSourceVBranch[]
+  mergeBaseSha?: string
+  warning?: string
+}
+// Local-branch listing for the Home "Local branch" tab HEAD/BASE pickers.
+// `head` is the symbolic shortname of HEAD ('main', 'feat/x', …) or null
+// when the repo is in a detached state. Branches are sorted by most-
+// recent commit first so the natural defaults (the user's working
+// branch and recently-touched neighbors) bubble to the top.
+export interface LocalBranchEntry {
+  name: string
+  // Short (7-char) commit sha — enough to display, not enough to disambiguate
+  // collisions, but that's a display field, not an identity field.
+  sha: string
+  // Unix epoch seconds of the branch tip's committer date.
+  committedAt: number
+}
+export interface LocalBranchesResult {
+  kind: 'none' | 'git'
+  repoPath: string
+  head: string | null
+  branches: LocalBranchEntry[]
 }
 export interface RerunSessionRequest {
   agent?: AgentKind

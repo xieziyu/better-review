@@ -34,6 +34,7 @@ import { Button, ConfirmAction, EmptyState, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { buildFileAliasMap, canonicalFilePath, parseFileList } from '@/lib/diff-utils'
 import { useSelectedFinding, useSubmitDrawer } from '@/lib/selection'
+import { isLocalSource, sameSource, sessionDisplayLabel } from '@/lib/session-display'
 import { useSSE } from '@/lib/sse'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -117,6 +118,8 @@ function PRHeader({
   justSwitched,
 }: PRHeaderProps) {
   const { t } = useTranslation()
+  const isLocal = isLocalSource(session.source)
+  const headerLabel = sessionDisplayLabel(session)
   return (
     <header className="space-y-4">
       <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -128,14 +131,25 @@ function PRHeader({
             {t('prdetail.roundLabel', { n: roundNumber })}
           </Tag>
         ) : null}
+        {isLocal ? (
+          <Tag tone="neutral" title={t('prdetail.readOnlyReviewTitle')}>
+            {t('prdetail.readOnlyReview')}
+          </Tag>
+        ) : null}
         <span
           className="min-w-0 font-mono text-meta text-ink-secondary tabular-nums"
-          aria-label={`${session.owner}/${session.repo}#${session.number}`}
+          aria-label={headerLabel}
         >
-          <span className="inline-block max-w-[38ch] truncate align-bottom">
-            {session.owner}/{session.repo}
-          </span>
-          <span className="text-ink-muted">#{session.number}</span>
+          {isLocal ? (
+            <span className="inline-block max-w-[48ch] truncate align-bottom">{headerLabel}</span>
+          ) : (
+            <>
+              <span className="inline-block max-w-[38ch] truncate align-bottom">
+                {session.owner}/{session.repo}
+              </span>
+              <span className="text-ink-muted">#{session.number}</span>
+            </>
+          )}
         </span>
         {session.author ? (
           <span className="font-mono text-meta text-ink-muted">@{session.author}</span>
@@ -174,9 +188,7 @@ function PRHeader({
         ) : null}
       </div>
 
-      <h1 className="text-display text-ink-primary">
-        {session.title ?? `${session.owner}/${session.repo}#${session.number}`}
-      </h1>
+      <h1 className="text-display text-ink-primary">{session.title ?? headerLabel}</h1>
 
       <div className="flex items-center gap-4 flex-wrap">
         <fieldset className="flex items-center gap-1.5 text-meta text-ink-secondary">
@@ -295,7 +307,7 @@ function PRHeader({
             )
           ) : null}
           <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
-          {!isHistorical ? (
+          {!isHistorical && !isLocal ? (
             <Button
               type="button"
               variant="primary"
@@ -486,7 +498,7 @@ function TabButton({
   )
 }
 
-export function PRDetail() {
+export function SessionDetail() {
   const { t } = useTranslation()
   const { id = '' } = useParams()
   const nav = useNavigate()
@@ -707,7 +719,7 @@ export function PRDetail() {
     onSuccess: ({ id: freshId }) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sessions })
       setJustSwitched(true)
-      nav(`/pr/${freshId}`)
+      nav(`/session/${freshId}`)
     },
   })
 
@@ -771,13 +783,7 @@ export function PRDetail() {
   const isOrphanArchived =
     isHistorical &&
     Array.isArray(allSessions) &&
-    !allSessions.some(
-      (s) =>
-        s.owner === session.owner &&
-        s.repo === session.repo &&
-        s.number === session.number &&
-        s.status !== 'archived',
-    )
+    !allSessions.some((s) => sameSource(s, session) && s.status !== 'archived')
   const activeFindings = isHistorical ? findings : findings.filter((f) => !f.archived)
   const selectedCount = activeFindings.filter((f) => f.selected).length
   const effectiveRerunAgent: AgentKind = rerunAgent ?? session.agent
@@ -787,12 +793,7 @@ export function PRDetail() {
   const roundNumber = Array.isArray(allSessions)
     ? 1 +
       allSessions.filter(
-        (s) =>
-          s.owner === session.owner &&
-          s.repo === session.repo &&
-          s.number === session.number &&
-          s.status === 'archived' &&
-          s.createdAt < session.createdAt,
+        (s) => sameSource(s, session) && s.status === 'archived' && s.createdAt < session.createdAt,
       ).length
     : 1
 
