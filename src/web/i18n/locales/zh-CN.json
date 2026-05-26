@@ -50,6 +50,9 @@
     "followAria": "跟随到底部",
     "openAria": "展开活动抽屉",
     "closeAria": "收起活动抽屉",
+    "maximizeAria": "最大化活动抽屉",
+    "restoreAria": "还原活动抽屉",
+    "maximizedTag": "已最大化",
     "truncatedNotice": "… 较早的输出已截断"
   },
   "activityTimeline": {

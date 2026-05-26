@@ -50,6 +50,9 @@
     "followAria": "follow stream to bottom",
     "openAria": "Open activity drawer",
     "closeAria": "Close activity drawer",
+    "maximizeAria": "Maximize activity drawer",
+    "restoreAria": "Restore activity drawer",
+    "maximizedTag": "maximized",
     "truncatedNotice": "… earlier output truncated"
   },
   "activityTimeline": {
