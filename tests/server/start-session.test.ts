@@ -104,8 +104,21 @@ describe('makeStartSession localRepoPath derivation', () => {
     expect(inserted[0]?.localRepoPath).toBe(repoDir)
   })
 
-  it('honors an explicit localRepoPath when both source.repoPath and the override are present', async () => {
+  it('accepts an explicit localRepoPath when it matches source.repoPath', async () => {
     const { deps, inserted } = makeFixture()
+    const repoDir = mkdtempSync(join(tmpdir(), 'br-derive-src-'))
+    const source: SessionSource = {
+      kind: 'local-branch',
+      repoPath: repoDir,
+      head: 'HEAD',
+      base: 'auto',
+    }
+    await makeStartSession(deps)({ source, localRepoPath: repoDir })
+    expect(inserted[0]?.localRepoPath).toBe(repoDir)
+  })
+
+  it('rejects an explicit localRepoPath that diverges from source.repoPath for local sources', async () => {
+    const { deps } = makeFixture()
     const repoDir = mkdtempSync(join(tmpdir(), 'br-derive-src-'))
     const overrideDir = mkdtempSync(join(tmpdir(), 'br-derive-ovr-'))
     const source: SessionSource = {
@@ -114,8 +127,9 @@ describe('makeStartSession localRepoPath derivation', () => {
       head: 'HEAD',
       base: 'auto',
     }
-    await makeStartSession(deps)({ source, localRepoPath: overrideDir })
-    expect(inserted[0]?.localRepoPath).toBe(overrideDir)
+    await expect(makeStartSession(deps)({ source, localRepoPath: overrideDir })).rejects.toThrow(
+      /must match source\.repoPath/,
+    )
   })
 
   it('leaves session.localRepoPath null for github-pr sources when the caller does not supply one', async () => {

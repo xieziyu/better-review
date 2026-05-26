@@ -146,21 +146,35 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     localRepoPath: rawRepo,
     extraPrompt: rawExtra,
   }) {
-    // Resolution order: an explicit rawRepo wins (the UI always supplies
-    // it; rerun-session passes through the prior session's pin). When
-    // omitted, fall back to the source's own repoPath for local-branch
-    // and vbranch sources — that path is already absolute + validated by
-    // parseSessionInput. Without this, an API caller that only supplies
-    // a path-shaped `prInput` would create a worktree against the repo
-    // but leave `session.localRepoPath` null, which silently disables
-    // project-tier prompt resolution and skips worktree cleanup on
-    // delete-session.
-    const localRepoPath =
-      rawRepo !== undefined && rawRepo.trim().length > 0
-        ? resolveLocalRepoPath(rawRepo)
-        : source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch'
-          ? source.repoPath
-          : null
+    // Resolution order: for local-branch and vbranch sources the persisted
+    // `localRepoPath` MUST equal `source.repoPath` — the worktree is
+    // created at `source.repoPath` (see local-branch-flow.ts), so a
+    // divergent override would leave delete-session's cleanupWorktree
+    // pointing at the wrong repo and orphan the real `.git/worktrees/<name>/`
+    // entry. The UI and rerun-session pass an explicit value that already
+    // matches; reject anything else. For GitHub-PR sources the explicit
+    // override is the only signal (the source has no repoPath), so we
+    // honor it as-is and fall back to null. Without the local-source
+    // fallback an API caller that only supplies a path-shaped `prInput`
+    // would create a worktree but leave `session.localRepoPath` null,
+    // silently disabling project-tier prompt resolution and worktree
+    // cleanup.
+    const explicitLocalRepoPath =
+      rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
+    const sourceRepoPath =
+      source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch'
+        ? source.repoPath
+        : null
+    if (
+      sourceRepoPath !== null &&
+      explicitLocalRepoPath !== null &&
+      explicitLocalRepoPath !== sourceRepoPath
+    ) {
+      throw new Error(
+        `localRepoPath must match source.repoPath for ${source.kind} sessions (got ${explicitLocalRepoPath} vs ${sourceRepoPath})`,
+      )
+    }
+    const localRepoPath = sourceRepoPath ?? explicitLocalRepoPath
     const extraPrompt =
       rawExtra !== undefined && rawExtra.trim().length > 0 ? rawExtra.trim() : null
 
