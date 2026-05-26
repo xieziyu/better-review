@@ -30,6 +30,41 @@ describe('ConcurrencyQueue', () => {
     expect(calls).toBe(1)
   })
 
+  it('quiesce() resolves immediately when idle', async () => {
+    const q = new ConcurrencyQueue(2)
+    await expect(q.quiesce()).resolves.toBeUndefined()
+  })
+
+  it('quiesce() waits for in-flight tasks to settle', async () => {
+    const q = new ConcurrencyQueue(2)
+    let finished = false
+    const slow = q.run(
+      'slow',
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            finished = true
+            resolve()
+          }, 30)
+        }),
+    )
+    await q.quiesce()
+    expect(finished).toBe(true)
+    await slow
+  })
+
+  it('quiesce(timeout) resolves even if work never finishes', async () => {
+    const q = new ConcurrencyQueue(1)
+    let release: (() => void) | null = null
+    const stuck = q.run('stuck', () => new Promise<void>((r) => (release = r)))
+    const t0 = Date.now()
+    await q.quiesce(50)
+    expect(Date.now() - t0).toBeLessThan(500)
+    // Unblock so the test process can exit cleanly.
+    release!()
+    await stuck
+  })
+
   it('drop(key) resolves and removes pending entries without running them', async () => {
     const q = new ConcurrencyQueue(1)
     let ran = 0
