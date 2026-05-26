@@ -59,10 +59,12 @@ describe('ActivityTimeline', () => {
         {...timelineProps({ prepSteps: [phase('prep:fetching-pr')], prepCalls: [call()] })}
       />,
     )
-    expect(screen.queryByText(/"number":12/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/"number"/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Fetching PR metadata/i }))
     expect(screen.getByText(/gh pr view 12/)).toBeInTheDocument()
-    expect(screen.getByText(/"number":12/)).toBeInTheDocument()
+    // Stdout is JSON-pretty-printed in the call card body, so match the field
+    // name rather than the exact serialisation.
+    expect(screen.getByText(/"number": 12/)).toBeInTheDocument()
   })
 
   it('disables expand and shows "in-process" tag when a bucket has no calls', () => {

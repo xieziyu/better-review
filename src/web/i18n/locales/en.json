@@ -57,7 +57,6 @@
     "inProcess": "in-process",
     "callsCount_one": "{{count}} call",
     "callsCount_other": "{{count}} calls",
-    "callSummary": "exit {{exit}} · stdout {{stdout}} · stderr {{stderr}} · {{ms}}ms",
     "statusRunning": "running",
     "statusPending": "waiting",
     "statusFailed": "failed",

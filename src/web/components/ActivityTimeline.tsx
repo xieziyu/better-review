@@ -157,7 +157,7 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, 
               }
               body={
                 hasCalls && isOpen ? (
-                  <ul className="pl-7 pr-2 pb-2 space-y-2">
+                  <ul className="pl-1 pr-2 pb-2 pt-1 space-y-2">
                     {b.calls.map((c, idx) => (
                       <CallRow key={`${c.ts}-${idx}`} call={c} />
                     ))}
@@ -271,29 +271,48 @@ function NodeRing({ status }: { status: NodeStatus }) {
   return <span className={cn(common, 'border-2 border-rule bg-raised')} aria-hidden="true" />
 }
 
+// The agent CLIs (`gh` in particular) return compact JSON. The mockup expects
+// a readable indented block, so try to pretty-print when stdout parses as JSON.
+function prettifyOutput(raw: string): string {
+  const s = raw.trim()
+  if (s.length === 0) return raw
+  if (s[0] !== '{' && s[0] !== '[') return raw
+  try {
+    return JSON.stringify(JSON.parse(s), null, 2)
+  } catch {
+    return raw
+  }
+}
+
 function CallRow({ call }: { call: PrepCall }) {
-  const { t } = useTranslation()
+  const exitOk = call.exitCode === 0
+  const stdoutText = useMemo(() => prettifyOutput(call.stdout), [call.stdout])
   return (
-    <li className="text-meta">
-      <div className="font-mono text-ink-secondary truncate">
-        <span className="text-ink-muted">$ </span>
-        {call.command.join(' ')}
-      </div>
-      <div className="font-mono text-ink-muted text-[11px]">
-        {t('activityTimeline.callSummary', {
-          exit: call.exitCode ?? '?',
-          stdout: call.stdout.length,
-          stderr: call.stderr.length,
-          ms: call.durationMs,
-        })}
+    <li className="rounded-md border border-rule bg-canvas overflow-hidden">
+      <div className="flex items-center gap-3 px-2.5 py-1.5 font-mono text-[12px] text-ink-secondary">
+        <span className="truncate flex-1 min-w-0">
+          <span className="text-ink-muted">$ </span>
+          {call.command.join(' ')}
+        </span>
+        <span
+          className={cn(
+            'shrink-0 text-[11px]',
+            exitOk ? 'text-accent-ready' : 'text-severity-must',
+          )}
+        >
+          exit {call.exitCode ?? '?'}
+        </span>
+        <span className="shrink-0 text-[11px] text-ink-muted tabular-nums">
+          {call.durationMs} ms
+        </span>
       </div>
       {call.stdout.length > 0 ? (
-        <pre className="mt-1 font-mono text-[11.5px] leading-[16px] text-ink-primary whitespace-pre-wrap break-words bg-sunken/60 px-2 py-1 max-h-40 overflow-y-auto">
-          {call.stdout}
+        <pre className="border-t border-rule bg-sunken/60 px-2.5 py-2 font-mono text-[11.5px] leading-[16px] text-ink-primary whitespace-pre-wrap break-words max-h-40 overflow-auto">
+          {stdoutText}
         </pre>
       ) : null}
       {call.stderr.length > 0 ? (
-        <pre className="mt-1 font-mono text-[11.5px] leading-[16px] text-severity-must whitespace-pre-wrap break-words bg-sunken/60 px-2 py-1 max-h-40 overflow-y-auto">
+        <pre className="border-t border-rule bg-sunken/60 px-2.5 py-2 font-mono text-[11.5px] leading-[16px] text-severity-must whitespace-pre-wrap break-words max-h-40 overflow-auto">
           {call.stderr}
         </pre>
       ) : null}

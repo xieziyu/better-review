@@ -57,7 +57,6 @@
     "inProcess": "无外部输出",
     "callsCount_one": "{{count}} 次调用",
     "callsCount_other": "{{count}} 次调用",
-    "callSummary": "exit {{exit}} · stdout {{stdout}} · stderr {{stderr}} · {{ms}}ms",
     "statusRunning": "进行中",
     "statusPending": "等待中",
     "statusFailed": "已失败",
