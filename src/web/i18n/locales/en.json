@@ -157,6 +157,7 @@
     "statusFlagged": "Needs attention",
     "statusFound_one": "Reviewed · {{count}} finding",
     "statusFound_other": "Reviewed · {{count}} findings",
+    "statusPending": "Review in progress",
     "statusClean": "Reviewed · no issues",
     "statusExcluded": "Not reviewed",
     "excludedNote": "Files marked “Not reviewed” were dropped from the review diff by the skip-review rules (lockfiles, build output, snapshots…) — the agent never saw them. Adjust the rules in Settings → review-exclude globs.",

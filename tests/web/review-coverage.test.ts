@@ -121,6 +121,21 @@ describe('computeReviewCoverage', () => {
     expect(parser.hasMust).toBe(true)
   })
 
+  it('marks findings-free files as pending while the agent is still running', () => {
+    const cov = computeReviewCoverage(
+      [file('a.ts'), file('b.ts')],
+      [finding({ severity: 'must', file: 'a.ts', line: 1 })],
+      [],
+      null,
+      true,
+    )
+    const byPath = Object.fromEntries(cov.rows.map((r) => [r.path, r.status]))
+    // a.ts has a must finding — flagged regardless of in-progress flag.
+    expect(byPath['a.ts']).toBe('flagged')
+    // b.ts has no findings yet — must not be reported as "clean" while running.
+    expect(byPath['b.ts']).toBe('pending')
+  })
+
   it('canonicalises a renamed file so old-path findings line up', () => {
     const renamed: FileSummary = { ...file('src/new.ts'), oldPath: 'src/old.ts', status: 'rename' }
     const cov = computeReviewCoverage(

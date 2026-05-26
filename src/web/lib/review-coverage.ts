@@ -8,8 +8,9 @@ import { buildFileAliasMap, canonicalFilePath, type FileSummary } from './diff-u
 //  - excluded: dropped by a skip-review glob; the agent never saw it.
 //  - flagged:  the agent asked for human review, or it carries a `must` finding.
 //  - found:    reviewed, has at least one finding.
+//  - pending:  agent is still running and hasn't yet produced findings for this file.
 //  - clean:    reviewed, no findings.
-export type CoverageStatus = 'excluded' | 'flagged' | 'found' | 'clean'
+export type CoverageStatus = 'excluded' | 'flagged' | 'found' | 'pending' | 'clean'
 
 const SEV_ORDER: Severity[] = ['must', 'should', 'nit']
 
@@ -54,8 +55,9 @@ export interface ReviewCoverage {
 const STATUS_RANK: Record<CoverageStatus, number> = {
   flagged: 0,
   found: 1,
-  clean: 2,
-  excluded: 3,
+  pending: 2,
+  clean: 3,
+  excluded: 4,
 }
 
 /**
@@ -69,6 +71,10 @@ export function computeReviewCoverage(
   findings: Finding[],
   excludedFiles: ExcludedFile[],
   summary: ReviewSummaryFromAgent | null,
+  // When true, the agent is still running and files without findings are
+  // pending rather than confirmed-clean. Defaults to false so callers that
+  // don't care (tests, terminal-state renders) get the old behaviour.
+  reviewInProgress: boolean = false,
 ): ReviewCoverage {
   const aliasMap = buildFileAliasMap(files)
 
@@ -118,7 +124,9 @@ export function computeReviewCoverage(
         ? 'flagged'
         : findingCount > 0
           ? 'found'
-          : 'clean'
+          : reviewInProgress
+            ? 'pending'
+            : 'clean'
     return {
       path: f.path,
       additions: f.additions,
