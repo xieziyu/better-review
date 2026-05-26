@@ -114,12 +114,26 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, 
         // those over the sequential bound so parallel phases stop crediting
         // each other's time. Fall back to the sequential bound when there are
         // no calls (no observation data available).
+        //
+        // The only case we still need the sequential bound for a phase that
+        // did have calls is the currently-running last bucket (isPending &&
+        // isLast): there sequentialEndTs is `now`, so it extends the wall
+        // time past the last completed call to reflect that the phase hasn't
+        // finished yet. For any completed bucket — including non-last buckets
+        // whose sibling parallel phase finished later — callEndTs alone is
+        // correct, and Math.max'ing with sequentialEndTs would re-introduce
+        // the cross-phase contamination this branch exists to prevent.
         const callStartTs = hasCalls
           ? Math.min(...b.calls.map((c) => c.ts - c.durationMs))
           : b.firstTs
         const callEndTs = hasCalls ? Math.max(...b.calls.map((c) => c.ts)) : null
         const startTs = Math.min(b.firstTs, callStartTs)
-        const endTs = callEndTs == null ? sequentialEndTs : Math.max(callEndTs, sequentialEndTs)
+        const endTs =
+          callEndTs == null
+            ? sequentialEndTs
+            : isPending && isLast
+              ? Math.max(callEndTs, sequentialEndTs)
+              : callEndTs
         const wallMs = Math.max(0, endTs - startTs)
         // Active prep bucket = last bucket while session is still in pending.
         const nodeStatus: NodeStatus =

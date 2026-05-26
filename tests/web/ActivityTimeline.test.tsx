@@ -96,6 +96,50 @@ describe('ActivityTimeline', () => {
     expect(screen.getByText(/1 call/i)).toBeInTheDocument()
   })
 
+  it('credits a completed parallel phase with only its own call window', () => {
+    // Mirrors the start-session.ts parallel block: loadingPriorReview and
+    // a source-prep phase are markPhase'd back-to-back, then awaited
+    // together; the next phase (renderingPrompt) marker only fires when the
+    // slower branch finishes. If the faster branch's wall time absorbs the
+    // slower one we'd report e.g. "800 ms" for a source prep that actually
+    // took 200 ms.
+    render(
+      <ActivityTimeline
+        {...timelineProps({
+          prepSteps: [
+            phase('prep:loading-prior-review', 1000),
+            phase('prep:preparing-source:snapshot', 1001),
+            // Renderer mark only fires after the slower branch (prior, 800ms) finishes.
+            phase('prep:rendering-prompt', 1800),
+          ],
+          prepCalls: [
+            // Prior review: one long gh-api call, ends at ts=1800.
+            call({
+              phase: 'prep:loading-prior-review',
+              command: ['gh', 'api', '/prior-review'],
+              durationMs: 800,
+              ts: 1800,
+            }),
+            // Source snapshot: one short gh-api call, ends at ts=1200.
+            call({
+              phase: 'prep:preparing-source:snapshot',
+              command: ['gh', 'api', '/contents'],
+              durationMs: 200,
+              ts: 1200,
+            }),
+          ],
+        })}
+      />,
+    )
+    // Source snapshot row must report ~200ms (its own call window), not
+    // ~800ms (the parallel sibling's tail).
+    const sourceBtn = screen.getByRole('button', { name: /Snapshotting PR head source/i })
+    expect(sourceBtn.textContent).toMatch(/200 ms/)
+    expect(sourceBtn.textContent).not.toMatch(/800 ms/)
+    const priorBtn = screen.getByRole('button', { name: /Checking prior review context/i })
+    expect(priorBtn.textContent).toMatch(/800 ms/)
+  })
+
   it('renders stderr in the severity-must color when non-empty', () => {
     render(
       <ActivityTimeline
