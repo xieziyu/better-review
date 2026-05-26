@@ -50,10 +50,9 @@ export async function butJson<T = unknown>(repoPath: string, args: string[]): Pr
     const parsed = safeParse(stdout)
     const errCode =
       parsed && typeof parsed === 'object' ? (parsed as { error?: unknown }).error : undefined
-    const message =
-      parsed && typeof parsed === 'object'
-        ? ((parsed as { message?: unknown }).message as string | undefined)
-        : undefined
+    const rawMessage =
+      parsed && typeof parsed === 'object' ? (parsed as { message?: unknown }).message : undefined
+    const message = typeof rawMessage === 'string' ? rawMessage : undefined
     if (errCode === 'setup_required') {
       throw new ButCliError('setup_required', message ?? 'no GitButler project at this path')
     }
