@@ -91,7 +91,10 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, 
   return (
     <ul
       aria-label={t('activityTimeline.ariaLabel')}
-      className="flex flex-col min-h-0 h-full overflow-hidden"
+      // Scroll the whole timeline (instead of clipping) when prep + agent
+      // can't both fit — pairs with the agent card's min-height below so the
+      // transcript never gets squeezed below a useful size.
+      className="flex flex-col min-h-0 h-full overflow-y-auto"
     >
       {buckets.map((b, i) => {
         const isLast = i === buckets.length - 1
@@ -451,7 +454,11 @@ function AgentNode({
         {showBody ? (
           <div
             id="activity-timeline-agent-body"
-            className="mt-2 flex-1 min-h-0 flex flex-col border border-rule rounded-md overflow-hidden bg-canvas"
+            // Floor the transcript card at ~240 px so it stays useful even
+            // when many prep phases (or expanded prep calls) push it down.
+            // The outer <ul> is overflow-y-auto, so anything above this
+            // floor becomes scrollable rather than getting clipped.
+            className="mt-2 flex-1 min-h-[240px] flex flex-col border border-rule rounded-md overflow-hidden bg-canvas"
           >
             <div className="flex items-center gap-3 px-3 py-1.5 border-b border-rule bg-raised/60 text-meta text-ink-secondary">
               {agent ? (
