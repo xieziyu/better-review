@@ -27,6 +27,21 @@ export class LocalGitError extends Error {
   }
 }
 
+// User-controlled revspecs (branch / tag / sha / 'HEAD' / 'auto-...') reach
+// these helpers via the API body. `execa` blocks shell injection, but `git`
+// still parses a leading `-` as a CLI option (`--output=...`, `-c key=value`,
+// etc.), so a malicious or fat-fingered value could change git's behaviour.
+// Reject obvious option-shaped input here and pass the validated revision
+// after `--end-of-options` at the call site for defense in depth.
+function assertSafeRev(rev: string, label = 'revision'): void {
+  if (typeof rev !== 'string' || rev.trim().length === 0) {
+    throw new LocalGitError(`${label} must not be empty`)
+  }
+  if (rev.startsWith('-')) {
+    throw new LocalGitError(`${label} must not start with '-': ${rev}`)
+  }
+}
+
 async function git(
   repoPath: string,
   args: string[],
@@ -52,7 +67,13 @@ export async function assertGitRepo(repoPath: string): Promise<void> {
 // Resolve a head spec ('HEAD', branch name, tag, or sha) into a concrete
 // 40-char sha. Throws on unknown revisions.
 export async function resolveSha(repoPath: string, rev: string): Promise<string> {
-  const r = await git(repoPath, ['rev-parse', '--verify', `${rev}^{commit}`])
+  assertSafeRev(rev)
+  const r = await git(repoPath, [
+    'rev-parse',
+    '--verify',
+    '--end-of-options',
+    `${rev}^{commit}`,
+  ])
   if (r.exitCode !== 0) throw new LocalGitError(`unknown revision: ${rev}`)
   return r.stdout.trim()
 }
@@ -60,8 +81,13 @@ export async function resolveSha(repoPath: string, rev: string): Promise<string>
 // Resolve to a human-readable ref name where possible — branch shortname
 // for branch heads, tag for tags, otherwise null (detached / sha input).
 export async function resolveRefName(repoPath: string, rev: string): Promise<string | null> {
+  assertSafeRev(rev)
   // `rev-parse --abbrev-ref` returns 'HEAD' for detached heads — treat
   // that as "no nice name" so the UI doesn't show a useless "HEAD" pill.
+  // Note: `--end-of-options` is intentionally omitted here — `rev-parse`'s
+  // arg-echo mode prints the literal `--end-of-options` token alongside the
+  // resolved ref name, so the validated `assertSafeRev` call above is what
+  // blocks option injection for this subcommand.
   const r = await git(repoPath, ['rev-parse', '--abbrev-ref', rev])
   if (r.exitCode !== 0) return null
   const name = r.stdout.trim()
@@ -76,7 +102,14 @@ export async function readCommitMeta(
   repoPath: string,
   sha: string,
 ): Promise<{ author: string | null; subject: string; body: string }> {
-  const r = await git(repoPath, ['log', '-1', '--format=%an%x00%s%x00%b', sha])
+  assertSafeRev(sha, 'sha')
+  const r = await git(repoPath, [
+    'log',
+    '-1',
+    '--format=%an%x00%s%x00%b',
+    '--end-of-options',
+    sha,
+  ])
   if (r.exitCode !== 0) throw new LocalGitError(`git log failed for ${sha}`)
   const [author, subject, body] = r.stdout.replace(/\n$/, '').split('\x00')
   return {
@@ -115,7 +148,10 @@ export async function autoBase(repoPath: string): Promise<string | null> {
 // Resolve `base` if the source still carries the 'auto' sentinel.
 // Pulled out so LocalBranchFlow stays declarative.
 export async function resolveBase(repoPath: string, base: string): Promise<string> {
-  if (base !== 'auto') return base
+  if (base !== 'auto') {
+    assertSafeRev(base, 'base')
+    return base
+  }
   const detected = await autoBase(repoPath)
   if (!detected) {
     throw new LocalGitError(
@@ -128,6 +164,8 @@ export async function resolveBase(repoPath: string, base: string): Promise<strin
 // Three-dot diff so the agent only sees changes that head introduced
 // beyond the common ancestor with base, matching standard PR semantics.
 export async function readDiff(repoPath: string, base: string, head: string): Promise<string> {
+  assertSafeRev(base, 'base')
+  assertSafeRev(head, 'head')
   // `--no-color --no-ext-diff` keeps the output as raw unified diff text
   // regardless of the user's git config (some users set `[diff] external`
   // or `[color] ui = always`, which would otherwise corrupt the diff).
@@ -136,6 +174,7 @@ export async function readDiff(repoPath: string, base: string, head: string): Pr
     'diff',
     '--no-color',
     '--no-ext-diff',
+    '--end-of-options',
     `${base}...${head}`,
   ])
   if (r.exitCode !== 0) {
