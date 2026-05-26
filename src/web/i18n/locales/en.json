@@ -39,23 +39,37 @@
     "transcriptToggleAria": "Toggle transcript drawer"
   },
   "transcriptDrawer": {
-    "handleLabel": "Transcript",
+    "handleLabel": "Activity",
     "streaming": "streaming",
     "linesLabel": "{{count}} lines",
-    "linesAndPrep": "{{lines}} lines · {{prep}} prep",
+    "phasesAndLines": "{{phases}} phases · {{lines}} lines",
     "transcriptAria": "Agent transcript",
-    "resizeAria": "Resize transcript drawer height",
+    "resizeAria": "Resize activity drawer height",
     "waiting": "Waiting for agent output…",
     "follow": "follow",
     "followAria": "follow stream to bottom",
-    "openAria": "Open transcript drawer",
-    "closeAria": "Close transcript drawer",
-    "truncatedNotice": "… earlier output truncated",
-    "prepEyebrow": "Prep phases",
-    "prepNoOutput": "no captured output",
-    "prepCallsCount_one": "{{count}} call",
-    "prepCallsCount_other": "{{count}} calls",
-    "prepCallSummary": "exit {{exit}} · stdout {{stdout}} · stderr {{stderr}} · {{ms}}ms"
+    "openAria": "Open activity drawer",
+    "closeAria": "Close activity drawer",
+    "maximizeAria": "Maximize activity drawer",
+    "restoreAria": "Restore activity drawer",
+    "maximizedTag": "maximized",
+    "truncatedNotice": "… earlier output truncated"
+  },
+  "activityTimeline": {
+    "ariaLabel": "Review activity timeline",
+    "inProcess": "in-process",
+    "noCapturedOutput": "no external output",
+    "callsCount_one": "{{count}} call",
+    "callsCount_other": "{{count}} calls",
+    "statusRunning": "running",
+    "statusPending": "waiting",
+    "statusFailed": "failed",
+    "statusCancelled": "cancelled",
+    "agentNode": {
+      "label": "Agent review",
+      "linesCount_one": "{{count}} line",
+      "linesCount_other": "{{count}} lines"
+    }
   },
   "inspector": {
     "section": {

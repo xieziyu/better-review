@@ -1001,24 +1001,30 @@ export function SessionDetail() {
         onToggleTranscript={transcriptDrawer.toggle}
       />
 
-      {tabsBar}
+      {transcriptDrawer.maximized ? null : tabsBar}
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        {activeTab === 'summary'
-          ? summaryTabBody
-          : activeTab === 'findings'
-            ? findingsTabBody
-            : filesTabBody}
-      </div>
+      {transcriptDrawer.maximized ? null : (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {activeTab === 'summary'
+            ? summaryTabBody
+            : activeTab === 'findings'
+              ? findingsTabBody
+              : filesTabBody}
+        </div>
+      )}
 
       <TranscriptDrawer
         chunks={transcriptChunks}
         prepSteps={prepSteps}
         prepCalls={prepCalls}
         status={session.status}
+        agent={session.agent}
+        workdir={session.workdir}
         open={transcriptDrawer.open}
+        maximized={transcriptDrawer.maximized}
         onToggle={transcriptDrawer.toggle}
         onClose={() => transcriptDrawer.setOpen(false)}
+        onToggleMaximize={transcriptDrawer.toggleMaximize}
       />
 
       {submitDrawer.isOpen ? <SubmitDrawer sessionId={id} onClose={submitDrawer.close} /> : null}
