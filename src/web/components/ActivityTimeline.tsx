@@ -227,7 +227,11 @@ function TimelineRow({ status, connectTop, connectBottom, header, body }: Timeli
 function NodeRing({ status }: { status: NodeStatus }) {
   const common =
     'relative z-[1] mt-[3px] inline-flex size-3.5 items-center justify-center rounded-full'
-  if (status === 'done') {
+  // Both 'done' and 'done-muted' share the green check ring — the ring tracks
+  // lifecycle (done / running / pending / failed / cancelled). Whether a prep
+  // phase had captured external output is a separate concern, surfaced via the
+  // text tag next to the label, not the ring color/style.
+  if (status === 'done' || status === 'done-muted') {
     return (
       <span className={cn(common, 'bg-accent-ready text-canvas')} aria-hidden="true">
         <Check size={9} strokeWidth={3} />
@@ -248,14 +252,6 @@ function NodeRing({ status }: { status: NodeStatus }) {
           common,
           'border-2 border-accent-active bg-canvas motion-safe:animate-running-pulse',
         )}
-        aria-hidden="true"
-      />
-    )
-  }
-  if (status === 'done-muted') {
-    return (
-      <span
-        className={cn(common, 'border-2 border-dashed border-rule bg-canvas')}
         aria-hidden="true"
       />
     )
