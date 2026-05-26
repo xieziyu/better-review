@@ -12,6 +12,7 @@ interface Props {
   chunks: string[]
   status: SessionStatus
   agent?: AgentKind | undefined
+  workdir?: string | undefined
 }
 
 type NodeStatus = 'done' | 'done-muted' | 'running' | 'pending' | 'failed' | 'cancelled'
@@ -58,7 +59,7 @@ function bucketize(steps: PrepStep[], calls: PrepCall[]): PhaseBucket[] {
   return Array.from(byPhase.values()).sort((a, b) => a.firstTs - b.firstTs)
 }
 
-export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent }: Props) {
+export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent, workdir }: Props) {
   const { t } = useTranslation()
   const isPending = status === 'pending'
   const isRunning = status === 'running'
@@ -120,29 +121,14 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent }
                   aria-expanded={hasCalls ? isOpen : undefined}
                   disabled={!hasCalls}
                   className={cn(
-                    'flex-1 min-w-0 flex items-center gap-2 text-left',
+                    'flex-1 min-w-0 flex items-center gap-3 text-left',
                     hasCalls ? 'hover:bg-raised/60 cursor-pointer' : 'cursor-default',
-                    'transition-colors duration-180 ease-out-quart rounded px-1',
+                    'transition-colors duration-180 ease-out-quart rounded px-1 -mx-1',
                   )}
                 >
-                  {hasCalls ? (
-                    isOpen ? (
-                      <ChevronDown
-                        size={12}
-                        className="shrink-0 text-ink-muted"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <ChevronRight
-                        size={12}
-                        className="shrink-0 text-ink-muted"
-                        aria-hidden="true"
-                      />
-                    )
-                  ) : null}
                   <span
                     className={cn(
-                      'text-meta truncate',
+                      'text-body truncate font-medium',
                       nodeStatus === 'done-muted' ? 'text-ink-muted' : 'text-ink-primary',
                     )}
                   >
@@ -157,6 +143,15 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent }
                       <span className="italic">{t('activityTimeline.inProcess')}</span>
                     )}
                     <span>{formatDuration(wallMs)}</span>
+                    {hasCalls ? (
+                      isOpen ? (
+                        <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight size={14} className="shrink-0" aria-hidden="true" />
+                      )
+                    ) : (
+                      <span className="inline-block size-3.5 shrink-0" aria-hidden="true" />
+                    )}
                   </span>
                 </button>
               }
@@ -179,6 +174,7 @@ export function ActivityTimeline({ prepSteps, prepCalls, chunks, status, agent }
           status={status}
           chunks={chunks}
           agent={agent}
+          workdir={workdir}
           startedAt={lastPrepTs}
           now={now}
           connectTop={buckets.length > 0}
@@ -198,20 +194,28 @@ interface TimelineRowProps {
   body?: React.ReactNode
 }
 
+// Row padding controls how generously the timeline breathes. Keep in sync
+// with the rail offset values below — the rail segments are sized to bridge
+// the py gap exactly, so changing py without bumping `-top-3`/`bottom-[-12px]`
+// will leave visible gaps between consecutive ring rails.
 function TimelineRow({ status, connectTop, connectBottom, header, body }: TimelineRowProps) {
   return (
-    <div className="relative grid grid-cols-[28px_1fr] gap-2 px-4 py-1.5">
-      <div className="relative flex justify-center">
+    <div className="relative grid grid-cols-[28px_1fr] gap-3 px-4 py-3">
+      <div className="relative flex justify-center items-start">
+        {/* Top half of the rail — bridges the gap from the previous ring's bottom
+            into this row's top padding. */}
         {connectTop ? (
           <span
             aria-hidden="true"
-            className="absolute left-1/2 -translate-x-1/2 top-0 h-3 w-px bg-rule"
+            className="absolute z-0 left-1/2 -translate-x-1/2 -top-3 h-3 w-px bg-rule"
           />
         ) : null}
+        {/* Bottom half of the rail — bridges this ring's bottom into the next
+            row's top padding so the two halves form a continuous line. */}
         {connectBottom ? (
           <span
             aria-hidden="true"
-            className="absolute left-1/2 -translate-x-1/2 top-5 bottom-[-6px] w-px bg-rule"
+            className="absolute z-0 left-1/2 -translate-x-1/2 top-[14px] bottom-[-12px] w-px bg-rule"
           />
         ) : null}
         <NodeRing status={status} />
@@ -225,8 +229,7 @@ function TimelineRow({ status, connectTop, connectBottom, header, body }: Timeli
 }
 
 function NodeRing({ status }: { status: NodeStatus }) {
-  const common =
-    'relative z-[1] mt-[3px] inline-flex size-3.5 items-center justify-center rounded-full'
+  const common = 'relative z-[1] inline-flex size-3.5 items-center justify-center rounded-full'
   // Both 'done' and 'done-muted' share the green check ring — the ring tracks
   // lifecycle (done / running / pending / failed / cancelled). Whether a prep
   // phase had captured external output is a separate concern, surfaced via the
@@ -302,6 +305,7 @@ interface AgentNodeProps {
   status: SessionStatus
   chunks: string[]
   agent?: AgentKind | undefined
+  workdir?: string | undefined
   startedAt: number | null
   now: number
   connectTop: boolean
@@ -313,6 +317,7 @@ function AgentNode({
   status,
   chunks,
   agent,
+  workdir,
   startedAt,
   now,
   connectTop,
@@ -343,22 +348,26 @@ function AgentNode({
   const baseLabel = t('activityTimeline.agentNode.label')
   const fullLabel = agent ? `${baseLabel} — ${agent}` : baseLabel
 
-  const meta: string[] = []
-  if (chunks.length > 0)
-    meta.push(t('activityTimeline.agentNode.linesCount', { count: chunks.length }))
-  if (elapsedMs != null) meta.push(formatDuration(elapsedMs))
-  if (nodeStatus === 'running') meta.push(t('activityTimeline.statusRunning'))
-  else if (nodeStatus === 'pending') meta.push(t('activityTimeline.statusPending'))
-  else if (nodeStatus === 'failed') meta.push(t('activityTimeline.statusFailed'))
-  else if (nodeStatus === 'cancelled') meta.push(t('activityTimeline.statusCancelled'))
+  // Outer header shows status + elapsed; lines move into the inner card header
+  // so the toggle row matches the prep rows in density.
+  const trailing: { text: string; tone: 'muted' | 'active' | 'must' }[] = []
+  if (elapsedMs != null) trailing.push({ text: formatDuration(elapsedMs), tone: 'muted' })
+  if (nodeStatus === 'running')
+    trailing.push({ text: t('activityTimeline.statusRunning'), tone: 'active' })
+  else if (nodeStatus === 'pending')
+    trailing.push({ text: t('activityTimeline.statusPending'), tone: 'muted' })
+  else if (nodeStatus === 'failed')
+    trailing.push({ text: t('activityTimeline.statusFailed'), tone: 'must' })
+  else if (nodeStatus === 'cancelled')
+    trailing.push({ text: t('activityTimeline.statusCancelled'), tone: 'muted' })
 
   return (
-    <div className="relative grid grid-cols-[28px_1fr] gap-2 px-4 py-1.5 flex-1 min-h-0">
-      <div className="relative flex justify-center">
+    <div className="relative grid grid-cols-[28px_1fr] gap-3 px-4 pt-3 pb-3 flex-1 min-h-0">
+      <div className="relative flex justify-center items-start">
         {connectTop ? (
           <span
             aria-hidden="true"
-            className="absolute left-1/2 -translate-x-1/2 top-0 h-3 w-px bg-rule"
+            className="absolute z-0 left-1/2 -translate-x-1/2 -top-3 h-3 w-px bg-rule"
           />
         ) : null}
         <NodeRing status={nodeStatus} />
@@ -370,18 +379,13 @@ function AgentNode({
           aria-expanded={open}
           aria-controls="activity-timeline-agent-body"
           className={cn(
-            'flex items-center min-h-5 gap-2 text-left rounded px-1',
+            'flex items-center min-h-5 gap-3 text-left rounded px-1 -mx-1',
             'hover:bg-raised/60 transition-colors duration-180 ease-out-quart cursor-pointer',
           )}
         >
-          {open ? (
-            <ChevronDown size={12} className="shrink-0 text-ink-muted" aria-hidden="true" />
-          ) : (
-            <ChevronRight size={12} className="shrink-0 text-ink-muted" aria-hidden="true" />
-          )}
           <span
             className={cn(
-              'text-meta truncate',
+              'text-body truncate font-medium',
               nodeStatus === 'pending' || nodeStatus === 'cancelled'
                 ? 'text-ink-muted'
                 : 'text-ink-primary',
@@ -390,29 +394,47 @@ function AgentNode({
             {fullLabel}
           </span>
           <span className="ml-auto flex items-center gap-3 shrink-0 font-mono text-meta text-ink-muted tabular-nums">
-            {meta.map((m, idx) => (
+            {trailing.map((m, idx) => (
               <span
                 key={idx}
                 className={cn(
-                  idx === meta.length - 1 &&
-                    nodeStatus === 'running' &&
-                    'text-accent-active uppercase tracking-caps text-caps',
-                  idx === meta.length - 1 &&
-                    nodeStatus === 'failed' &&
-                    'text-severity-must uppercase tracking-caps text-caps',
+                  m.tone === 'active' && 'text-accent-active uppercase tracking-caps text-caps',
+                  m.tone === 'must' && 'text-severity-must uppercase tracking-caps text-caps',
                 )}
               >
-                {m}
+                {m.text}
               </span>
             ))}
+            {open ? (
+              <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+            ) : (
+              <ChevronRight size={14} className="shrink-0" aria-hidden="true" />
+            )}
           </span>
         </button>
         {showBody ? (
           <div
             id="activity-timeline-agent-body"
-            className="mt-1.5 flex-1 min-h-0 border border-rule rounded overflow-hidden"
+            className="mt-2 flex-1 min-h-0 flex flex-col border border-rule rounded-md overflow-hidden bg-canvas"
           >
-            <TranscriptStream chunks={chunks} status={status} />
+            <div className="flex items-center gap-3 px-3 py-1.5 border-b border-rule bg-raised/60 text-meta text-ink-secondary">
+              {agent ? (
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded-sm border border-rule bg-canvas text-ink-secondary">
+                  {agent} exec
+                </span>
+              ) : null}
+              {workdir ? (
+                <span className="truncate font-mono text-[11px] text-ink-muted" title={workdir}>
+                  workdir: {workdir.replace(/^\/Users\/[^/]+/, '~')}
+                </span>
+              ) : null}
+              <span className="ml-auto shrink-0 font-mono text-[11px] text-ink-muted tabular-nums">
+                {t('activityTimeline.agentNode.linesCount', { count: chunks.length })}
+              </span>
+            </div>
+            <div className="flex-1 min-h-0">
+              <TranscriptStream chunks={chunks} status={status} />
+            </div>
           </div>
         ) : null}
       </div>

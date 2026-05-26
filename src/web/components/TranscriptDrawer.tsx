@@ -56,6 +56,7 @@ interface TranscriptDrawerProps {
   prepCalls: PrepCall[]
   status: SessionStatus
   agent?: AgentKind | undefined
+  workdir?: string | undefined
   open: boolean
   onToggle: () => void
   onClose: () => void
@@ -69,6 +70,7 @@ export function TranscriptDrawer({
   prepCalls,
   status,
   agent,
+  workdir,
   open,
   onToggle,
   onClose,
@@ -107,6 +109,7 @@ export function TranscriptDrawer({
         chunks={chunks}
         status={status}
         agent={agent}
+        workdir={workdir}
       />
     </DrawerShell>
   )
