@@ -8,6 +8,22 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.3.0] — 2026-05-27
+
+### Added
+
+- **Local-source review** — review sessions can now target local git branches and GitButler virtual branches in addition to GitHub PRs. A new `SessionSource` discriminator routes the prep pipeline through `GithubPrFlow` / `LocalBranchFlow` / `GitButlerVBranchFlow`; the Home page gains three tabs with a unified branch picker, and vbranches are populated via a new `/api/local-source/inspect` route that wraps `but status --json`. Findings export envelope replaces the v1 `pr` field with a discriminated `source` union and bumps `schemaVersion` to `2`. Revspecs are validated (`assertSafeRev`) to block `--` / `-c`-style git option injection. (#26)
+
+### Changed
+
+- **Unified prep + agent activity timeline** — the Transcript drawer is replaced by a single vertical `ActivityTimeline` where every prep phase and the agent review live on the same rail. Node state is conveyed by a colored ring (done / running pulse / dashed in-process / red failed / muted cancelled) and each node shows wall-clock duration; the running node ticks live. Drawer chrome renamed from "transcript" → "activity"; the handle counter now reads `N phases · M lines`. (#30)
+- **Husky + lint-staged on commit** — `oxfmt --write` now runs on staged JS/TS/JSON files via a Husky pre-commit hook, so formatting drift no longer reaches review. The hook auto-activates after `pnpm install` through the `prepare: husky` script. (#29)
+
+### Fixed
+
+- **Coverage rows show "pending" while the agent is still running** — files without findings were labelled `Reviewed · no issues` before the agent finished, falsely implying a clean review. `computeReviewCoverage` now takes a `reviewInProgress` flag and assigns a new `pending` status to non-flagged, finding-free rows while the session is `pending` or `running`, rendered with a muted `◌` icon. (#28)
+- **Drain the queue before closing the DB on shutdown** — daemon SIGTERM was racing in-flight `start-session` / runner promises against `db.close()`, so still-running prep/run catch handlers could call `sessions.setError()` on a closed sqlite handle and crash the daemon with `TypeError: The database connection is not open`. Shutdown now cancels active agent children first, waits up to 5s for the queue to drain via a new `ConcurrencyQueue.quiesce()` + `RunnerRegistry.cancelAll()`, then closes the DB. (#27)
+
 ## [0.2.0] — 2026-05-21
 
 ### Added
