@@ -1,10 +1,5 @@
 import type { Severity } from '@shared/findings-schema'
-import type {
-  ExcludedFile,
-  Finding,
-  ReviewSummaryFromAgent,
-  SessionStatus,
-} from '@shared/types'
+import type { ExcludedFile, Finding, ReviewSummaryFromAgent, SessionStatus } from '@shared/types'
 
 import { buildFileAliasMap, canonicalFilePath, type FileSummary } from './diff-utils'
 
@@ -17,13 +12,7 @@ import { buildFileAliasMap, canonicalFilePath, type FileSummary } from './diff-u
 //  - incomplete: the run stopped before completing (failed/cancelled) — we can't
 //                claim this file was actually reviewed.
 //  - clean:      reviewed, no findings.
-export type CoverageStatus =
-  | 'excluded'
-  | 'flagged'
-  | 'found'
-  | 'pending'
-  | 'incomplete'
-  | 'clean'
+export type CoverageStatus = 'excluded' | 'flagged' | 'found' | 'pending' | 'incomplete' | 'clean'
 
 const SEV_ORDER: Severity[] = ['must', 'should', 'nit']
 

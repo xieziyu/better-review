@@ -162,9 +162,7 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     const explicitLocalRepoPath =
       rawRepo !== undefined && rawRepo.trim().length > 0 ? resolveLocalRepoPath(rawRepo) : null
     const sourceRepoPath =
-      source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch'
-        ? source.repoPath
-        : null
+      source.kind === 'local-branch' || source.kind === 'gitbutler-vbranch' ? source.repoPath : null
     if (
       sourceRepoPath !== null &&
       explicitLocalRepoPath !== null &&

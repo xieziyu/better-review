@@ -68,12 +68,7 @@ export async function assertGitRepo(repoPath: string): Promise<void> {
 // 40-char sha. Throws on unknown revisions.
 export async function resolveSha(repoPath: string, rev: string): Promise<string> {
   assertSafeRev(rev)
-  const r = await git(repoPath, [
-    'rev-parse',
-    '--verify',
-    '--end-of-options',
-    `${rev}^{commit}`,
-  ])
+  const r = await git(repoPath, ['rev-parse', '--verify', '--end-of-options', `${rev}^{commit}`])
   if (r.exitCode !== 0) throw new LocalGitError(`unknown revision: ${rev}`)
   return r.stdout.trim()
 }
@@ -103,13 +98,7 @@ export async function readCommitMeta(
   sha: string,
 ): Promise<{ author: string | null; subject: string; body: string }> {
   assertSafeRev(sha, 'sha')
-  const r = await git(repoPath, [
-    'log',
-    '-1',
-    '--format=%an%x00%s%x00%b',
-    '--end-of-options',
-    sha,
-  ])
+  const r = await git(repoPath, ['log', '-1', '--format=%an%x00%s%x00%b', '--end-of-options', sha])
   if (r.exitCode !== 0) throw new LocalGitError(`git log failed for ${sha}`)
   const [author, subject, body] = r.stdout.replace(/\n$/, '').split('\x00')
   return {
