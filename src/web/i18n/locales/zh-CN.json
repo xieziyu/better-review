@@ -141,10 +141,10 @@
       "save": "保存 finding",
       "saving": "保存中…",
       "rangeInvalid": "区间包含了不在 diff 中的行",
-      "gutterTitle": "点击开始新增 finding · 继续点击其他行可扩展区间"
+      "gutterTitle": "点击开始新增 finding · 按住 Shift 点击其他 + 可扩展区间"
     },
     "pendingSelection": {
-      "hint": "继续点击 + 可扩展区间",
+      "hint": "按住 Shift 点击其他 + 可扩展区间",
       "confirm": "新增 finding"
     },
     "toast": {

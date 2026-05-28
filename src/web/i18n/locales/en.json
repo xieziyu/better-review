@@ -141,10 +141,10 @@
       "save": "Save finding",
       "saving": "Saving…",
       "rangeInvalid": "Range crosses lines not in the diff",
-      "gutterTitle": "Click to start a finding · click more lines to extend"
+      "gutterTitle": "Click to start a finding · Shift-click another + to extend"
     },
     "pendingSelection": {
-      "hint": "Click + on more lines to extend the range",
+      "hint": "Shift-click another + to extend the range",
       "confirm": "Add finding"
     },
     "toast": {
