@@ -83,20 +83,31 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
   const diff = diffData ?? null
   const groups = useMemo(() => {
     const inline: Finding[] = []
+    const fileLevel: Finding[] = []
     const movedToBody: Finding[] = []
     const prWide: Finding[] = []
     for (const f of selected) {
-      if (f.file === null || f.line === null) {
+      if (f.file === null) {
         prWide.push(f)
+      } else if (f.line === null) {
+        // Only manual findings opt into being posted as subject_type:'file'
+        // inline comments — see src/server/engine/payload-builder.ts. Agent
+        // findings without a line still fall back to the review body.
+        if (f.source === 'manual') {
+          fileLevel.push(f)
+        } else {
+          prWide.push(f)
+        }
       } else if (diff && !isLineInDiff(diff, f.file, f.line)) {
         movedToBody.push(f)
       } else {
         inline.push(f)
       }
     }
-    return { inline, movedToBody, prWide }
+    return { inline, fileLevel, movedToBody, prWide }
   }, [selected, diff])
   const inline = groups.inline
+  const fileLevel = groups.fileLevel
   const movedToBody = groups.movedToBody
   const prWide = groups.prWide
   const counts = useMemo(() => severityCounts(selected), [selected])
@@ -177,6 +188,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                 <div className="font-mono text-meta text-ink-secondary tabular-nums">
                   {t('submit.breakdown', {
                     inline: inline.length,
+                    fileLevel: fileLevel.length,
                     body: movedToBody.length,
                     prWide: prWide.length,
                   })}
@@ -193,6 +205,20 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   </h3>
                   <div data-testid="inline-list" role="list" className="divide-y divide-rule">
                     {inline.map((f) => (
+                      <PreviewFindingRow key={f.dbId} finding={f} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {fileLevel.length > 0 ? (
+                <section>
+                  <h3 className="text-caps tracking-caps text-ink-muted uppercase mb-1">
+                    {t('submit.fileLevelSection', { count: fileLevel.length })}
+                  </h3>
+                  <p className="text-meta text-ink-secondary mb-2">{t('submit.fileLevelNote')}</p>
+                  <div data-testid="file-level-list" role="list" className="divide-y divide-rule">
+                    {fileLevel.map((f) => (
                       <PreviewFindingRow key={f.dbId} finding={f} />
                     ))}
                   </div>
@@ -353,7 +379,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                   </div>
                   <div className="text-meta text-ink-secondary">
-                    {t('submit.confirmationLine', { count: inline.length })}
+                    {t('submit.confirmationLine', { count: inline.length + fileLevel.length })}
                   </div>
                   {movedToBody.length > 0 ? (
                     <div className="text-meta text-ink-secondary">

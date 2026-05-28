@@ -187,6 +187,43 @@ describe('SubmitDrawer', () => {
     expect(prWide).toHaveTextContent(/Design/)
   })
 
+  it('groups manual file-level findings separately from PR-wide and counts them as inline', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [
+          mk({
+            id: 'R1',
+            dbId: 'd1',
+            file: 'src/x.ts',
+            line: null,
+            source: 'manual',
+            title: 'whole-file concern',
+          }),
+          mk({
+            id: 'R2',
+            dbId: 'd2',
+            file: null,
+            line: null,
+            title: 'architectural note',
+          }),
+        ],
+      }),
+    )
+    // File-level manual finding lands in its own section, not in pr-wide.
+    const fileLevelList = screen.getByTestId('file-level-list')
+    expect(fileLevelList).toHaveTextContent(/whole-file concern/)
+    expect(fileLevelList).not.toHaveTextContent(/architectural note/)
+    const prWide = screen.getByTestId('pr-wide-list')
+    expect(prWide).toHaveTextContent(/architectural note/)
+    expect(prWide).not.toHaveTextContent(/whole-file concern/)
+    // The confirmation counts file-level as an inline comment, since that
+    // is what the server actually submits via subject_type:'file'.
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+    expect(screen.getByText(/1 inline comment/i)).toBeInTheDocument()
+  })
+
   it('defaults to COMMENT event', async () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
