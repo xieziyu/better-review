@@ -40,7 +40,9 @@ function pairCommentsToFindings(
   return comments.map((c) => {
     const idx = remaining.findIndex(
       (f) =>
-        f.file === c.path && f.line === c.line && (f.startLine ?? null) === (c.start_line ?? null),
+        f.file === c.path &&
+        (f.line ?? null) === (c.line ?? null) &&
+        (f.startLine ?? null) === (c.start_line ?? null),
     )
     if (idx >= 0) {
       const [f] = remaining.splice(idx, 1)
@@ -85,14 +87,12 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   // already posted for this PR in a prior submission.
   const priorRows = args.submissionComments.listByPR(session.owner, session.repo, session.number)
   const prior: PriorPostedComment[] = priorRows
-    .filter(
-      (r): r is typeof r & { line: number; path: string } => r.line !== null && r.file !== null,
-    )
+    .filter((r): r is typeof r & { file: string } => r.file !== null)
     .map((r) => ({
       findingDbId: r.findingDbId,
       githubCommentId: r.githubCommentId,
       path: r.file as string,
-      line: r.line as number,
+      line: r.line,
       startLine: r.startLine,
       body: r.body,
     }))
@@ -101,8 +101,12 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
 
   const findingIds = selected.map((f) => f.dbId)
   // We pair the *post-dedup* inline comments back to findings so the
-  // submission_comments rows reflect what actually went out.
-  const inlineFindingCandidates = selected.filter((f) => f.file !== null && f.line !== null)
+  // submission_comments rows reflect what actually went out. Inline here
+  // means anything payload-builder turned into a ReviewComment, including
+  // file-level (line=null) manual findings.
+  const inlineFindingCandidates = selected.filter(
+    (f) => f.file !== null && (f.line !== null || f.source === 'manual'),
+  )
   try {
     const r = await args.gh.submitReview(
       { owner: session.owner, repo: session.repo, number: session.number },
@@ -139,14 +143,14 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
       const match = ourComments.find(
         (gc) =>
           gc.path === comment.path &&
-          gc.line === comment.line &&
+          gc.line === (comment.line ?? null) &&
           (gc.start_line ?? null) === (comment.start_line ?? null),
       )
       return {
         findingDbId: finding?.dbId ?? null,
         githubCommentId: match?.id ?? null,
         file: comment.path,
-        line: comment.line,
+        line: comment.line ?? null,
         startLine: comment.start_line ?? null,
         title: firstLine(comment.body),
         body: comment.body,

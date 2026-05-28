@@ -1,5 +1,5 @@
 import type { Finding, PRSession } from '@shared/types'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, FilePlus2 } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
@@ -68,20 +68,24 @@ export function FileDiffPane({
   readOnly,
 }: Props) {
   const { t } = useTranslation()
-  // Two-phase manual-finding flow:
-  //   selecting → compact PendingSelectionBar; gutter + clicks extend the range
-  //               so the diff isn't pushed out of view by a full form.
-  //   editing   → full AddFindingForm; gutter + clicks are ignored to avoid
-  //               clobbering the in-progress draft.
+  // Manual-finding flow:
+  //   selecting    → compact PendingSelectionBar; gutter + clicks extend the
+  //                  range so the diff isn't pushed out of view by a full form.
+  //   editing      → full AddFindingForm inline at the range; gutter + clicks
+  //                  are ignored to avoid clobbering the in-progress draft.
+  //   file-level   → full AddFindingForm rendered above the diff, no line
+  //                  anchor (e.g. "this file shouldn't be committed").
   type Adding =
     | { phase: 'selecting'; anchor: number; head: number }
     | { phase: 'editing'; start: number; end: number }
+    | { phase: 'file-level' }
   const [adding, setAdding] = useState<Adding | null>(null)
 
   const { anchored, offDiff } = useMemo(() => classifyFindings(findings, file), [findings, file])
 
   const range = useMemo(() => {
     if (!adding) return null
+    if (adding.phase === 'file-level') return null
     if (adding.phase === 'selecting') {
       const start = Math.min(adding.anchor, adding.head)
       const end = Math.max(adding.anchor, adding.head)
@@ -112,8 +116,8 @@ export function FileDiffPane({
 
   const handleAddRequest = useCallback((line: number, opts: { extend: boolean }) => {
     setAdding((prev) => {
-      // Ignore gutter clicks while the full form is open — don't clobber the draft.
-      if (prev?.phase === 'editing') return prev
+      // Ignore gutter clicks while a full form is open — don't clobber the draft.
+      if (prev?.phase === 'editing' || prev?.phase === 'file-level') return prev
       if (opts.extend && prev?.phase === 'selecting') {
         return { phase: 'selecting', anchor: prev.anchor, head: line }
       }
@@ -211,6 +215,18 @@ export function FileDiffPane({
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-3 shrink-0">
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={() => setAdding({ phase: 'file-level' })}
+              disabled={adding?.phase === 'file-level'}
+              className="inline-flex items-center gap-1 text-meta text-ink-secondary hover:text-brand disabled:opacity-50 disabled:cursor-not-allowed"
+              title={t('filesChanged.addFinding.fileLevelTriggerTitle')}
+            >
+              <FilePlus2 className="h-3 w-3" />
+              {t('filesChanged.addFinding.fileLevelTrigger')}
+            </button>
+          ) : null}
           <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
             <input
               type="checkbox"
@@ -241,6 +257,14 @@ export function FileDiffPane({
         onOpenInPanel={onOpenInPanel}
         readOnly={readOnly}
       />
+      {adding?.phase === 'file-level' ? (
+        <AddFindingForm
+          sessionId={session.id}
+          file={file.path}
+          onCancel={() => setAdding(null)}
+          onCreated={() => setAdding(null)}
+        />
+      ) : null}
       <FileDiff
         file={file.path}
         fileType={file.status}

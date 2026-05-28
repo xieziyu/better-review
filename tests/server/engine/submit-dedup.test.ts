@@ -74,4 +74,28 @@ describe('dedupAgainstPrior', () => {
     // for tiny titles, so we require a minimum overlap length.
     expect(r.toSubmit).toHaveLength(1)
   })
+
+  it('skips file-level proposed matching a prior file-level on same file + title', () => {
+    const proposed: ReviewComment = {
+      path: 'foo.ts',
+      subject_type: 'file',
+      body: '🔴 **[must]** the long enough title we are matching\n\nbody',
+    }
+    const prior = priorPosted({ line: null, startLine: null })
+    const r = dedupAgainstPrior([proposed], [prior])
+    expect(r.toSubmit).toHaveLength(0)
+    expect(r.skipped).toHaveLength(1)
+    expect(r.skipped[0]!.reason).toMatch(/file-level/)
+  })
+
+  it('does not cross-match file-level with line-anchored comments', () => {
+    const proposed: ReviewComment = {
+      path: 'foo.ts',
+      subject_type: 'file',
+      body: '🔴 **[must]** the long enough title we are matching\n\nbody',
+    }
+    // Prior comment was line-anchored — different scope, keep the proposed one.
+    const r = dedupAgainstPrior([proposed], [priorPosted()])
+    expect(r.toSubmit).toHaveLength(1)
+  })
 })

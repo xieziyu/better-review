@@ -47,8 +47,22 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
   const bodyParts: string[] = []
   if (args.userBody) bodyParts.push(args.userBody)
   for (const f of args.findings) {
-    if (!f.file || !f.line) {
+    if (!f.file) {
       bodyParts.push(renderFindingMarkdown(f))
+      continue
+    }
+    if (!f.line) {
+      // File-level: only manual findings opt into this. Agent findings
+      // without a line stay in the body (legacy behavior).
+      if (f.source === 'manual') {
+        comments.push({
+          path: f.file,
+          subject_type: 'file',
+          body: renderInlineComment(f),
+        })
+      } else {
+        bodyParts.push(renderFindingMarkdown(f))
+      }
       continue
     }
     const start = f.startLine && f.startLine < f.line ? f.startLine : null

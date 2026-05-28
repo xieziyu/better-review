@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils'
 interface Props {
   sessionId: string
   file: string
-  line: number
+  /** Omit for a file-level finding (the whole file, no line anchor). */
+  line?: number | undefined
   /** When set and `< line`, the finding spans a range from startLine..line (inclusive). */
   startLine?: number | undefined
   /** Optional client-side check: every line in [start..end] must map to a new-side change. */
@@ -38,8 +39,10 @@ export function AddFindingForm({
   const [body, setBody] = useState('')
   const [suggestion, setSuggestion] = useState('')
 
-  const isRange = startLine != null && startLine < line
-  const rangeValid = !isRange || !validateRange ? true : validateRange(startLine, line)
+  const isFileLevel = line === undefined
+  const isRange = !isFileLevel && startLine != null && startLine < line
+  const rangeValid =
+    !isRange || !validateRange || startLine === undefined ? true : validateRange(startLine, line)
 
   const create = useMutation({
     mutationFn: (input: ManualFindingInput) => api.createManualFinding(sessionId, input),
@@ -56,10 +59,10 @@ export function AddFindingForm({
       severity,
       category: category.trim() || 'Manual',
       file,
-      line,
       title: title.trim(),
       body: body.trim(),
     }
+    if (!isFileLevel) input.line = line
     if (isRange) input.startLine = startLine
     if (suggestion.trim()) input.suggestion = suggestion
     create.mutate(input)
@@ -69,10 +72,14 @@ export function AddFindingForm({
     <div className="border border-rule rounded-md mx-2 my-2 p-3 bg-raised space-y-3">
       <div className="flex items-center gap-2 text-meta text-ink-secondary">
         <span className="text-caps tracking-caps uppercase">
-          {t('filesChanged.addFinding.heading')}
+          {isFileLevel
+            ? t('filesChanged.addFinding.fileLevelHeading')
+            : t('filesChanged.addFinding.heading')}
         </span>
         <span className="font-mono text-ink-muted">
-          {file}:{isRange ? `${startLine}-${line}` : line}
+          {isFileLevel
+            ? `${file} · ${t('filesChanged.addFinding.fileLevelLoc')}`
+            : `${file}:${isRange ? `${startLine}-${line}` : line}`}
         </span>
       </div>
       <div className="flex items-center gap-2">

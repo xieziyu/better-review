@@ -161,4 +161,45 @@ describe('buildSubmitPayload', () => {
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).not.toHaveProperty('start_line')
   })
+
+  it('manual file-level finding becomes a file-level inline comment', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [
+        f({
+          file: 'foo.ts',
+          line: null,
+          source: 'manual',
+          title: 'should not be committed',
+        }),
+      ],
+      event: 'COMMENT',
+    })
+    expect(r.payload.comments).toHaveLength(1)
+    expect(r.payload.comments[0]).toMatchObject({
+      path: 'foo.ts',
+      subject_type: 'file',
+    })
+    expect(r.payload.comments[0]!.body).toContain('should not be committed')
+    expect(r.payload.comments[0]).not.toHaveProperty('line')
+    expect(r.droppedToBody).toHaveLength(0)
+    expect(r.payload.body).not.toContain('should not be committed')
+  })
+
+  it('agent off-diff finding (file set, line null) still goes to body', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [
+        f({
+          file: 'foo.ts',
+          line: null,
+          source: 'agent',
+          title: 'agent file-level note',
+        }),
+      ],
+      event: 'COMMENT',
+    })
+    expect(r.payload.comments).toHaveLength(0)
+    expect(r.payload.body).toContain('agent file-level note')
+  })
 })

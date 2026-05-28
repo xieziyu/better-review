@@ -122,9 +122,10 @@ export class FindingsRepo {
     return inserted
   }
 
-  // Insert one user-authored finding. Manual findings always carry file+line
-  // (guaranteed by manualFindingInputSchema) and get a synthetic agent-side id
-  // for parity with agent-produced rows.
+  // Insert one user-authored finding. Manual findings always carry a file
+  // (guaranteed by manualFindingInputSchema); `line` is optional — omit it
+  // for a file-level finding. We get a synthetic agent-side id for parity
+  // with agent-produced rows.
   insertManual(sessionId: string, input: ManualFindingInput): Finding {
     const agentId = 'M' + randomUUID().slice(0, 8)
     const item: FindingFromAgent = {
@@ -132,7 +133,7 @@ export class FindingsRepo {
       severity: input.severity,
       category: input.category,
       file: input.file,
-      line: input.line,
+      line: input.line ?? null,
       title: input.title,
       body: input.body,
     }

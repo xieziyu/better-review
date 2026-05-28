@@ -133,6 +133,10 @@
     "emptyBody": "此 PR 没有文件改动。",
     "addFinding": {
       "heading": "新增 finding",
+      "fileLevelHeading": "新增文件级 finding",
+      "fileLevelLoc": "整个文件",
+      "fileLevelTrigger": "新增文件级 finding",
+      "fileLevelTriggerTitle": "对整个文件提一条 finding（不锚定具体行）",
       "severity": "等级",
       "category": "类别",
       "title": "标题",

@@ -56,11 +56,14 @@ export interface DiffResult {
 
 export interface ReviewComment {
   path: string
-  line: number
   body: string
+  // Omit `line`/`side` when posting a file-level comment (subject_type:'file').
+  line?: number
   side?: 'RIGHT' | 'LEFT'
   start_line?: number
   start_side?: 'RIGHT' | 'LEFT'
+  // Defaults to 'line' on GitHub. Set to 'file' for a file-anchored comment.
+  subject_type?: 'line' | 'file'
 }
 export interface ReviewPayload {
   event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'

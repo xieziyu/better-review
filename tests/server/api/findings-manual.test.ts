@@ -57,6 +57,47 @@ describe('POST /api/sessions/:id/findings/manual', () => {
     }
   })
 
+  it('creates a file-level manual finding when line is omitted', async () => {
+    const d = seed()
+    const app = createApp(d)
+    const res = await app.request('/api/sessions/s1/findings/manual', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        severity: 'must',
+        category: 'Scope',
+        file: 'src/foo.ts',
+        title: 'this file should not be committed',
+        body: 'reason…',
+      }),
+    })
+    expect(res.status).toBe(201)
+    const json = (await res.json()) as {
+      finding: { source: string; file: string; line: number | null }
+    }
+    expect(json.finding.source).toBe('manual')
+    expect(json.finding.file).toBe('src/foo.ts')
+    expect(json.finding.line).toBeNull()
+  })
+
+  it('rejects startLine without line', async () => {
+    const d = seed()
+    const app = createApp(d)
+    const res = await app.request('/api/sessions/s1/findings/manual', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        severity: 'must',
+        category: 'x',
+        file: 'a.ts',
+        startLine: 3,
+        title: 't',
+        body: 'b',
+      }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('rejects missing file', async () => {
     const d = seed()
     const app = createApp(d)
