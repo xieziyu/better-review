@@ -18,7 +18,8 @@ interface Fixture {
   branchName: string
 }
 
-// A minimal repo with two commits on a feature branch off main.
+// A minimal repo with three commits on a feature branch off main —
+// enough to exercise the multi-commit rendering path in {{PR_META}}.
 async function buildRepo(): Promise<Fixture> {
   const repoPath = mkdtempSync(join(tmpdir(), 'br-lbflow-'))
   // -b main covers older git versions where init.defaultBranch is master.
@@ -29,8 +30,20 @@ async function buildRepo(): Promise<Fixture> {
   await execa('git', ['-C', repoPath, 'add', '.'])
   await execa('git', ['-C', repoPath, 'commit', '-m', 'initial commit'])
   await execa('git', ['-C', repoPath, 'checkout', '-b', 'feat/local-flow-test'])
+  writeFileSync(join(repoPath, 'STEP1.md'), 'step one scaffolding\n')
+  await execa('git', ['-C', repoPath, 'add', '.'])
+  await execa('git', [
+    '-C',
+    repoPath,
+    'commit',
+    '-m',
+    'scaffold the feature\n\nset up the directory layout',
+  ])
   writeFileSync(join(repoPath, 'README.md'), '# initial\n\nadded a feature\n')
   writeFileSync(join(repoPath, 'NEW.md'), 'brand new file\n')
+  await execa('git', ['-C', repoPath, 'add', '.'])
+  await execa('git', ['-C', repoPath, 'commit', '-m', 'wire up the feature'])
+  writeFileSync(join(repoPath, 'README.md'), '# initial\n\nadded a feature\n\nfinal touches\n')
   await execa('git', ['-C', repoPath, 'add', '.'])
   await execa('git', [
     '-C',
@@ -97,5 +110,63 @@ describe('makeLocalBranchFlow', () => {
     expect(meta).toContain('base: main')
     expect(meta).toContain('by Test User')
     expect(meta).toContain('add the feature')
+  })
+
+  it('fetchMetadata returns every commit in base..head, oldest first', async () => {
+    const flow = makeLocalBranchFlow(source())
+    const m = await flow.fetchMetadata()
+    const subjects = (m.commits ?? []).map((c) => c.subject)
+    expect(subjects).toEqual(['scaffold the feature', 'wire up the feature', 'add the feature'])
+    // The scaffold commit body should be preserved so the agent sees the
+    // intent of the earlier work, not just the tip's description.
+    expect(m.commits?.[0]?.body).toBe('set up the directory layout')
+  })
+
+  it('buildSourceMeta lists every commit when the branch has more than one', async () => {
+    const flow = makeLocalBranchFlow(source())
+    const m = await flow.fetchMetadata()
+    const meta = flow.buildSourceMeta(m)
+    expect(meta).toContain('3 commits since base (oldest → newest)')
+    expect(meta).toContain('scaffold the feature')
+    expect(meta).toContain('wire up the feature')
+    expect(meta).toContain('add the feature')
+    expect(meta).toContain('longer body describing why')
+  })
+})
+
+describe('makeLocalBranchFlow with a single-commit branch', () => {
+  // Regression guard: when there is only one commit, the rendered
+  // {{PR_META}} should keep its original single-body shape — no
+  // "1 commits since base" header.
+  let repoPath: string
+  let branchName: string
+  beforeAll(async () => {
+    repoPath = mkdtempSync(join(tmpdir(), 'br-lbflow-single-'))
+    await execa('git', ['-C', repoPath, 'init', '-b', 'main'])
+    await execa('git', ['-C', repoPath, 'config', 'user.email', 'test@example.com'])
+    await execa('git', ['-C', repoPath, 'config', 'user.name', 'Test User'])
+    writeFileSync(join(repoPath, 'README.md'), '# initial\n')
+    await execa('git', ['-C', repoPath, 'add', '.'])
+    await execa('git', ['-C', repoPath, 'commit', '-m', 'initial commit'])
+    branchName = 'feat/single'
+    await execa('git', ['-C', repoPath, 'checkout', '-b', branchName])
+    writeFileSync(join(repoPath, 'NEW.md'), 'one\n')
+    await execa('git', ['-C', repoPath, 'add', '.'])
+    await execa('git', ['-C', repoPath, 'commit', '-m', 'lone commit\n\nlone body'])
+  })
+
+  it('keeps the legacy tip-only render', async () => {
+    const flow = makeLocalBranchFlow({
+      kind: 'local-branch',
+      repoPath,
+      head: 'HEAD',
+      base: 'main',
+    })
+    const m = await flow.fetchMetadata()
+    expect(m.commits).toHaveLength(1)
+    const meta = flow.buildSourceMeta(m)
+    expect(meta).not.toContain('commits since base')
+    expect(meta).toContain('lone commit')
+    expect(meta).toContain('lone body')
   })
 })

@@ -11,10 +11,17 @@
 // is gated as not-supported by the API layer.
 
 import type { GitButlerVBranchSource } from '../../shared/source'
-import { assertGitRepo, readCommitMeta, readDiff } from '../git/local-branch'
+import {
+  assertGitRepo,
+  type CommitEntry,
+  readBranchCommits,
+  readCommitMeta,
+  readDiff,
+} from '../git/local-branch'
 import { prepareLocalSourceContext } from '../git/local-source-prep'
 import { butStatus } from '../gitbutler/cli'
 import { foldStatusToVBranches, type VBranchInfo } from '../gitbutler/inspect'
+import { renderCommitList } from './commit-list'
 import type {
   LoadPriorContextArgs,
   PrepareSourceTreeArgs,
@@ -70,6 +77,13 @@ export function makeGitButlerVBranchFlow(source: GitButlerVBranchSource): Source
     async fetchMetadata(): Promise<SourceMetadata> {
       const v = await ensureVBranch()
       const meta = await readCommitMeta(source.repoPath, v.tipSha)
+      let commits: CommitEntry[] = []
+      try {
+        commits = await readBranchCommits(source.repoPath, v.baseSha, v.tipSha)
+      } catch {
+        // Same best-effort fallback as local-branch: tip-only render
+        // beats failing the whole prep.
+      }
       return {
         title: meta.subject || null,
         author: meta.author,
@@ -81,6 +95,7 @@ export function makeGitButlerVBranchFlow(source: GitButlerVBranchSource): Source
         headRef: source.vbranchName,
         headSha: v.tipSha,
         body: meta.body,
+        commits,
       }
     },
 
@@ -114,6 +129,8 @@ export function makeGitButlerVBranchFlow(source: GitButlerVBranchSource): Source
       const author = meta.author ?? '?'
       const subject = meta.title ?? ''
       const header = `gitbutler-vbranch ${source.vbranchName}@${sha}  (base: ${base})  by ${author}`
+      const list = renderCommitList(meta.commits)
+      if (list) return `${header}\n\n${list}`
       const body = meta.body.length > 0 ? `\n\n${meta.body}` : ''
       return subject ? `${header}\n${subject}${body}` : `${header}${body}`
     },

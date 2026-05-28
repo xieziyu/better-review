@@ -108,6 +108,54 @@ export async function readCommitMeta(
   }
 }
 
+export interface CommitEntry {
+  sha: string
+  author: string | null
+  subject: string
+  body: string
+}
+
+// Enumerate every commit in `base..head` (two-dot range — commits
+// reachable from head but not base), oldest first. Used by the
+// local-branch and vbranch source flows to give the agent the full
+// narrative across a multi-commit branch instead of just the tip.
+//
+// Field separator inside a commit is NUL (`%x00`); record separator
+// between commits is ASCII RS (`\x1e`) — that's not produced by any
+// %-format escape on its own, but `--format` allows raw literals, so
+// we splice it in as a trailing marker after `%b`. Without it, bodies
+// containing blank lines collide with newline-based parsing.
+export async function readBranchCommits(
+  repoPath: string,
+  base: string,
+  head: string,
+): Promise<CommitEntry[]> {
+  assertSafeRev(base, 'base')
+  assertSafeRev(head, 'head')
+  const r = await git(repoPath, [
+    'log',
+    '--reverse',
+    '--format=%H%x00%an%x00%s%x00%b%x1e',
+    '--end-of-options',
+    `${base}..${head}`,
+  ])
+  if (r.exitCode !== 0) throw new LocalGitError(`git log ${base}..${head} failed in ${repoPath}`)
+  const out: CommitEntry[] = []
+  for (const raw of r.stdout.split('\x1e')) {
+    const chunk = raw.replace(/^\n+/, '')
+    if (chunk.length === 0) continue
+    const [sha, author, subject, body] = chunk.split('\x00')
+    if (!sha) continue
+    out.push({
+      sha,
+      author: author && author.length > 0 ? author : null,
+      subject: subject ?? '',
+      body: (body ?? '').replace(/\n+$/, ''),
+    })
+  }
+  return out
+}
+
 // Resolve the configured default remote head (e.g. `refs/remotes/origin/main`).
 // Returns null when the symbolic ref is missing — common right after a
 // `git clone --no-single-branch` or in tests with no remote set up.

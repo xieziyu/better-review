@@ -8,8 +8,15 @@
 // "treat as fresh review" gracefully.
 
 import type { LocalBranchSource } from '../../shared/source'
-import { inspectLocalBranch, readDiff, resolveBase } from '../git/local-branch'
+import {
+  type CommitEntry,
+  inspectLocalBranch,
+  readBranchCommits,
+  readDiff,
+  resolveBase,
+} from '../git/local-branch'
 import { prepareLocalSourceContext } from '../git/local-source-prep'
+import { renderCommitList } from './commit-list'
 import type {
   LoadPriorContextArgs,
   PrepareSourceTreeArgs,
@@ -42,6 +49,14 @@ export function makeLocalBranchFlow(source: LocalBranchSource): SourceFlow {
       })
       cachedHeadSha = inspect.headSha
       const base = await ensureBase()
+      let commits: CommitEntry[] = []
+      try {
+        commits = await readBranchCommits(source.repoPath, base, inspect.headSha)
+      } catch {
+        // Best-effort: a bad base (force-pushed branch, missing ref) is
+        // already surfaced by readDiff downstream; here we just fall back
+        // to the tip-only render so review prep doesn't abort.
+      }
       return {
         title: inspect.subject || null,
         author: inspect.author,
@@ -50,6 +65,7 @@ export function makeLocalBranchFlow(source: LocalBranchSource): SourceFlow {
         headRef: inspect.headRef,
         headSha: inspect.headSha,
         body: inspect.body,
+        commits,
       }
     },
 
@@ -93,6 +109,8 @@ export function makeLocalBranchFlow(source: LocalBranchSource): SourceFlow {
       const author = meta.author ?? '?'
       const subject = meta.title ?? ''
       const header = `local-branch ${ref}@${sha}  (base: ${base})  by ${author}`
+      const list = renderCommitList(meta.commits)
+      if (list) return `${header}\n\n${list}`
       const body = meta.body.length > 0 ? `\n\n${meta.body}` : ''
       return subject ? `${header}\n${subject}${body}` : `${header}${body}`
     },
