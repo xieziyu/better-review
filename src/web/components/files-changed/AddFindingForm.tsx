@@ -74,11 +74,6 @@ export function AddFindingForm({
         <span className="font-mono text-ink-muted">
           {file}:{isRange ? `${startLine}-${line}` : line}
         </span>
-        {!isRange ? (
-          <span className="ml-auto text-meta text-ink-muted">
-            {t('filesChanged.addFinding.extendHint')}
-          </span>
-        ) : null}
       </div>
       <div className="flex items-center gap-2">
         <span className="text-caps tracking-caps text-ink-muted uppercase">

@@ -140,9 +140,12 @@
       "suggestion": "建议（可选）",
       "save": "保存 finding",
       "saving": "保存中…",
-      "extendHint": "按住 Shift 点击 + 可选择代码区间",
       "rangeInvalid": "区间包含了不在 diff 中的行",
-      "gutterTitle": "点击新增 finding · 按 Shift 扩展为区间"
+      "gutterTitle": "点击开始新增 finding · 继续点击其他行可扩展区间"
+    },
+    "pendingSelection": {
+      "hint": "继续点击 + 可扩展区间",
+      "confirm": "新增 finding"
     },
     "toast": {
       "jump": "跳转",

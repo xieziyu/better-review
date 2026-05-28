@@ -140,9 +140,12 @@
       "suggestion": "Suggestion (optional)",
       "save": "Save finding",
       "saving": "Saving…",
-      "extendHint": "Shift-click another + to extend the range",
       "rangeInvalid": "Range crosses lines not in the diff",
-      "gutterTitle": "Click to add finding · Shift-click to extend"
+      "gutterTitle": "Click to start a finding · click more lines to extend"
+    },
+    "pendingSelection": {
+      "hint": "Click + on more lines to extend the range",
+      "confirm": "Add finding"
     },
     "toast": {
       "jump": "Jump",
