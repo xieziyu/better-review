@@ -171,6 +171,15 @@ export function Home() {
         target ? { owner: target.owner, repo: target.repo, limit: 10 } : { limit: 10 },
       ),
   })
+  // Separate, target-independent query for the local/vbranch default. The
+  // primary `recentRepos` query above re-keys on the pasted PR target and
+  // the server reorders by `matchedCurrentRepo DESC` — so its first item
+  // can be a path that matches the current PR rather than the genuinely
+  // most-recently-used path, which is what those tabs want.
+  const { data: allRecentRepos } = useQuery({
+    queryKey: queryKeys.recentRepos('', ''),
+    queryFn: () => api.recentRepos({ limit: 10 }),
+  })
 
   // Auto-fill the local-repo field when the user pastes a PR URL whose
   // owner/repo matches exactly one previously-used local path. Don't clobber
@@ -192,7 +201,7 @@ export function Home() {
   // to the most-recently-used localRepoPath from any session. Bail once the
   // user has touched the field (typed, browsed, or cleared) so we don't
   // clobber an explicit choice when the recent-repos list refreshes.
-  const mostRecentRepoPath = recentRepos?.items[0]?.path ?? null
+  const mostRecentRepoPath = allRecentRepos?.items[0]?.path ?? null
   useEffect(() => {
     if (localTabRepoTouched) return
     if (localTabRepo) return
