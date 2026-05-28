@@ -131,6 +131,7 @@ export function Home() {
   const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
   // Local-branch tab state.
   const [localTabRepo, setLocalTabRepo] = useState('')
+  const [localTabRepoTouched, setLocalTabRepoTouched] = useState(false)
   const [localTabHead, setLocalTabHead] = useState('')
   const [localTabBase, setLocalTabBase] = useState('')
   // Gate the auto-prefill of HEAD: once the user has touched it (typed,
@@ -140,6 +141,7 @@ export function Home() {
   // vbranch tab state. Repo + selected vbranch; inspect result is fetched
   // from the API and drives both the gating and the dropdown contents.
   const [vbranchTabRepo, setVbranchTabRepo] = useState('')
+  const [vbranchTabRepoTouched, setVbranchTabRepoTouched] = useState(false)
   const [vbranchSelected, setVbranchSelected] = useState<string>('')
   // Shared state.
   const [agent, setAgent] = useState<AgentKind | null>(null)
@@ -186,6 +188,22 @@ export function Home() {
     }
   }, [recentRepos, target, localRepoTouched, autoFilledFor])
 
+  // Local-branch and vbranch tabs have no PR URL to match against, so default
+  // to the most-recently-used localRepoPath from any session. Bail once the
+  // user has touched the field (typed, browsed, or cleared) so we don't
+  // clobber an explicit choice when the recent-repos list refreshes.
+  const mostRecentRepoPath = recentRepos?.items[0]?.path ?? null
+  useEffect(() => {
+    if (localTabRepoTouched) return
+    if (localTabRepo) return
+    if (mostRecentRepoPath) setLocalTabRepo(mostRecentRepoPath)
+  }, [mostRecentRepoPath, localTabRepoTouched, localTabRepo])
+  useEffect(() => {
+    if (vbranchTabRepoTouched) return
+    if (vbranchTabRepo) return
+    if (mostRecentRepoPath) setVbranchTabRepo(mostRecentRepoPath)
+  }, [mostRecentRepoPath, vbranchTabRepoTouched, vbranchTabRepo])
+
   const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3)
   // Fallback chain when the user hasn't explicitly clicked an agent button:
   // configured default if it's installed → first installed in AGENT_KINDS
@@ -222,8 +240,10 @@ export function Home() {
           setLocalRepoTouched(true)
         } else if (into === 'local') {
           setLocalTabRepo(r.path)
+          setLocalTabRepoTouched(true)
         } else {
           setVbranchTabRepo(r.path)
+          setVbranchTabRepoTouched(true)
         }
       }
     } catch (e) {
@@ -557,7 +577,10 @@ export function Home() {
               <input
                 type="text"
                 value={localTabRepo}
-                onChange={(e) => setLocalTabRepo(e.target.value)}
+                onChange={(e) => {
+                  setLocalTabRepo(e.target.value)
+                  setLocalTabRepoTouched(true)
+                }}
                 placeholder={t('home.local.repoPlaceholder')}
                 className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
                 aria-label={t('home.local.repoAriaLabel')}
@@ -666,7 +689,10 @@ export function Home() {
               <input
                 type="text"
                 value={vbranchTabRepo}
-                onChange={(e) => setVbranchTabRepo(e.target.value)}
+                onChange={(e) => {
+                  setVbranchTabRepo(e.target.value)
+                  setVbranchTabRepoTouched(true)
+                }}
                 placeholder={t('home.vbranch.repoPlaceholder')}
                 className="flex-1 py-2 bg-transparent text-h2 text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
                 aria-label={t('home.vbranch.repoAriaLabel')}
