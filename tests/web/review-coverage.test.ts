@@ -37,6 +37,8 @@ function finding(over: Partial<Finding> & Pick<Finding, 'severity'>): Finding {
     archived: false,
     createdAt: 0,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
     ...over,
   }
 }

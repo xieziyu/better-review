@@ -96,6 +96,16 @@ export interface Finding extends FindingFromAgent {
   archived: boolean
   createdAt: number
   source: FindingSource
+  // submitted_at of the earliest non-error submission that included this
+  // finding. Stays set even if the user later re-selects + re-submits, so
+  // the badge is durable. Null when the finding has never been part of a
+  // successful submission for this session.
+  submittedAt: number | null
+  // GitHub review-comment id from the latest submission_comments row whose
+  // github_comment_id is known. Null when this finding only ever ended up
+  // in the review body (drop-to-body) or when the post-submit comment
+  // back-fetch did not capture the id.
+  submittedCommentId: number | null
 }
 
 export type ReviewEvent = 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'

@@ -25,6 +25,8 @@ function mkFinding(overrides: Partial<Finding> = {}): Finding {
     archived: false,
     createdAt: 1_700_000_000_000,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
     ...overrides,
   }
 }

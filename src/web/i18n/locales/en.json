@@ -467,6 +467,9 @@
     "unselectAriaLabel": "Unselect finding {{id}}",
     "selectAriaLabel": "Select finding {{id}}",
     "edited": "Edited",
+    "submittedBadge": "Submitted",
+    "submittedBadgeAria": "Already submitted to GitHub — open posted comment",
+    "submittedNoLinkAria": "Already submitted to GitHub (no posted-comment link available)",
     "openOnGithub": "Open on GitHub",
     "edit": "Edit",
     "delete": "Delete",
@@ -491,7 +494,10 @@
       "emptyTitle": "Nothing to review",
       "emptyBody": "Either the agent ran cleanly, or it had nothing to say. Rerun to give it another pass.",
       "prWide": "PR-wide",
-      "addedToBody": "added to review body on submit"
+      "addedToBody": "added to review body on submit",
+      "submittedSection_one": "Submitted ({{count}})",
+      "submittedSection_other": "Submitted ({{count}})",
+      "submittedSectionHint": "Already posted to GitHub from this session"
     }
   },
   "submit": {

@@ -28,6 +28,8 @@ function f(over: Partial<Finding>): Finding {
     archived: false,
     createdAt: 1,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
     ...over,
   }
 }
@@ -194,6 +196,8 @@ describe('buildSubmitPayload', () => {
           file: 'foo.ts',
           line: null,
           source: 'agent',
+          submittedAt: null,
+          submittedCommentId: null,
           title: 'agent file-level note',
         }),
       ],

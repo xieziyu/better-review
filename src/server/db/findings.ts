@@ -22,6 +22,11 @@ interface Row {
   archived: number
   created_at: number
   source: string | null
+  // The two columns below are present only on rows returned by list/getById
+  // (which JOIN the submitted state in). Inserts construct findings without
+  // these and explicitly set null on the resulting Finding.
+  submitted_at: number | null
+  submitted_comment_id: number | null
 }
 
 function rowToFinding(r: Row, agentId: string): Finding {
@@ -41,11 +46,39 @@ function rowToFinding(r: Row, agentId: string): Finding {
     archived: r.archived === 1,
     createdAt: r.created_at,
     source: (r.source as FindingSource | null) ?? 'agent',
+    submittedAt: r.submitted_at,
+    submittedCommentId: r.submitted_comment_id,
   }
   if (r.suggestion !== null) f.suggestion = r.suggestion
   if (r.start_line !== null) f.startLine = r.start_line
   return f
 }
+
+// SELECT fragment shared by listBySession / getById. Computes:
+//  - submitted_at: earliest non-error submission that included this finding
+//    (sticky once set, even if the user later re-selects + re-submits).
+//  - submitted_comment_id: most recent submission_comments row with a known
+//    github_comment_id for this finding. Null when only ever drop-to-body
+//    or when the comment back-fetch missed.
+const FINDING_SELECT = `
+  f.*,
+  (
+    SELECT MIN(s.submitted_at) FROM submissions s
+    WHERE s.session_id = f.session_id
+      AND s.error IS NULL
+      AND EXISTS (
+        SELECT 1 FROM json_each(s.finding_ids) je WHERE je.value = f.id
+      )
+  ) AS submitted_at,
+  (
+    SELECT sc.github_comment_id FROM submission_comments sc
+    JOIN submissions s ON s.id = sc.submission_id
+    WHERE sc.finding_db_id = f.id
+      AND sc.github_comment_id IS NOT NULL
+      AND s.error IS NULL
+    ORDER BY sc.created_at DESC LIMIT 1
+  ) AS submitted_comment_id
+`
 
 export interface UpdateFindingPatch {
   severity?: Finding['severity']
@@ -113,6 +146,8 @@ export class FindingsRepo {
           archived: false,
           createdAt: now,
           source,
+          submittedAt: null,
+          submittedCommentId: null,
         }
         if (it.suggestion !== undefined) f.suggestion = it.suggestion
         if (it.startLine !== undefined) f.startLine = it.startLine
@@ -147,15 +182,17 @@ export class FindingsRepo {
   }
 
   listBySession(sessionId: string, opts: { includeArchived?: boolean } = {}): Finding[] {
-    const where = opts.includeArchived ? 'session_id=?' : 'session_id=? AND archived=0'
+    const where = opts.includeArchived ? 'f.session_id=?' : 'f.session_id=? AND f.archived=0'
     const rows = this.db
-      .prepare(`SELECT * FROM findings WHERE ${where} ORDER BY ord ASC`)
+      .prepare(`SELECT ${FINDING_SELECT} FROM findings f WHERE ${where} ORDER BY f.ord ASC`)
       .all(sessionId) as Row[]
     return rows.map((r) => rowToFinding(r, 'R' + r.ord))
   }
 
   getById(dbId: string): Finding | null {
-    const r = this.db.prepare('SELECT * FROM findings WHERE id=?').get(dbId) as Row | undefined
+    const r = this.db.prepare(`SELECT ${FINDING_SELECT} FROM findings f WHERE f.id=?`).get(dbId) as
+      | Row
+      | undefined
     return r ? rowToFinding(r, 'R' + r.ord) : null
   }
 
