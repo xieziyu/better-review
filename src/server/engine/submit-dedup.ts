@@ -21,7 +21,8 @@ export interface PriorPostedComment {
   findingDbId: string | null
   githubCommentId: number | null
   path: string
-  line: number
+  // null for file-level comments (subject_type:'file').
+  line: number | null
   startLine: number | null
   // Raw body of the prior comment as it sits on GitHub.
   body: string
@@ -68,12 +69,14 @@ function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: numbe
   return aEnd >= bStart && aStart <= bEnd
 }
 
-function rangeOf(c: { line: number; start_line?: number }): [number, number] {
+function rangeOf(c: { line?: number; start_line?: number }): [number, number] | null {
+  if (c.line === undefined) return null
   const start = c.start_line && c.start_line < c.line ? c.start_line : c.line
   return [start, c.line]
 }
 
-function priorRange(p: PriorPostedComment): [number, number] {
+function priorRange(p: PriorPostedComment): [number, number] | null {
+  if (p.line === null) return null
   const start = p.startLine !== null && p.startLine < p.line ? p.startLine : p.line
   return [start, p.line]
 }
@@ -87,21 +90,28 @@ export function dedupAgainstPrior(
   const skipped: SkippedDuplicate[] = []
   for (const c of proposed) {
     let match: PriorPostedComment | null = null
-    const [cs, ce] = rangeOf(c)
+    let reason = ''
+    const proposedRange = rangeOf(c)
     for (const p of prior) {
       if (p.path !== c.path) continue
-      const [ps, pe] = priorRange(p)
-      if (!rangesOverlap(cs, ce, ps, pe)) continue
-      if (!titlesMatch(c.body, p.body)) continue
+      const priorR = priorRange(p)
+      if (proposedRange === null && priorR === null) {
+        // Both file-level on the same file → match on title only.
+        if (!titlesMatch(c.body, p.body)) continue
+        reason = 'matches prior file-level comment on same file'
+      } else if (proposedRange !== null && priorR !== null) {
+        if (!rangesOverlap(proposedRange[0], proposedRange[1], priorR[0], priorR[1])) continue
+        if (!titlesMatch(c.body, p.body)) continue
+        reason = 'matches prior comment on same lines'
+      } else {
+        // Anchor shape differs (file vs. line) — not a duplicate.
+        continue
+      }
       match = p
       break
     }
     if (match) {
-      skipped.push({
-        comment: c,
-        reason: 'matches prior comment on same lines',
-        priorMatch: match,
-      })
+      skipped.push({ comment: c, reason, priorMatch: match })
     } else {
       toSubmit.push(c)
     }

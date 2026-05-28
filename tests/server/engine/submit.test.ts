@@ -209,7 +209,8 @@ describe('submitSession', () => {
           commit_id: 'sha',
           original_commit_id: 'sha',
           in_reply_to_id: null,
-          body: 'whatever GitHub returns',
+          // GitHub echoes the body we sent verbatim.
+          body: '🔴 **[MUST]** t1\n\nb1',
           created_at: '2026-05-11T00:00:00Z',
         },
       ],
@@ -231,6 +232,148 @@ describe('submitSession', () => {
     expect(sc[0]!.line).toBe(11)
     expect(sc[0]!.githubCommentId).toBe(9001)
     expect(sc[0]!.findingDbId).toBe(findings.listBySession('s1')[0]!.dbId)
+  })
+
+  it('renders file-level manual findings into the review body, not as inline comments', async () => {
+    // GitHub's create-review endpoint rejects subject_type:'file' in
+    // comments[], so file-level manual findings can't be posted as
+    // file-anchored inline comments via this endpoint. They render into
+    // the review body and produce no submission_comments rows.
+    const { sessions, findings, submissions, submissionComments } = setup()
+    findings.insertManual('s1', {
+      severity: 'should',
+      category: 'Correctness',
+      file: 'foo.ts',
+      title: 'file-level one',
+      body: 'first manual file-level note',
+    })
+    findings.insertManual('s1', {
+      severity: 'nit',
+      category: 'Style',
+      file: 'foo.ts',
+      title: 'file-level two',
+      body: 'second manual file-level note',
+    })
+    let received: ReviewPayload | null = null
+    const gh = ghStub({ onSubmit: (p) => (received = p), reviewId: 7000 })
+    await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(received!.comments).toHaveLength(0)
+    expect(received!.body).toContain('file-level one')
+    expect(received!.body).toContain('file-level two')
+    expect(submissionComments.listByPR('o', 'r', 1)).toHaveLength(0)
+  })
+
+  it('pairs the right finding when two findings share a line and one is deduped', async () => {
+    // Two findings at the same (path, line). One matches a prior posted
+    // comment and gets skipped by dedup; the survivor must be paired back
+    // to its OWN finding for the submission_comments row, not to the
+    // deduped sibling that simply happened to come first in the list.
+    const { sessions, findings, submissions, submissionComments } = setup()
+    sessions.insert({
+      id: 'prior',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'archived',
+      agent: 'claude',
+      workdir: '/w-prior',
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+    const priorSubId = submissions.insert({
+      sessionId: 'prior',
+      event: 'COMMENT',
+      githubUrl: 'https://gh/prior',
+      githubReviewId: 100,
+      payloadJson: '{}',
+      findingIds: [],
+      error: null,
+    })
+    submissionComments.insertMany(priorSubId, [
+      {
+        findingDbId: null,
+        githubCommentId: 8000,
+        file: 'foo.ts',
+        line: 11,
+        startLine: null,
+        title: 'the duplicate one we will hit again',
+        body: '🔴 **[MUST]** the duplicate one we will hit again\n\nbody-a',
+      },
+    ])
+    // F_dup matches the prior comment (same title, overlapping range); it
+    // will be dedup-skipped. F_keep survives and is the only one posted.
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 'the duplicate one we will hit again',
+        body: 'body-a',
+      },
+      {
+        id: 'R2',
+        severity: 'should',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 'a fresh finding to keep on the same line',
+        body: 'body-b',
+      },
+    ])
+    const insertedFindings = findings.listBySession('s1')
+    const fDup = insertedFindings.find((f) => f.title.startsWith('the duplicate'))!
+    const fKeep = insertedFindings.find((f) => f.title.startsWith('a fresh'))!
+    const gh = ghStub({
+      reviewId: 9000,
+      comments: [
+        {
+          id: 9100,
+          pull_request_review_id: 9000,
+          user: { login: 'me' },
+          path: 'foo.ts',
+          line: 11,
+          start_line: null,
+          side: 'RIGHT',
+          start_side: null,
+          commit_id: 'sha',
+          original_commit_id: 'sha',
+          in_reply_to_id: null,
+          body: '🟡 **[SHOULD]** a fresh finding to keep on the same line\n\nbody-b',
+          created_at: '2026-05-28T00:00:00Z',
+        },
+      ],
+    })
+    const out = await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(out.skippedDuplicates).toBe(1)
+    const subSc = submissionComments.listByPR('o', 'r', 1).filter((r) => r.githubCommentId === 9100)
+    expect(subSc).toHaveLength(1)
+    // The crux: the surviving comment must be associated with F_keep,
+    // not F_dup that was skipped before we ever reached pairing.
+    expect(subSc[0]!.findingDbId).toBe(fKeep.dbId)
+    expect(subSc[0]!.findingDbId).not.toBe(fDup.dbId)
   })
 
   it('dedups against prior posted comments on the same PR', async () => {

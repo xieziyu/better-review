@@ -71,13 +71,17 @@ export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: 
     onSuccess: invalidate,
   })
 
+  // File-level findings render into the review body, where GitHub's
+  // suggestion fence isn't actionable. Hide the editor and never write
+  // suggestion back for them.
+  const isFileLevel = finding.line === null
   const save = useMutation({
     mutationFn: () =>
       api.updateFinding(finding.dbId, {
         title: draft.title,
         body: draft.body,
         severity: draft.severity,
-        suggestion: draft.suggestion ? draft.suggestion : null,
+        suggestion: isFileLevel ? null : draft.suggestion ? draft.suggestion : null,
       }),
     onSuccess: () => {
       invalidate()
@@ -305,23 +309,27 @@ export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: 
             )}
           </section>
 
-          <section className="space-y-2">
-            <SectionHeader>{t('inspector.section.suggestion')}</SectionHeader>
-            {!editing ? (
-              finding.suggestion ? (
-                <CodeBlock code={finding.suggestion} fallbackFile={finding.file} />
+          {isFileLevel ? null : (
+            <section className="space-y-2">
+              <SectionHeader>{t('inspector.section.suggestion')}</SectionHeader>
+              {!editing ? (
+                finding.suggestion ? (
+                  <CodeBlock code={finding.suggestion} fallbackFile={finding.file} />
+                ) : (
+                  <p className="text-meta text-ink-muted">
+                    {t('inspector.section.suggestionEmpty')}
+                  </p>
+                )
               ) : (
-                <p className="text-meta text-ink-muted">{t('inspector.section.suggestionEmpty')}</p>
-              )
-            ) : (
-              <textarea
-                aria-label={t('finding.form.suggestionAria')}
-                value={draft.suggestion}
-                onChange={(e) => setDraft({ ...draft, suggestion: e.target.value })}
-                className="w-full min-h-[6rem] p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
-              />
-            )}
-          </section>
+                <textarea
+                  aria-label={t('finding.form.suggestionAria')}
+                  value={draft.suggestion}
+                  onChange={(e) => setDraft({ ...draft, suggestion: e.target.value })}
+                  className="w-full min-h-[6rem] p-2 font-mono text-code rounded-md bg-sunken border border-rule text-ink-primary focus:outline-none focus:border-brand transition-colors duration-180 ease-out-quart resize-y"
+                />
+              )}
+            </section>
+          )}
 
           {!editing && finding.file && finding.line !== null ? (
             <section className="space-y-2">

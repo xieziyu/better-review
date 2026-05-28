@@ -7,7 +7,7 @@ import type { SessionsRepo } from '../db/sessions'
 import type { SubmissionCommentsRepo, NewSubmissionComment } from '../db/submission-comments'
 import type { SubmissionsRepo } from '../db/submissions'
 import type { GhClient, ReviewComment } from '../github/gh-client'
-import { buildSubmitPayload } from './payload-builder'
+import { buildSubmitPayload, renderInlineComment } from './payload-builder'
 import { dedupAgainstPrior, type PriorPostedComment } from './submit-dedup'
 
 export interface SubmitArgs {
@@ -29,9 +29,12 @@ export interface SubmitResult {
   skippedDuplicates: number
 }
 
-// Pick the originating Finding for each ReviewComment we sent. The payload
-// builder emits comments in the order of selected findings that survived
-// `isLineInDiff`, so we walk in the same order and match by path+line.
+// Pick the originating Finding for each ReviewComment we sent. After
+// cross-session dedup the comment list is no longer position-aligned with
+// `candidates`, so we also include the rendered comment body in the match
+// key — two findings at the same `(path, line)` produce distinct bodies,
+// and the body is exactly what `renderInlineComment(finding)` emits inside
+// `buildSubmitPayload`.
 function pairCommentsToFindings(
   comments: ReviewComment[],
   candidates: Finding[],
@@ -40,7 +43,10 @@ function pairCommentsToFindings(
   return comments.map((c) => {
     const idx = remaining.findIndex(
       (f) =>
-        f.file === c.path && f.line === c.line && (f.startLine ?? null) === (c.start_line ?? null),
+        f.file === c.path &&
+        (f.line ?? null) === (c.line ?? null) &&
+        (f.startLine ?? null) === (c.start_line ?? null) &&
+        renderInlineComment(f) === c.body,
     )
     if (idx >= 0) {
       const [f] = remaining.splice(idx, 1)
@@ -85,14 +91,12 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   // already posted for this PR in a prior submission.
   const priorRows = args.submissionComments.listByPR(session.owner, session.repo, session.number)
   const prior: PriorPostedComment[] = priorRows
-    .filter(
-      (r): r is typeof r & { line: number; path: string } => r.line !== null && r.file !== null,
-    )
+    .filter((r): r is typeof r & { file: string } => r.file !== null)
     .map((r) => ({
       findingDbId: r.findingDbId,
       githubCommentId: r.githubCommentId,
       path: r.file as string,
-      line: r.line as number,
+      line: r.line,
       startLine: r.startLine,
       body: r.body,
     }))
@@ -135,13 +139,19 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
       (c) => c.pull_request_review_id === r.id && c.in_reply_to_id === null,
     )
     const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates)
+    // Consume `ourComments` one-by-one, removing each match so two outgoing
+    // comments on the same path+line can't both claim the same GitHub id.
+    // `body` is part of the match key so two findings at the same line are
+    // matched to the right echo.
     const rows: NewSubmissionComment[] = paired.map(({ comment, finding }) => {
-      const match = ourComments.find(
+      const matchIdx = ourComments.findIndex(
         (gc) =>
           gc.path === comment.path &&
           gc.line === comment.line &&
-          (gc.start_line ?? null) === (comment.start_line ?? null),
+          (gc.start_line ?? null) === (comment.start_line ?? null) &&
+          gc.body === comment.body,
       )
+      const match = matchIdx >= 0 ? ourComments.splice(matchIdx, 1)[0] : undefined
       return {
         findingDbId: finding?.dbId ?? null,
         githubCommentId: match?.id ?? null,

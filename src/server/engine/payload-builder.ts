@@ -35,7 +35,7 @@ function renderFindingMarkdown(f: Finding): string {
   return `${head}\n\n${f.body}${sug}`
 }
 
-function renderInlineComment(f: Finding): string {
+export function renderInlineComment(f: Finding): string {
   const tag = severityTag(f.severity)
   const sug = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
   return `${tag} ${f.title}\n\n${f.body}${sug}`
@@ -47,7 +47,16 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
   const bodyParts: string[] = []
   if (args.userBody) bodyParts.push(args.userBody)
   for (const f of args.findings) {
-    if (!f.file || !f.line) {
+    if (!f.file) {
+      bodyParts.push(renderFindingMarkdown(f))
+      continue
+    }
+    if (!f.line) {
+      // No line anchor → render into the review body. GitHub's
+      // `POST /pulls/:n/reviews` endpoint does not accept `subject_type`
+      // in its `comments[]` items (that field only exists on the
+      // standalone `POST /pulls/:n/comments` endpoint), so file-level
+      // findings cannot ride along the review payload as inline comments.
       bodyParts.push(renderFindingMarkdown(f))
       continue
     }

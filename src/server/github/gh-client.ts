@@ -56,9 +56,9 @@ export interface DiffResult {
 
 export interface ReviewComment {
   path: string
-  line: number
   body: string
-  side?: 'RIGHT' | 'LEFT'
+  line: number
+  side: 'RIGHT' | 'LEFT'
   start_line?: number
   start_side?: 'RIGHT' | 'LEFT'
 }

@@ -187,6 +187,44 @@ describe('SubmitDrawer', () => {
     expect(prWide).toHaveTextContent(/Design/)
   })
 
+  it('groups manual file-level findings separately from PR-wide and excludes them from the inline count', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [
+          mk({
+            id: 'R1',
+            dbId: 'd1',
+            file: 'src/x.ts',
+            line: null,
+            source: 'manual',
+            title: 'whole-file concern',
+          }),
+          mk({
+            id: 'R2',
+            dbId: 'd2',
+            file: null,
+            line: null,
+            title: 'architectural note',
+          }),
+        ],
+      }),
+    )
+    // File-level manual finding lands in its own section, not in pr-wide.
+    const fileLevelList = screen.getByTestId('file-level-list')
+    expect(fileLevelList).toHaveTextContent(/whole-file concern/)
+    expect(fileLevelList).not.toHaveTextContent(/architectural note/)
+    const prWide = screen.getByTestId('pr-wide-list')
+    expect(prWide).toHaveTextContent(/architectural note/)
+    expect(prWide).not.toHaveTextContent(/whole-file concern/)
+    // File-level findings render into the review body, not as inline
+    // comments — GitHub's create-review API rejects subject_type:'file'.
+    // So the confirmation's inline count must not include them.
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+    expect(screen.getByText(/0 inline comments/i)).toBeInTheDocument()
+  })
+
   it('defaults to COMMENT event', async () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
