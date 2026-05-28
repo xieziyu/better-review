@@ -549,6 +549,10 @@
     "newReview": "新建评审",
     "sessionsAria": "会话列表",
     "resizeAria": "调整侧边栏宽度",
+    "collapseAria": "折叠侧边栏",
+    "expandAria": "展开侧边栏",
+    "searchExpandAria": "展开侧边栏并搜索",
+    "runningBadgeAria": "进行中：{{count}}",
     "search": {
       "placeholder": "搜索 PR # / 标题 / repo / @作者",
       "ariaLabel": "搜索会话",

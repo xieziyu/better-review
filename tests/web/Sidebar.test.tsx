@@ -191,6 +191,66 @@ describe('Sidebar', () => {
   })
 })
 
+describe('Sidebar collapse', () => {
+  it('toggles to a rail and back via the divider chevron', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<Sidebar />, { sessions: [mkSession({ title: 'visible only when expanded' })] }),
+    )
+    expect(screen.getByText('visible only when expanded')).toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' })
+    await user.click(toggle)
+    expect(screen.queryByText('visible only when expanded')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /new review/i })).toHaveAttribute('href', '/')
+    expect(window.localStorage.getItem('better-review:sidebar-collapsed:v1')).toBe('1')
+    const expandToggle = screen.getByRole('button', { name: 'Expand sidebar' })
+    await user.click(expandToggle)
+    expect(screen.getByText('visible only when expanded')).toBeInTheDocument()
+    expect(window.localStorage.getItem('better-review:sidebar-collapsed:v1')).toBe('0')
+  })
+
+  it('restores collapsed state from localStorage on mount', () => {
+    window.localStorage.setItem('better-review:sidebar-collapsed:v1', '1')
+    render(withClient(<Sidebar />, { sessions: [mkSession({ title: 'should be hidden' })] }))
+    expect(screen.queryByText('should be hidden')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
+  })
+
+  it('rail search button expands the sidebar and focuses the search input', async () => {
+    window.localStorage.setItem('better-review:sidebar-collapsed:v1', '1')
+    const user = userEvent.setup()
+    render(withClient(<Sidebar />, { sessions: [mkSession()] }))
+    const searchButton = screen.getByRole('button', { name: /expand sidebar and search/i })
+    await user.click(searchButton)
+    const input = screen.getByRole('textbox', { name: /search sessions/i })
+    expect(input).toHaveFocus()
+  })
+
+  it('renders the running badge in the rail only when at least one session is running', () => {
+    window.localStorage.setItem('better-review:sidebar-collapsed:v1', '1')
+    const { unmount } = render(
+      withClient(<Sidebar />, {
+        sessions: [
+          mkSession({ id: 'a', status: 'ready' }),
+          mkSession({ id: 'b', status: 'submitted' }),
+        ],
+      }),
+    )
+    expect(screen.queryByLabelText(/running:/i)).not.toBeInTheDocument()
+    unmount()
+    render(
+      withClient(<Sidebar />, {
+        sessions: [
+          mkSession({ id: 'a', status: 'running' }),
+          mkSession({ id: 'b', status: 'running' }),
+          mkSession({ id: 'c', status: 'ready' }),
+        ],
+      }),
+    )
+    expect(screen.getByLabelText(/running: 2/i)).toBeInTheDocument()
+  })
+})
+
 describe('matchesSearch', () => {
   const s = (overrides: Partial<PRSession>): PRSession => mkSession(overrides)
 

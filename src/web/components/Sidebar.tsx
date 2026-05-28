@@ -1,6 +1,6 @@
 import type { PRSession, SessionStatus } from '@shared/types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink } from 'react-router-dom'
@@ -53,6 +53,18 @@ const SIDEBAR_MAX = 560
 const SIDEBAR_DEFAULT = 300
 const SIDEBAR_KEY = 'better-review:sidebar-width:v2'
 const FILTER_KEY = 'better-review:sidebar-filter:v1'
+const COLLAPSED_KEY = 'better-review:sidebar-collapsed:v1'
+const RAIL_WIDTH = 48
+
+function readCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(COLLAPSED_KEY) === '1'
+}
+
+function writeCollapsed(value: boolean): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0')
+}
 
 function readFilter(): Set<GroupKey> {
   if (typeof window === 'undefined') return new Set(ALL_GROUPS)
@@ -250,6 +262,50 @@ function FilterChip({ group, count, active, onToggle }: FilterChipProps) {
   )
 }
 
+interface SidebarRailProps {
+  runningCount: number
+  onExpandFocusSearch: () => void
+}
+
+function SidebarRail({ runningCount, onExpandFocusSearch }: SidebarRailProps) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col items-center gap-1.5 py-3">
+      <Link
+        to="/"
+        aria-label={t('sidebar.newReviewAria')}
+        title={t('sidebar.newReview')}
+        className="inline-flex items-center justify-center size-8 rounded-md border border-[color:var(--btn-primary-border)] bg-[color:var(--btn-primary-bg)] text-[color:var(--btn-primary-ink)] hover:bg-[color:color-mix(in_oklch,var(--btn-primary-bg)_85%,var(--btn-primary-border))] transition-colors duration-180 ease-out-quart"
+      >
+        <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
+      </Link>
+      <button
+        type="button"
+        onClick={onExpandFocusSearch}
+        aria-label={t('sidebar.searchExpandAria')}
+        title={t('sidebar.search.ariaLabel')}
+        className="inline-flex items-center justify-center size-8 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-canvas/60 transition-colors duration-180 ease-out-quart"
+      >
+        <Search size={15} aria-hidden="true" />
+      </button>
+      <div className="flex-1" />
+      {runningCount > 0 ? (
+        <div
+          aria-label={t('sidebar.runningBadgeAria', { count: runningCount })}
+          title={t('sidebar.runningBadgeAria', { count: runningCount })}
+          className="inline-flex items-center gap-1 h-5 px-1.5 rounded-full bg-canvas border border-rule font-mono text-[10px] tabular-nums text-accent-active"
+        >
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full bg-accent-active animate-running-pulse"
+          />
+          <span>{runningCount}</span>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function Sidebar() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -271,15 +327,47 @@ export function Sidebar() {
 
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Set<GroupKey>>(() => readFilter())
+  const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed())
+  // Set when the user triggers an expand-and-focus action (rail search button
+  // or ⌘K while collapsed). The effect below focuses the input once it's in
+  // the tree after the collapsed→expanded transition.
+  const [pendingSearchFocus, setPendingSearchFocus] = useState(false)
   const searchRef = useRef<HTMLInputElement | null>(null)
 
-  // ⌘K / Ctrl+K focuses the search input. Skip when the user is already
-  // typing in a different input so we don't hijack form fields elsewhere.
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev
+      writeCollapsed(next)
+      return next
+    })
+  }, [])
+
+  const expandAndFocusSearch = useCallback(() => {
+    setCollapsed(false)
+    writeCollapsed(false)
+    setPendingSearchFocus(true)
+  }, [])
+
+  useEffect(() => {
+    if (collapsed || !pendingSearchFocus) return
+    const el = searchRef.current
+    if (!el) return
+    el.focus()
+    el.select()
+    setPendingSearchFocus(false)
+  }, [collapsed, pendingSearchFocus])
+
+  // ⌘K / Ctrl+K focuses the search input. When the sidebar is collapsed, it
+  // first expands and then focuses on the next render.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'k' && e.key !== 'K') return
       if (!(e.metaKey || e.ctrlKey)) return
       e.preventDefault()
+      if (collapsed) {
+        expandAndFocusSearch()
+        return
+      }
       const el = searchRef.current
       if (!el) return
       el.focus()
@@ -287,13 +375,20 @@ export function Sidebar() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [collapsed, expandAndFocusSearch])
 
   const groupCounts = useMemo(() => {
     const counts: Record<GroupKey, number> = { active: 0, done: 0, stale: 0 }
     for (const s of sessions) counts[GROUP_OF[s.status]] += 1
     return counts
   }, [sessions])
+
+  // Rail badge only highlights actively running agents (not pending prep),
+  // so a non-zero count means "something is producing findings right now."
+  const runningCount = useMemo(
+    () => sessions.filter((s) => s.status === 'running').length,
+    [sessions],
+  )
 
   // If the user has toggled every chip off, treat it as "no filter" rather
   // than rendering an empty list — the chips become a quick subset selector,
@@ -369,144 +464,183 @@ export function Sidebar() {
   const hasSessions = sessions.length > 0
   const hasVisible = visibleCount > 0
 
+  const collapseLabel = collapsed ? t('sidebar.expandAria') : t('sidebar.collapseAria')
+
   return (
     <aside
-      style={{ width }}
-      className="relative shrink-0 border-r border-rule bg-raised flex flex-col min-h-0"
+      style={{ width: collapsed ? RAIL_WIDTH : width }}
+      className="relative shrink-0 border-r border-rule bg-raised flex flex-col min-h-0 z-10"
     >
-      <div className="px-4 pt-3 pb-2.5 border-b border-rule space-y-2.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
-            {t('sidebar.eyebrow')}
-          </span>
-          <span
-            className="font-mono text-meta text-ink-muted tabular-nums truncate"
-            aria-live="polite"
-          >
-            {t('sidebar.total', { count: sessions.length })}
-          </span>
-          <Link
-            to="/"
-            aria-label={t('sidebar.newReviewAria')}
-            title={t('sidebar.newReview')}
-            className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-[color:var(--btn-primary-border)] bg-[color:var(--btn-primary-bg)] text-[color:var(--btn-primary-ink)] text-meta font-semibold hover:bg-[color:color-mix(in_oklch,var(--btn-primary-bg)_85%,var(--btn-primary-border))] transition-colors duration-180 ease-out-quart"
-          >
-            <Plus size={13} aria-hidden="true" strokeWidth={2.5} />
-            <span>{t('sidebar.newReview')}</span>
-          </Link>
-        </div>
+      {collapsed ? (
+        <SidebarRail runningCount={runningCount} onExpandFocusSearch={expandAndFocusSearch} />
+      ) : (
+        <>
+          <div className="px-4 pt-3 pb-2.5 border-b border-rule space-y-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+                {t('sidebar.eyebrow')}
+              </span>
+              <span
+                className="font-mono text-meta text-ink-muted tabular-nums truncate"
+                aria-live="polite"
+              >
+                {t('sidebar.total', { count: sessions.length })}
+              </span>
+              <Link
+                to="/"
+                aria-label={t('sidebar.newReviewAria')}
+                title={t('sidebar.newReview')}
+                className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-[color:var(--btn-primary-border)] bg-[color:var(--btn-primary-bg)] text-[color:var(--btn-primary-ink)] text-meta font-semibold hover:bg-[color:color-mix(in_oklch,var(--btn-primary-bg)_85%,var(--btn-primary-border))] transition-colors duration-180 ease-out-quart"
+              >
+                <Plus size={13} aria-hidden="true" strokeWidth={2.5} />
+                <span>{t('sidebar.newReview')}</span>
+              </Link>
+            </div>
 
-        <label className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-rule bg-canvas focus-within:border-brand focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)] transition-[border-color,box-shadow] duration-180 ease-out-quart">
-          <Search size={13} className="text-ink-muted shrink-0" aria-hidden="true" />
-          <input
-            ref={searchRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('sidebar.search.placeholder')}
-            aria-label={t('sidebar.search.ariaLabel')}
-            spellCheck={false}
-            autoComplete="off"
-            className="flex-1 min-w-0 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none"
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={clearSearch}
-              aria-label={t('sidebar.search.clearAriaLabel')}
-              className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+            <label className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-rule bg-canvas focus-within:border-brand focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)] transition-[border-color,box-shadow] duration-180 ease-out-quart">
+              <Search size={13} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('sidebar.search.placeholder')}
+                aria-label={t('sidebar.search.ariaLabel')}
+                spellCheck={false}
+                autoComplete="off"
+                className="flex-1 min-w-0 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  aria-label={t('sidebar.search.clearAriaLabel')}
+                  className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              ) : (
+                <kbd
+                  aria-hidden="true"
+                  className="shrink-0 font-mono text-[10px] text-ink-muted bg-raised border border-rule rounded px-1 py-px"
+                >
+                  {t('sidebar.search.kbd')}
+                </kbd>
+              )}
+            </label>
+
+            <div
+              role="group"
+              aria-label={t('sidebar.filter.ariaLabel')}
+              className="flex flex-wrap gap-1.5"
             >
-              <X size={12} aria-hidden="true" />
-            </button>
-          ) : (
-            <kbd
-              aria-hidden="true"
-              className="shrink-0 font-mono text-[10px] text-ink-muted bg-raised border border-rule rounded px-1 py-px"
-            >
-              {t('sidebar.search.kbd')}
-            </kbd>
-          )}
-        </label>
-
-        <div
-          role="group"
-          aria-label={t('sidebar.filter.ariaLabel')}
-          className="flex flex-wrap gap-1.5"
-        >
-          {GROUP_ORDER.map((g) => (
-            <FilterChip
-              key={g}
-              group={g}
-              count={groupCounts[g]}
-              active={filter.has(g)}
-              onToggle={toggleFilter}
-            />
-          ))}
-        </div>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto" aria-label={t('sidebar.sessionsAria')}>
-        {!hasSessions ? (
-          <div className="px-5 py-8">
-            <EmptyState
-              eyebrow={t('sidebar.emptyEyebrow')}
-              title={t('sidebar.emptyTitle')}
-              body={t('sidebar.emptyBody')}
-            />
+              {GROUP_ORDER.map((g) => (
+                <FilterChip
+                  key={g}
+                  group={g}
+                  count={groupCounts[g]}
+                  active={filter.has(g)}
+                  onToggle={toggleFilter}
+                />
+              ))}
+            </div>
           </div>
-        ) : !hasVisible ? (
-          <div className="px-5 py-8">
-            <EmptyState
-              eyebrow={t('sidebar.noMatchEyebrow')}
-              title={t('sidebar.noMatchTitle')}
-              body={t('sidebar.noMatchBody')}
-            />
-          </div>
-        ) : (
-          <div className="pb-6">
-            {Array.from(visible.prByStatus.values()).some((arr) => arr.length > 0) ? (
-              <SidebarSection label={t('sidebar.section.pr')}>
-                {GROUP_ORDER.map((g) => {
-                  const items = visible.prByStatus.get(g)
-                  if (!items || items.length === 0) return null
-                  return (
-                    <SubGroup key={g} label={t(`sidebar.group.${g}`)} count={items.length}>
-                      {items.map((s) => (
-                        <SessionRow key={s.id} session={s} />
-                      ))}
-                    </SubGroup>
-                  )
-                })}
-              </SidebarSection>
-            ) : null}
 
-            {visible.repoOrder.length > 0 ? (
-              <SidebarSection label={t('sidebar.section.local')}>
-                {visible.repoOrder.map(([repoPath, items]) => (
-                  <SubGroup
-                    key={repoPath || '(unknown)'}
-                    label={repoBasename(repoPath) || t('sidebar.section.localUnknownRepo')}
-                    count={items.length}
-                    title={repoPath}
-                  >
-                    {items.map((s) => (
-                      <SessionRow key={s.id} session={s} />
+          <nav className="flex-1 overflow-y-auto" aria-label={t('sidebar.sessionsAria')}>
+            {!hasSessions ? (
+              <div className="px-5 py-8">
+                <EmptyState
+                  eyebrow={t('sidebar.emptyEyebrow')}
+                  title={t('sidebar.emptyTitle')}
+                  body={t('sidebar.emptyBody')}
+                />
+              </div>
+            ) : !hasVisible ? (
+              <div className="px-5 py-8">
+                <EmptyState
+                  eyebrow={t('sidebar.noMatchEyebrow')}
+                  title={t('sidebar.noMatchTitle')}
+                  body={t('sidebar.noMatchBody')}
+                />
+              </div>
+            ) : (
+              <div className="pb-6">
+                {Array.from(visible.prByStatus.values()).some((arr) => arr.length > 0) ? (
+                  <SidebarSection label={t('sidebar.section.pr')}>
+                    {GROUP_ORDER.map((g) => {
+                      const items = visible.prByStatus.get(g)
+                      if (!items || items.length === 0) return null
+                      return (
+                        <SubGroup key={g} label={t(`sidebar.group.${g}`)} count={items.length}>
+                          {items.map((s) => (
+                            <SessionRow key={s.id} session={s} />
+                          ))}
+                        </SubGroup>
+                      )
+                    })}
+                  </SidebarSection>
+                ) : null}
+
+                {visible.repoOrder.length > 0 ? (
+                  <SidebarSection label={t('sidebar.section.local')}>
+                    {visible.repoOrder.map(([repoPath, items]) => (
+                      <SubGroup
+                        key={repoPath || '(unknown)'}
+                        label={repoBasename(repoPath) || t('sidebar.section.localUnknownRepo')}
+                        count={items.length}
+                        title={repoPath}
+                      >
+                        {items.map((s) => (
+                          <SessionRow key={s.id} session={s} />
+                        ))}
+                      </SubGroup>
                     ))}
-                  </SubGroup>
-                ))}
-              </SidebarSection>
-            ) : null}
-          </div>
-        )}
-      </nav>
-      <div
-        {...separatorProps}
+                  </SidebarSection>
+                ) : null}
+              </div>
+            )}
+          </nav>
+        </>
+      )}
+
+      {/* Draggable resize strip — only when expanded; the rail is a fixed width. */}
+      {!collapsed ? (
+        <div
+          {...separatorProps}
+          className={cn(
+            'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none',
+            'transition-colors duration-180 ease-out-quart',
+            isDragging ? 'bg-brand' : 'hover:bg-brand/30',
+          )}
+        />
+      ) : null}
+
+      {/* Chevron toggle: a small tab anchored to the sidebar/canvas boundary at a
+          fixed Y. Y stays put across collapse/expand so the affordance is
+          spatially stable; only X follows the panel width. stopPropagation
+          keeps the click from initiating a drag on the separator beneath. */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label={collapseLabel}
+        aria-pressed={collapsed}
+        title={collapseLabel}
         className={cn(
-          'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none',
+          'absolute top-[60px] right-0 translate-x-1/2 z-20',
+          'inline-flex items-center justify-center w-4 h-7 rounded-md',
+          'border border-rule bg-raised text-ink-muted shadow-sm',
+          'hover:text-ink-primary hover:bg-canvas hover:border-ink-muted',
           'transition-colors duration-180 ease-out-quart',
-          isDragging ? 'bg-brand' : 'hover:bg-brand/30',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand',
         )}
-      />
+      >
+        {collapsed ? (
+          <ChevronRight size={12} aria-hidden="true" />
+        ) : (
+          <ChevronLeft size={12} aria-hidden="true" />
+        )}
+      </button>
     </aside>
   )
 }

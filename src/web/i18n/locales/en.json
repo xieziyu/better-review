@@ -549,6 +549,10 @@
     "newReview": "New review",
     "sessionsAria": "Sessions",
     "resizeAria": "Resize sidebar",
+    "collapseAria": "Collapse sidebar",
+    "expandAria": "Expand sidebar",
+    "searchExpandAria": "Expand sidebar and search",
+    "runningBadgeAria": "Running: {{count}}",
     "search": {
       "placeholder": "Search PR # / title / repo / @author",
       "ariaLabel": "Search sessions",
