@@ -7,7 +7,7 @@ import type { SessionsRepo } from '../db/sessions'
 import type { SubmissionCommentsRepo, NewSubmissionComment } from '../db/submission-comments'
 import type { SubmissionsRepo } from '../db/submissions'
 import type { GhClient, ReviewComment } from '../github/gh-client'
-import { buildSubmitPayload } from './payload-builder'
+import { buildSubmitPayload, renderInlineComment } from './payload-builder'
 import { dedupAgainstPrior, type PriorPostedComment } from './submit-dedup'
 
 export interface SubmitArgs {
@@ -29,9 +29,12 @@ export interface SubmitResult {
   skippedDuplicates: number
 }
 
-// Pick the originating Finding for each ReviewComment we sent. The payload
-// builder emits comments in the order of selected findings that survived
-// `isLineInDiff`, so we walk in the same order and match by path+line.
+// Pick the originating Finding for each ReviewComment we sent. After
+// cross-session dedup the comment list is no longer position-aligned with
+// `candidates`, so we also include the rendered comment body in the match
+// key — two findings at the same `(path, line)` produce distinct bodies,
+// and the body is exactly what `renderInlineComment(finding)` emits inside
+// `buildSubmitPayload`.
 function pairCommentsToFindings(
   comments: ReviewComment[],
   candidates: Finding[],
@@ -42,7 +45,8 @@ function pairCommentsToFindings(
       (f) =>
         f.file === c.path &&
         (f.line ?? null) === (c.line ?? null) &&
-        (f.startLine ?? null) === (c.start_line ?? null),
+        (f.startLine ?? null) === (c.start_line ?? null) &&
+        renderInlineComment(f) === c.body,
     )
     if (idx >= 0) {
       const [f] = remaining.splice(idx, 1)

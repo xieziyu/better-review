@@ -64,7 +64,10 @@ export function AddFindingForm({
     }
     if (!isFileLevel) input.line = line
     if (isRange) input.startLine = startLine
-    if (suggestion.trim()) input.suggestion = suggestion
+    // File-level findings render into the review body — a `suggestion`
+    // fenced block is only actionable on inline comments, so attaching one
+    // here would just produce a misleading code block in the review body.
+    if (!isFileLevel && suggestion.trim()) input.suggestion = suggestion
     create.mutate(input)
   }
 
@@ -139,17 +142,19 @@ export function AddFindingForm({
           className="mt-1 w-full bg-sunken border border-rule rounded px-2 py-1 text-body font-mono"
         />
       </label>
-      <label className="block">
-        <span className="text-caps tracking-caps text-ink-muted uppercase">
-          {t('filesChanged.addFinding.suggestion')}
-        </span>
-        <textarea
-          value={suggestion}
-          onChange={(e) => setSuggestion(e.target.value)}
-          rows={3}
-          className="mt-1 w-full bg-sunken border border-rule rounded px-2 py-1 text-body font-mono"
-        />
-      </label>
+      {isFileLevel ? null : (
+        <label className="block">
+          <span className="text-caps tracking-caps text-ink-muted uppercase">
+            {t('filesChanged.addFinding.suggestion')}
+          </span>
+          <textarea
+            value={suggestion}
+            onChange={(e) => setSuggestion(e.target.value)}
+            rows={3}
+            className="mt-1 w-full bg-sunken border border-rule rounded px-2 py-1 text-body font-mono"
+          />
+        </label>
+      )}
       {!rangeValid ? (
         <div className="text-meta text-[color:var(--severity-must)]">
           {t('filesChanged.addFinding.rangeInvalid')}

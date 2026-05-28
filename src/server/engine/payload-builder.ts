@@ -35,7 +35,7 @@ function renderFindingMarkdown(f: Finding): string {
   return `${head}\n\n${f.body}${sug}`
 }
 
-function renderInlineComment(f: Finding): string {
+export function renderInlineComment(f: Finding): string {
   const tag = severityTag(f.severity)
   const sug = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
   return `${tag} ${f.title}\n\n${f.body}${sug}`
