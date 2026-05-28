@@ -94,6 +94,8 @@ const findings: Finding[] = [
     archived: false,
     createdAt: 0,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
   },
   {
     id: 'R2',
@@ -111,6 +113,8 @@ const findings: Finding[] = [
     archived: false,
     createdAt: 0,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
   },
 ]
 
@@ -245,6 +249,8 @@ rename to src/new.ts
       archived: false,
       createdAt: 0,
       source: 'agent',
+      submittedAt: null,
+      submittedCommentId: null,
     }
     render(
       withProviders(

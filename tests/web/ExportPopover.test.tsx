@@ -48,6 +48,8 @@ const mkFinding = (overrides: Partial<Finding> = {}): Finding => ({
   archived: false,
   createdAt: 0,
   source: 'agent',
+  submittedAt: null,
+  submittedCommentId: null,
   ...overrides,
 })
 

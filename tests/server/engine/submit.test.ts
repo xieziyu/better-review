@@ -149,6 +149,91 @@ describe('submitSession', () => {
     expect(received!.comments[0]!.body).toContain('t1')
   })
 
+  it('clears selected on every submitted finding after a successful submit', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 't-inline',
+        body: 'b1',
+      },
+      {
+        id: 'R2',
+        severity: 'should',
+        category: 'x',
+        file: 'foo.ts',
+        line: 999,
+        title: 't-body',
+        body: 'b2',
+      },
+      {
+        id: 'R3',
+        severity: 'nit',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 't-deselected',
+        body: 'b3',
+      },
+    ])
+    const all = findings.listBySession('s1')
+    findings.setSelected(all[2]!.dbId, false)
+    const gh = ghStub()
+    await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    const after = findings.listBySession('s1')
+    expect(after.find((f) => f.dbId === all[0]!.dbId)!.selected).toBe(false)
+    expect(after.find((f) => f.dbId === all[1]!.dbId)!.selected).toBe(false)
+    // The third was never selected at submit time; it stays unselected.
+    expect(after.find((f) => f.dbId === all[2]!.dbId)!.selected).toBe(false)
+    // submittedAt is populated for the two findings that went into the
+    // submission's finding_ids; the deselected one is still untouched.
+    expect(after.find((f) => f.dbId === all[0]!.dbId)!.submittedAt).not.toBeNull()
+    expect(after.find((f) => f.dbId === all[1]!.dbId)!.submittedAt).not.toBeNull()
+    expect(after.find((f) => f.dbId === all[2]!.dbId)!.submittedAt).toBeNull()
+  })
+
+  it('does not clear selected when gh submitReview throws', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 11,
+        title: 't',
+        body: 'b',
+      },
+    ])
+    const gh = ghStub({ shouldThrow: true })
+    await expect(
+      submitSession({
+        sessionId: 's1',
+        event: 'COMMENT',
+        sessions,
+        findings,
+        submissions,
+        submissionComments,
+        gh,
+      }),
+    ).rejects.toThrow()
+    const after = findings.listBySession('s1')
+    expect(after[0]!.selected).toBe(true)
+    expect(after[0]!.submittedAt).toBeNull()
+  })
+
   it('records error submission and rethrows on gh failure', async () => {
     const { sessions, findings, submissions, submissionComments } = setup()
     findings.insertMany('s1', [

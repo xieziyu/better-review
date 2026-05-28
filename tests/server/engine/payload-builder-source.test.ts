@@ -28,6 +28,8 @@ function f(over: Partial<Finding>): Finding {
     archived: false,
     createdAt: 1,
     source: 'agent',
+    submittedAt: null,
+    submittedCommentId: null,
     ...over,
   }
 }

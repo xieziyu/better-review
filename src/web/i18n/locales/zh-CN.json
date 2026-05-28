@@ -467,6 +467,9 @@
     "unselectAriaLabel": "取消选中 finding {{id}}",
     "selectAriaLabel": "选中 finding {{id}}",
     "edited": "已编辑",
+    "submittedBadge": "已提交",
+    "submittedBadgeAria": "已提交到 GitHub —— 打开已发布的评论",
+    "submittedNoLinkAria": "已提交到 GitHub（无可用的评论链接）",
     "openOnGithub": "在 GitHub 中打开",
     "edit": "编辑",
     "delete": "删除",
@@ -491,7 +494,10 @@
       "emptyTitle": "暂无内容可评审",
       "emptyBody": "可能 agent 顺利通过了，也可能确实没有要说的。重跑可以再来一次。",
       "prWide": "PR-wide",
-      "addedToBody": "提交时会追加到 review body"
+      "addedToBody": "提交时会追加到 review body",
+      "submittedSection_one": "已提交（{{count}}）",
+      "submittedSection_other": "已提交（{{count}}）",
+      "submittedSectionHint": "本会话内已发布到 GitHub"
     }
   },
   "submit": {

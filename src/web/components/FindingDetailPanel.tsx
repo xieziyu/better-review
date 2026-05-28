@@ -203,13 +203,43 @@ export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: 
             <dt className="text-caps tracking-caps text-ink-muted uppercase">
               {t('inspector.section.category')}
             </dt>
-            <dd>
+            <dd className="flex flex-wrap items-center gap-2">
               <Tag tone="neutral">{finding.category}</Tag>
               {finding.edited ? (
-                <Tag tone="neutral" className="ml-2 normal-case">
+                <Tag tone="neutral" className="normal-case">
                   {t('finding.edited')}
                 </Tag>
               ) : null}
+              {finding.submittedAt !== null
+                ? (() => {
+                    const url =
+                      finding.submittedCommentId !== null && session.url
+                        ? `${session.url.split('#')[0]}#discussion_r${finding.submittedCommentId}`
+                        : null
+                    const badge = (
+                      <Tag tone="success" className="inline-flex items-center gap-1 normal-case">
+                        <Check size={10} strokeWidth={3} aria-hidden="true" />
+                        <span>{t('finding.submittedBadge')}</span>
+                        {url ? (
+                          <ExternalLink size={10} aria-hidden="true" className="opacity-70" />
+                        ) : null}
+                      </Tag>
+                    )
+                    return url ? (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        aria-label={t('finding.submittedBadgeAria')}
+                        className="hover:opacity-80"
+                      >
+                        {badge}
+                      </a>
+                    ) : (
+                      <span aria-label={t('finding.submittedNoLinkAria')}>{badge}</span>
+                    )
+                  })()
+                : null}
             </dd>
             <dt className="text-caps tracking-caps text-ink-muted uppercase">
               {t('inspector.section.target')}

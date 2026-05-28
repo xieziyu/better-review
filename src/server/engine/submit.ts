@@ -164,6 +164,14 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
     })
     args.submissionComments.insertMany(submissionId, rows)
 
+    // Clear `selected` on every finding the user just submitted so the
+    // checkboxes reflect "no pending intent" — the durable "已提交"
+    // badge (computed from submissions.finding_ids at read time) carries
+    // the historical signal instead.
+    for (const dbId of findingIds) {
+      args.findings.setSelected(dbId, false)
+    }
+
     args.sessions.setStatus(args.sessionId, 'submitted')
     return {
       url: r.html_url,

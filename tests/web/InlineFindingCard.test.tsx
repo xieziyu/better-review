@@ -54,6 +54,8 @@ const mkFinding = (over: Partial<Finding> = {}): Finding => ({
   archived: false,
   createdAt: 0,
   source: 'manual',
+  submittedAt: null,
+  submittedCommentId: null,
   ...over,
 })
 

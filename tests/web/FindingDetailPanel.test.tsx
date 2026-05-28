@@ -80,6 +80,8 @@ const finding: Finding = {
   archived: false,
   createdAt: 0,
   source: 'agent',
+  submittedAt: null,
+  submittedCommentId: null,
 }
 
 describe('FindingDetailPanel', () => {
