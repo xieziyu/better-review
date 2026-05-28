@@ -234,13 +234,16 @@ describe('submitSession', () => {
     expect(sc[0]!.findingDbId).toBe(findings.listBySession('s1')[0]!.dbId)
   })
 
-  it('maps each file-level finding on the same path to a distinct GitHub comment id', async () => {
+  it('renders file-level manual findings into the review body, not as inline comments', async () => {
+    // GitHub's create-review endpoint rejects subject_type:'file' in
+    // comments[], so file-level manual findings can't be posted as
+    // file-anchored inline comments via this endpoint. They render into
+    // the review body and produce no submission_comments rows.
     const { sessions, findings, submissions, submissionComments } = setup()
     findings.insertManual('s1', {
       severity: 'should',
       category: 'Correctness',
       file: 'foo.ts',
-      line: null,
       title: 'file-level one',
       body: 'first manual file-level note',
     })
@@ -248,51 +251,11 @@ describe('submitSession', () => {
       severity: 'nit',
       category: 'Style',
       file: 'foo.ts',
-      line: null,
       title: 'file-level two',
       body: 'second manual file-level note',
     })
     let received: ReviewPayload | null = null
-    const gh = ghStub({
-      onSubmit: (p) => (received = p),
-      reviewId: 7000,
-      // GitHub returns the same two file-level comments back. Order is not
-      // guaranteed to match the submission order — flip it to make sure we
-      // still pair by body, not by position.
-      comments: [
-        {
-          id: 4002,
-          pull_request_review_id: 7000,
-          user: { login: 'me' },
-          path: 'foo.ts',
-          line: null,
-          start_line: null,
-          side: null,
-          start_side: null,
-          commit_id: 'sha',
-          original_commit_id: 'sha',
-          in_reply_to_id: null,
-          // gh echoes the body we sent; mirror the inline-comment renderer.
-          body: '🟡 **[SHOULD]** file-level one\n\nfirst manual file-level note',
-          created_at: '2026-05-28T00:00:00Z',
-        },
-        {
-          id: 4001,
-          pull_request_review_id: 7000,
-          user: { login: 'me' },
-          path: 'foo.ts',
-          line: null,
-          start_line: null,
-          side: null,
-          start_side: null,
-          commit_id: 'sha',
-          original_commit_id: 'sha',
-          in_reply_to_id: null,
-          body: '🔵 **[NIT]** file-level two\n\nsecond manual file-level note',
-          created_at: '2026-05-28T00:00:01Z',
-        },
-      ],
-    })
+    const gh = ghStub({ onSubmit: (p) => (received = p), reviewId: 7000 })
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
@@ -302,18 +265,10 @@ describe('submitSession', () => {
       submissionComments,
       gh,
     })
-    expect(received!.comments).toHaveLength(2)
-    const sc = submissionComments.listByPR('o', 'r', 1)
-    expect(sc).toHaveLength(2)
-    const byCommentBody = new Map(sc.map((r) => [r.body, r.githubCommentId]))
-    expect(
-      byCommentBody.get('🟡 **[SHOULD]** file-level one\n\nfirst manual file-level note'),
-    ).toBe(4002)
-    expect(byCommentBody.get('🔵 **[NIT]** file-level two\n\nsecond manual file-level note')).toBe(
-      4001,
-    )
-    const ids = sc.map((r) => r.githubCommentId)
-    expect(new Set(ids).size).toBe(ids.length)
+    expect(received!.comments).toHaveLength(0)
+    expect(received!.body).toContain('file-level one')
+    expect(received!.body).toContain('file-level two')
+    expect(submissionComments.listByPR('o', 'r', 1)).toHaveLength(0)
   })
 
   it('dedups against prior posted comments on the same PR', async () => {

@@ -512,7 +512,7 @@
     "severityCounts": "{{must}} must · {{should}} should · {{nit}} nit",
     "inlineSection": "Inline · {{count}}",
     "fileLevelSection": "File-level · {{count}}",
-    "fileLevelNote": "Attached to the file as a file-scoped review comment (no specific line).",
+    "fileLevelNote": "Rendered as a labeled section in the review body — GitHub's create-review API doesn't accept file-anchored inline comments.",
     "movedToBodySection": "Moved to body · {{count}}",
     "movedToBodyNote": "Their <0>file:line</0> is outside the PR diff, so GitHub would reject them as inline comments.",
     "prWideSection": "PR-wide · {{count}}",

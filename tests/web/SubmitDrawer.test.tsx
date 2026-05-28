@@ -187,7 +187,7 @@ describe('SubmitDrawer', () => {
     expect(prWide).toHaveTextContent(/Design/)
   })
 
-  it('groups manual file-level findings separately from PR-wide and counts them as inline', async () => {
+  it('groups manual file-level findings separately from PR-wide and excludes them from the inline count', async () => {
     const user = userEvent.setup()
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
@@ -218,10 +218,11 @@ describe('SubmitDrawer', () => {
     const prWide = screen.getByTestId('pr-wide-list')
     expect(prWide).toHaveTextContent(/architectural note/)
     expect(prWide).not.toHaveTextContent(/whole-file concern/)
-    // The confirmation counts file-level as an inline comment, since that
-    // is what the server actually submits via subject_type:'file'.
+    // File-level findings render into the review body, not as inline
+    // comments — GitHub's create-review API rejects subject_type:'file'.
+    // So the confirmation's inline count must not include them.
     await user.click(screen.getByRole('button', { name: /Next/i }))
-    expect(screen.getByText(/1 inline comment/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 inline comments/i)).toBeInTheDocument()
   })
 
   it('defaults to COMMENT event', async () => {

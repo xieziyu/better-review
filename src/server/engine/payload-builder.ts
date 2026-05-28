@@ -52,17 +52,12 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
       continue
     }
     if (!f.line) {
-      // File-level: only manual findings opt into this. Agent findings
-      // without a line stay in the body (legacy behavior).
-      if (f.source === 'manual') {
-        comments.push({
-          path: f.file,
-          subject_type: 'file',
-          body: renderInlineComment(f),
-        })
-      } else {
-        bodyParts.push(renderFindingMarkdown(f))
-      }
+      // No line anchor → render into the review body. GitHub's
+      // `POST /pulls/:n/reviews` endpoint does not accept `subject_type`
+      // in its `comments[]` items (that field only exists on the
+      // standalone `POST /pulls/:n/comments` endpoint), so file-level
+      // findings cannot ride along the review payload as inline comments.
+      bodyParts.push(renderFindingMarkdown(f))
       continue
     }
     const start = f.startLine && f.startLine < f.line ? f.startLine : null

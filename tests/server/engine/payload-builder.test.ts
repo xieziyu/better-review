@@ -162,7 +162,12 @@ describe('buildSubmitPayload', () => {
     expect(r.payload.comments[0]).not.toHaveProperty('start_line')
   })
 
-  it('manual file-level finding becomes a file-level inline comment', () => {
+  it('manual file-level finding renders into the review body', () => {
+    // GitHub's create-review endpoint rejects subject_type:'file' in
+    // comments[], so file-level findings cannot ride along as inline
+    // comments. They land in the review body, file path included in the
+    // section header so the reader still knows which file is being called
+    // out.
     const r = buildSubmitPayload({
       diff: DIFF,
       findings: [
@@ -175,15 +180,10 @@ describe('buildSubmitPayload', () => {
       ],
       event: 'COMMENT',
     })
-    expect(r.payload.comments).toHaveLength(1)
-    expect(r.payload.comments[0]).toMatchObject({
-      path: 'foo.ts',
-      subject_type: 'file',
-    })
-    expect(r.payload.comments[0]!.body).toContain('should not be committed')
-    expect(r.payload.comments[0]).not.toHaveProperty('line')
+    expect(r.payload.comments).toHaveLength(0)
+    expect(r.payload.body).toContain('should not be committed')
+    expect(r.payload.body).toContain('foo.ts')
     expect(r.droppedToBody).toHaveLength(0)
-    expect(r.payload.body).not.toContain('should not be committed')
   })
 
   it('agent off-diff finding (file set, line null) still goes to body', () => {

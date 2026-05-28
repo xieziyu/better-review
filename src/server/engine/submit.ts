@@ -101,12 +101,8 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
 
   const findingIds = selected.map((f) => f.dbId)
   // We pair the *post-dedup* inline comments back to findings so the
-  // submission_comments rows reflect what actually went out. Inline here
-  // means anything payload-builder turned into a ReviewComment, including
-  // file-level (line=null) manual findings.
-  const inlineFindingCandidates = selected.filter(
-    (f) => f.file !== null && (f.line !== null || f.source === 'manual'),
-  )
+  // submission_comments rows reflect what actually went out.
+  const inlineFindingCandidates = selected.filter((f) => f.file !== null && f.line !== null)
   try {
     const r = await args.gh.submitReview(
       { owner: session.owner, repo: session.repo, number: session.number },
@@ -139,17 +135,15 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
       (c) => c.pull_request_review_id === r.id && c.in_reply_to_id === null,
     )
     const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates)
-    // Consume `ourComments` one-by-one. For file-level comments `line` and
-    // `start_line` are both null on every entry, so matching on
-    // path+line+start_line alone collapses multiple file-level findings on
-    // the same path onto the same GitHub comment id. Include `body` in the
-    // match key and remove the matched entry so each GitHub comment is
-    // claimed by exactly one outgoing comment.
+    // Consume `ourComments` one-by-one, removing each match so two outgoing
+    // comments on the same path+line can't both claim the same GitHub id.
+    // `body` is part of the match key so two findings at the same line are
+    // matched to the right echo.
     const rows: NewSubmissionComment[] = paired.map(({ comment, finding }) => {
       const matchIdx = ourComments.findIndex(
         (gc) =>
           gc.path === comment.path &&
-          gc.line === (comment.line ?? null) &&
+          gc.line === comment.line &&
           (gc.start_line ?? null) === (comment.start_line ?? null) &&
           gc.body === comment.body,
       )
@@ -158,7 +152,7 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
         findingDbId: finding?.dbId ?? null,
         githubCommentId: match?.id ?? null,
         file: comment.path,
-        line: comment.line ?? null,
+        line: comment.line,
         startLine: comment.start_line ?? null,
         title: firstLine(comment.body),
         body: comment.body,

@@ -90,9 +90,10 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
       if (f.file === null) {
         prWide.push(f)
       } else if (f.line === null) {
-        // Only manual findings opt into being posted as subject_type:'file'
-        // inline comments — see src/server/engine/payload-builder.ts. Agent
-        // findings without a line still fall back to the review body.
+        // No line anchor. Manual findings keep their own group so the user
+        // sees them distinct from off-diff PR-wide findings; both render
+        // into the review body — GitHub's create-review API doesn't accept
+        // file-anchored inline comments (see payload-builder.ts).
         if (f.source === 'manual') {
           fileLevel.push(f)
         } else {
@@ -379,7 +380,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                   </div>
                   <div className="text-meta text-ink-secondary">
-                    {t('submit.confirmationLine', { count: inline.length + fileLevel.length })}
+                    {t('submit.confirmationLine', { count: inline.length })}
                   </div>
                   {movedToBody.length > 0 ? (
                     <div className="text-meta text-ink-secondary">
