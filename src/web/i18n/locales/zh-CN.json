@@ -139,7 +139,13 @@
       "body": "正文（markdown）",
       "suggestion": "建议（可选）",
       "save": "保存 finding",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "rangeInvalid": "区间包含了不在 diff 中的行",
+      "gutterTitle": "点击开始新增 finding · 按住 Shift 点击其他 + 可扩展区间"
+    },
+    "pendingSelection": {
+      "hint": "按住 Shift 点击其他 + 可扩展区间",
+      "confirm": "新增 finding"
     },
     "toast": {
       "jump": "跳转",

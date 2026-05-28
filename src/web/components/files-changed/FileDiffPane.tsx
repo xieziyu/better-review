@@ -1,6 +1,6 @@
 import type { Finding, PRSession } from '@shared/types'
 import { ExternalLink } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +9,7 @@ import { findNewSideChange, type FileSummary } from '@/lib/diff-utils'
 import { AddFindingForm } from './AddFindingForm'
 import { FileDiff } from './FileDiff'
 import { InlineFindingCard, OffDiffFindingsSection } from './InlineFindingCard'
+import { PendingSelectionBar } from './PendingSelectionBar'
 
 interface Props {
   file: FileSummary
@@ -67,9 +68,58 @@ export function FileDiffPane({
   readOnly,
 }: Props) {
   const { t } = useTranslation()
-  const [addingLine, setAddingLine] = useState<number | null>(null)
+  // Two-phase manual-finding flow:
+  //   selecting → compact PendingSelectionBar; gutter + clicks extend the range
+  //               so the diff isn't pushed out of view by a full form.
+  //   editing   → full AddFindingForm; gutter + clicks are ignored to avoid
+  //               clobbering the in-progress draft.
+  type Adding =
+    | { phase: 'selecting'; anchor: number; head: number }
+    | { phase: 'editing'; start: number; end: number }
+  const [adding, setAdding] = useState<Adding | null>(null)
 
   const { anchored, offDiff } = useMemo(() => classifyFindings(findings, file), [findings, file])
+
+  const range = useMemo(() => {
+    if (!adding) return null
+    if (adding.phase === 'selecting') {
+      const start = Math.min(adding.anchor, adding.head)
+      const end = Math.max(adding.anchor, adding.head)
+      return { start, end }
+    }
+    return { start: adding.start, end: adding.end }
+  }, [adding])
+
+  const selectedChanges = useMemo<string[]>(() => {
+    if (!range) return []
+    const keys: string[] = []
+    for (let l = range.start; l <= range.end; l++) {
+      const c = findNewSideChange(file.hunks, l)
+      if (c) keys.push(getChangeKey(c))
+    }
+    return keys
+  }, [range, file.hunks])
+
+  const validateRange = useCallback(
+    (start: number, end: number): boolean => {
+      for (let l = start; l <= end; l++) {
+        if (!findNewSideChange(file.hunks, l)) return false
+      }
+      return true
+    },
+    [file.hunks],
+  )
+
+  const handleAddRequest = useCallback((line: number, opts: { extend: boolean }) => {
+    setAdding((prev) => {
+      // Ignore gutter clicks while the full form is open — don't clobber the draft.
+      if (prev?.phase === 'editing') return prev
+      if (opts.extend && prev?.phase === 'selecting') {
+        return { phase: 'selecting', anchor: prev.anchor, head: line }
+      }
+      return { phase: 'selecting', anchor: line, head: line }
+    })
+  }, [])
 
   const widgets = useMemo<Record<string, ReactNode>>(() => {
     const map: Record<string, ReactNode> = {}
@@ -96,22 +146,38 @@ export function FileDiffPane({
         </div>
       )
     }
-    // Inline AddFindingForm at the change for `addingLine`.
-    if (addingLine != null) {
-      const change = findNewSideChange(file.hunks, addingLine)
+    // Inline selection bar or full form at the change for the range's end line.
+    if (adding && range) {
+      const change = findNewSideChange(file.hunks, range.end)
       if (change) {
         const key = getChangeKey(change)
         const existing = map[key]
-        map[key] = (
-          <div className="border-l-2 border-rule bg-canvas">
-            {existing}
+        const startLine = range.start < range.end ? range.start : undefined
+        const inner =
+          adding.phase === 'selecting' ? (
+            <PendingSelectionBar
+              file={file.path}
+              start={range.start}
+              end={range.end}
+              rangeValid={validateRange(range.start, range.end)}
+              onCancel={() => setAdding(null)}
+              onConfirm={() => setAdding({ phase: 'editing', start: range.start, end: range.end })}
+            />
+          ) : (
             <AddFindingForm
               sessionId={session.id}
               file={file.path}
-              line={addingLine}
-              onCancel={() => setAddingLine(null)}
-              onCreated={() => setAddingLine(null)}
+              line={range.end}
+              startLine={startLine}
+              validateRange={validateRange}
+              onCancel={() => setAdding(null)}
+              onCreated={() => setAdding(null)}
             />
+          )
+        map[key] = (
+          <div className="border-l-2 border-rule bg-canvas">
+            {existing}
+            {inner}
           </div>
         )
       }
@@ -119,7 +185,9 @@ export function FileDiffPane({
     return map
   }, [
     anchored,
-    addingLine,
+    adding,
+    range,
+    validateRange,
     expandedFindingIds,
     file.hunks,
     file.path,
@@ -178,7 +246,13 @@ export function FileDiffPane({
         fileType={file.status}
         hunks={file.hunks}
         widgets={widgets}
-        {...(readOnly ? {} : { onAddRequest: (line: number) => setAddingLine(line) })}
+        selectedChanges={selectedChanges}
+        {...(readOnly
+          ? {}
+          : {
+              onAddRequest: handleAddRequest,
+              addRequestTitle: t('filesChanged.addFinding.gutterTitle'),
+            })}
       />
     </div>
   )

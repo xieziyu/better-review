@@ -11,13 +11,25 @@ interface Props {
   sessionId: string
   file: string
   line: number
+  /** When set and `< line`, the finding spans a range from startLine..line (inclusive). */
+  startLine?: number | undefined
+  /** Optional client-side check: every line in [start..end] must map to a new-side change. */
+  validateRange?: ((start: number, end: number) => boolean) | undefined
   onCancel: () => void
   onCreated: () => void
 }
 
 const SEVERITY_LIST: Severity[] = ['must', 'should', 'nit']
 
-export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: Props) {
+export function AddFindingForm({
+  sessionId,
+  file,
+  line,
+  startLine,
+  validateRange,
+  onCancel,
+  onCreated,
+}: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [severity, setSeverity] = useState<Severity>('should')
@@ -25,6 +37,9 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [suggestion, setSuggestion] = useState('')
+
+  const isRange = startLine != null && startLine < line
+  const rangeValid = !isRange || !validateRange ? true : validateRange(startLine, line)
 
   const create = useMutation({
     mutationFn: (input: ManualFindingInput) => api.createManualFinding(sessionId, input),
@@ -36,6 +51,7 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
 
   const submit = (): void => {
     if (!title.trim() || !body.trim()) return
+    if (!rangeValid) return
     const input: ManualFindingInput = {
       severity,
       category: category.trim() || 'Manual',
@@ -44,6 +60,7 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
       title: title.trim(),
       body: body.trim(),
     }
+    if (isRange) input.startLine = startLine
     if (suggestion.trim()) input.suggestion = suggestion
     create.mutate(input)
   }
@@ -55,7 +72,7 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
           {t('filesChanged.addFinding.heading')}
         </span>
         <span className="font-mono text-ink-muted">
-          {file}:{line}
+          {file}:{isRange ? `${startLine}-${line}` : line}
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -126,6 +143,11 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
           className="mt-1 w-full bg-sunken border border-rule rounded px-2 py-1 text-body font-mono"
         />
       </label>
+      {!rangeValid ? (
+        <div className="text-meta text-[color:var(--severity-must)]">
+          {t('filesChanged.addFinding.rangeInvalid')}
+        </div>
+      ) : null}
       {create.isError ? (
         <div className="text-meta text-[color:var(--severity-must)]">
           {(create.error as Error).message}
@@ -139,7 +161,7 @@ export function AddFindingForm({ sessionId, file, line, onCancel, onCreated }: P
           variant="primary"
           size="sm"
           onClick={submit}
-          disabled={create.isPending || !title.trim() || !body.trim()}
+          disabled={create.isPending || !title.trim() || !body.trim() || !rangeValid}
         >
           {create.isPending
             ? t('filesChanged.addFinding.saving')
