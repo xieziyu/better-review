@@ -139,13 +139,21 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
       (c) => c.pull_request_review_id === r.id && c.in_reply_to_id === null,
     )
     const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates)
+    // Consume `ourComments` one-by-one. For file-level comments `line` and
+    // `start_line` are both null on every entry, so matching on
+    // path+line+start_line alone collapses multiple file-level findings on
+    // the same path onto the same GitHub comment id. Include `body` in the
+    // match key and remove the matched entry so each GitHub comment is
+    // claimed by exactly one outgoing comment.
     const rows: NewSubmissionComment[] = paired.map(({ comment, finding }) => {
-      const match = ourComments.find(
+      const matchIdx = ourComments.findIndex(
         (gc) =>
           gc.path === comment.path &&
           gc.line === (comment.line ?? null) &&
-          (gc.start_line ?? null) === (comment.start_line ?? null),
+          (gc.start_line ?? null) === (comment.start_line ?? null) &&
+          gc.body === comment.body,
       )
+      const match = matchIdx >= 0 ? ourComments.splice(matchIdx, 1)[0] : undefined
       return {
         findingDbId: finding?.dbId ?? null,
         githubCommentId: match?.id ?? null,
