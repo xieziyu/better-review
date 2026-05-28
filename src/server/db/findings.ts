@@ -163,6 +163,11 @@ export class FindingsRepo {
     const cur = this.getById(dbId)
     if (!cur) return
     const next = { ...cur, ...patch }
+    // File-level findings (line === null) render into the review body, where
+    // a `suggestion` fenced block isn't actionable on GitHub and would just
+    // be a misleading code block. Drop it at the boundary so direct PATCH
+    // hits can't smuggle one in around the form.
+    const suggestion = next.line === null ? null : (next.suggestion ?? null)
     this.db
       .prepare(
         `
@@ -174,7 +179,7 @@ export class FindingsRepo {
         next.severity,
         next.title,
         next.body,
-        next.suggestion ?? null,
+        suggestion,
         next.file,
         next.line,
         next.startLine ?? null,

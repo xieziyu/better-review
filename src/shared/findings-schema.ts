@@ -28,7 +28,10 @@ export type Severity = z.infer<typeof severitySchema>
 // required (manual findings are anchored to a specific file). `line` is
 // optional — omit it for a file-level finding (e.g. "this file shouldn't
 // be committed"); set it for a line / range finding. `startLine` requires
-// `line` (and `startLine <= line`).
+// `line` (and `startLine <= line`). `suggestion` requires `line` — the
+// fenced suggestion block is only actionable on inline review comments;
+// on a file-level finding it would just render as a misleading code block
+// in the review body.
 export const manualFindingInputSchema = z
   .object({
     severity: severitySchema,
@@ -43,6 +46,10 @@ export const manualFindingInputSchema = z
   .refine((f) => f.startLine === undefined || (f.line !== undefined && f.startLine <= f.line), {
     message: 'startLine requires line and must be <= line',
     path: ['startLine'],
+  })
+  .refine((f) => f.line !== undefined || f.suggestion === undefined, {
+    message: 'suggestion requires line',
+    path: ['suggestion'],
   })
 
 export type ManualFindingInput = z.infer<typeof manualFindingInputSchema>

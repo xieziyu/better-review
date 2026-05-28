@@ -77,6 +77,43 @@ describe('FindingsRepo', () => {
     expect(findings.getById(f.dbId)!.selected).toBe(false)
   })
 
+  it('update strips suggestion when the resulting finding is file-level (line=null)', () => {
+    // File-level findings render into the review body where a fenced
+    // `suggestion` block isn't actionable. The repo enforces this at the
+    // boundary so direct PATCH hits can't smuggle one in around the form.
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: null,
+        title: 't',
+        body: 'b',
+      },
+    ])
+    const f = findings.listBySession('s1')[0]!
+    findings.update(f.dbId, { suggestion: 'fixed = 1' })
+    expect(findings.getById(f.dbId)!.suggestion).toBeUndefined()
+  })
+
+  it('update keeps suggestion when the finding has a line anchor', () => {
+    findings.insertMany('s1', [
+      {
+        id: 'R1',
+        severity: 'must',
+        category: 'x',
+        file: 'foo.ts',
+        line: 12,
+        title: 't',
+        body: 'b',
+      },
+    ])
+    const f = findings.listBySession('s1')[0]!
+    findings.update(f.dbId, { suggestion: 'fixed = 1' })
+    expect(findings.getById(f.dbId)!.suggestion).toBe('fixed = 1')
+  })
+
   it('update sets edited=true', () => {
     findings.insertMany('s1', [
       {
