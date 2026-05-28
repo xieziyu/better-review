@@ -1,6 +1,6 @@
 import type { Finding, PRSession } from '@shared/types'
 import { ExternalLink } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
@@ -67,9 +67,45 @@ export function FileDiffPane({
   readOnly,
 }: Props) {
   const { t } = useTranslation()
-  const [addingLine, setAddingLine] = useState<number | null>(null)
+  // `adding.anchor` is the first-clicked line; `head` is the most recent shift-click
+  // (equals anchor for a single-line selection). Form mounts at max(anchor, head).
+  const [adding, setAdding] = useState<{ anchor: number; head: number } | null>(null)
 
   const { anchored, offDiff } = useMemo(() => classifyFindings(findings, file), [findings, file])
+
+  const range = useMemo(() => {
+    if (!adding) return null
+    const start = Math.min(adding.anchor, adding.head)
+    const end = Math.max(adding.anchor, adding.head)
+    return { start, end }
+  }, [adding])
+
+  const selectedChanges = useMemo<string[]>(() => {
+    if (!range) return []
+    const keys: string[] = []
+    for (let l = range.start; l <= range.end; l++) {
+      const c = findNewSideChange(file.hunks, l)
+      if (c) keys.push(getChangeKey(c))
+    }
+    return keys
+  }, [range, file.hunks])
+
+  const validateRange = useCallback(
+    (start: number, end: number): boolean => {
+      for (let l = start; l <= end; l++) {
+        if (!findNewSideChange(file.hunks, l)) return false
+      }
+      return true
+    },
+    [file.hunks],
+  )
+
+  const handleAddRequest = useCallback((line: number, opts: { extend: boolean }) => {
+    setAdding((prev) => {
+      if (opts.extend && prev) return { anchor: prev.anchor, head: line }
+      return { anchor: line, head: line }
+    })
+  }, [])
 
   const widgets = useMemo<Record<string, ReactNode>>(() => {
     const map: Record<string, ReactNode> = {}
@@ -96,21 +132,24 @@ export function FileDiffPane({
         </div>
       )
     }
-    // Inline AddFindingForm at the change for `addingLine`.
-    if (addingLine != null) {
-      const change = findNewSideChange(file.hunks, addingLine)
+    // Inline AddFindingForm at the change for the range's end line.
+    if (range) {
+      const change = findNewSideChange(file.hunks, range.end)
       if (change) {
         const key = getChangeKey(change)
         const existing = map[key]
+        const startLine = range.start < range.end ? range.start : undefined
         map[key] = (
           <div className="border-l-2 border-rule bg-canvas">
             {existing}
             <AddFindingForm
               sessionId={session.id}
               file={file.path}
-              line={addingLine}
-              onCancel={() => setAddingLine(null)}
-              onCreated={() => setAddingLine(null)}
+              line={range.end}
+              startLine={startLine}
+              validateRange={validateRange}
+              onCancel={() => setAdding(null)}
+              onCreated={() => setAdding(null)}
             />
           </div>
         )
@@ -119,7 +158,8 @@ export function FileDiffPane({
     return map
   }, [
     anchored,
-    addingLine,
+    range,
+    validateRange,
     expandedFindingIds,
     file.hunks,
     file.path,
@@ -178,7 +218,13 @@ export function FileDiffPane({
         fileType={file.status}
         hunks={file.hunks}
         widgets={widgets}
-        {...(readOnly ? {} : { onAddRequest: (line: number) => setAddingLine(line) })}
+        selectedChanges={selectedChanges}
+        {...(readOnly
+          ? {}
+          : {
+              onAddRequest: handleAddRequest,
+              addRequestTitle: t('filesChanged.addFinding.gutterTitle'),
+            })}
       />
     </div>
   )

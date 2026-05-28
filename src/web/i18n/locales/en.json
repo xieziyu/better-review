@@ -139,7 +139,10 @@
       "body": "Body (markdown)",
       "suggestion": "Suggestion (optional)",
       "save": "Save finding",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "extendHint": "Shift-click another + to extend the range",
+      "rangeInvalid": "Range crosses lines not in the diff",
+      "gutterTitle": "Click to add finding · Shift-click to extend"
     },
     "toast": {
       "jump": "Jump",

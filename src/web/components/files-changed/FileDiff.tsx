@@ -24,7 +24,9 @@ interface Props {
   /** Map of react-diff-view changeKey → rendered widget (e.g. inline finding card). */
   widgets?: Record<string, ReactNode>
   /** Called when the user clicks the gutter + on an inserted/context new-side row. */
-  onAddRequest?: (newLineNumber: number) => void
+  onAddRequest?: (newLineNumber: number, opts: { extend: boolean }) => void
+  /** Tooltip shown on the gutter + button (also used as aria-label suffix). */
+  addRequestTitle?: string
   /** Highlight a specific change (e.g. when an inline finding is expanded). */
   selectedChanges?: string[]
 }
@@ -51,7 +53,15 @@ function changeNewLine(c: ChangeData): number | null {
   return null
 }
 
-export function FileDiff({ file, fileType, hunks, widgets, onAddRequest, selectedChanges }: Props) {
+export function FileDiff({
+  file,
+  fileType,
+  hunks,
+  widgets,
+  onAddRequest,
+  addRequestTitle,
+  selectedChanges,
+}: Props) {
   const [tokens, setTokens] = useState<HunkTokens | null>(null)
   const lang = useMemo(() => inferLangFromFile(file), [file])
 
@@ -79,14 +89,16 @@ export function FileDiff({ file, fileType, hunks, widgets, onAddRequest, selecte
     if (!onAddRequest || newLine == null) {
       return renderDefault()
     }
+    const label = `Add finding at line ${newLine}`
     return (
       <span className="file-diff-gutter-cell">
         {renderDefault()}
         <button
           type="button"
           className="file-diff-add"
-          aria-label={`Add finding at line ${newLine}`}
-          onClick={() => onAddRequest(newLine)}
+          aria-label={addRequestTitle ? `${label} — ${addRequestTitle}` : label}
+          title={addRequestTitle ?? label}
+          onClick={(e) => onAddRequest(newLine, { extend: e.shiftKey })}
         >
           +
         </button>
