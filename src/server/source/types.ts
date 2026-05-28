@@ -14,6 +14,7 @@ import type { SessionsRepo } from '../db/sessions'
 import type { SubmissionCommentsRepo } from '../db/submission-comments'
 import type { SubmissionsRepo } from '../db/submissions'
 import type { PriorReviewContext } from '../engine/rerun-context'
+import type { CommitEntry } from '../git/local-branch'
 import type { SourceContext } from '../git/source-prep'
 import type { Logger } from '../logger'
 
@@ -22,6 +23,11 @@ import type { Logger } from '../logger'
 // `body` is the free-form description that gets rendered into the
 // prompt's {{SOURCE_META}} variable — for PRs it's the PR body, for
 // local branches it'll be the latest commit message.
+//
+// `commits` is populated by source flows that diff against a base in a
+// local clone (local-branch, vbranch) so the prompt can list every
+// commit in `base..head`, not just the tip. The GitHub PR flow leaves
+// it undefined — its `body` already aggregates the whole change.
 export interface SourceMetadata {
   title: string | null
   author: string | null
@@ -30,6 +36,7 @@ export interface SourceMetadata {
   headRef: string | null
   headSha: string
   body: string
+  commits?: CommitEntry[]
 }
 
 export interface PrepareSourceTreeArgs {
