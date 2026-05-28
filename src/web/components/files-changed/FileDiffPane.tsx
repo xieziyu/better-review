@@ -220,11 +220,11 @@ export function FileDiffPane({
               type="button"
               onClick={() => setAdding({ phase: 'file-level' })}
               disabled={adding?.phase === 'file-level'}
-              className="inline-flex items-center gap-1 text-meta text-ink-secondary hover:text-brand disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center h-6 w-6 rounded text-ink-secondary hover:text-brand hover:bg-sunken disabled:opacity-50 disabled:cursor-not-allowed"
               title={t('filesChanged.addFinding.fileLevelTriggerTitle')}
+              aria-label={t('filesChanged.addFinding.fileLevelTrigger')}
             >
-              <FilePlus2 className="h-3 w-3" />
-              {t('filesChanged.addFinding.fileLevelTrigger')}
+              <FilePlus2 className="h-3.5 w-3.5" />
             </button>
           ) : null}
           <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
