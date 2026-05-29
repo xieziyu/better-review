@@ -217,7 +217,7 @@
   },
   "home": {
     "eyebrow": "better-review",
-    "title": "Review GitHub PRs locally",
+    "title": "Review code changes locally",
     "subtitle": "Paste a pull request to start a session.",
     "subtitleLocal": "Pick a local repository and review a branch in place — no PR required.",
     "subtitleVbranch": "Pick a GitButler project and review a single virtual branch.",
