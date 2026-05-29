@@ -217,7 +217,7 @@
   },
   "home": {
     "eyebrow": "better-review",
-    "title": "在本地评审 GitHub PR",
+    "title": "在本地评审代码变更",
     "subtitle": "贴入一个 PR 链接来开始评审。",
     "subtitleLocal": "选择一个本地仓库，直接评审某个分支 —— 无需 PR。",
     "subtitleVbranch": "选择一个 GitButler 项目，评审单个虚拟分支。",
