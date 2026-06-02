@@ -8,6 +8,24 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.4.0] — 2026-06-02
+
+### Added
+
+- **Manual file-level findings** — create manual findings scoped to a whole file (no line anchor) from the files-changed view. Because GitHub's create-review API rejects `subject_type:'file'` in `comments[]`, file-level findings render into the review body via `renderFindingMarkdown` instead of riding along as inline comments. `suggestion` is forbidden on file-level findings at every boundary (zod refine, repo update guard, detail-panel editor). (#34)
+- **Manual-finding range selection** — click `+` on the gutter to anchor a finding, shift-click another `+` to extend it into a multi-line range. A compact `PendingSelectionBar` defers the full `AddFindingForm` until the range is confirmed, keeping the diff in view; submit is blocked when the range crosses lines not in the diff. (#31)
+- **Per-finding GitHub submission state** — findings included in a successful submission are now durably marked **Submitted / 已提交**, independent of the local `selected` checkbox. `Finding` gains `submittedAt` + `submittedCommentId` (computed at read time via JOIN, no migration); `FindingRow`/`FindingDetailPanel` render a badge deep-linking to the GitHub comment anchor, and `FindingList` groups submitted findings into a default-collapsed section per block. (#35)
+- **Collapsible sidebar** — the sidebar can collapse to a 48 px rail that keeps "+ New Review" and a search icon, giving the diff pane ~220 px more room. A running-count badge surfaces active sessions while the list is hidden, `⌘K` expands and focuses search from the collapsed state, and the collapsed state persists per browser via `localStorage`. (#36)
+- **Default local/vbranch repo to last-used path** — the local-branch and vbranch tabs now prefill their repo input with the most-recently-used `localRepoPath`, gated behind a per-field `touched` flag so an explicit typed/browsed/cleared choice is never clobbered. (#33)
+
+### Changed
+
+- **Source-neutral home title** — the home title now reads "Review code changes locally" / "在本地评审代码变更" to reflect that reviews cover local branches and GitButler vbranches in addition to GitHub PRs. (#37)
+
+### Fixed
+
+- **Include every commit in local-branch/vbranch source meta** — the local-branch and GitButler-vbranch flows previously passed only the tip commit's subject + body into `{{PR_META}}`, so multi-commit branches lost the intent of earlier commits. A new `readBranchCommits()` helper reads every commit in `base..head` and renders them oldest → newest; single-commit branches keep the legacy single-body render. (#32)
+
 ## [0.3.0] — 2026-05-27
 
 ### Added
