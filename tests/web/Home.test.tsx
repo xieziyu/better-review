@@ -69,7 +69,9 @@ describe('Home', () => {
 
   it('renders the welcome hero with input and start button', () => {
     render(withClient(<Home />))
-    expect(screen.getByRole('heading', { name: /Review GitHub PRs/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /Review code changes locally/i }),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText(/PR target/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Start review/i })).toBeInTheDocument()
   })
