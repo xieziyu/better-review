@@ -205,6 +205,36 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
   })
 
+  it('preserves the cached diffViewMode on Save instead of the stale mount-time draft', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    const { qc } = renderSettings()
+
+    // Simulate the Files Changed toggle flipping diffViewMode through the
+    // shared cache while Settings stays mounted (e.g. a cross-tab refetch).
+    qc.setQueryData(['config'], {
+      config: { ...baseConfig, diffViewMode: 'split' as const },
+      file: '/Users/x/.better-review/config.json',
+    })
+
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [, init] = fetchMock.mock.calls[0]!
+    const body = JSON.parse((init as RequestInit).body as string)
+    // The PUT must carry the latest diffViewMode, not the unified value the
+    // draft captured at mount.
+    expect(body).toMatchObject({ stallMinutes: 5, diffViewMode: 'split' })
+  })
+
   it('renders an inline error when the save mutation fails', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(

@@ -1,6 +1,6 @@
 import type { AppConfig, DiffViewMode } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 
 import { api, queryKeys } from './api'
 
@@ -14,6 +14,11 @@ export interface UseDiffViewModeResult {
 }
 
 type ConfigQueryData = { config: AppConfig; file: string }
+
+interface MutationVars {
+  mode: DiffViewMode
+  id: number
+}
 
 /**
  * Globally persisted unified/split preference for the Files Changed diff.
@@ -29,15 +34,20 @@ export function useDiffViewMode(): UseDiffViewModeResult {
   const { data } = useQuery({ queryKey: queryKeys.config, queryFn: api.getConfig })
   const mode = data?.config.diffViewMode ?? DEFAULT_MODE
 
+  // Monotonic id of the most recent toggle. Rapid clicks fire overlapping PUTs;
+  // only the newest one is allowed to write the cache, so a slower earlier
+  // request can't resolve last and clobber the reviewer's final selection.
+  const latestRequest = useRef(0)
+
   const mutation = useMutation({
-    mutationFn: (next: DiffViewMode) => {
+    mutationFn: ({ mode: next }: MutationVars) => {
       const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
       if (!current) throw new Error('config not loaded')
       return api.putConfig({ ...current.config, diffViewMode: next })
     },
     // Optimistically flip the cached config so the toggle responds instantly,
     // before the localhost round-trip resolves.
-    onMutate: (next: DiffViewMode) => {
+    onMutate: ({ mode: next }: MutationVars) => {
       const prev = qc.getQueryData<ConfigQueryData>(queryKeys.config)
       if (prev) {
         qc.setQueryData<ConfigQueryData>(queryKeys.config, {
@@ -47,10 +57,13 @@ export function useDiffViewMode(): UseDiffViewModeResult {
       }
       return { prev }
     },
-    onError: (_err, _next, ctx) => {
+    onError: (_err, vars, ctx) => {
+      // A stale request must not roll back over a newer selection.
+      if (vars.id !== latestRequest.current) return
       if (ctx?.prev) qc.setQueryData(queryKeys.config, ctx.prev)
     },
-    onSuccess: ({ config }) => {
+    onSuccess: ({ config }, vars) => {
+      if (vars.id !== latestRequest.current) return
       const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
       qc.setQueryData<ConfigQueryData>(queryKeys.config, {
         config,
@@ -62,7 +75,8 @@ export function useDiffViewMode(): UseDiffViewModeResult {
   const setMode = useCallback(
     (next: DiffViewMode) => {
       if (next === mode) return
-      mutation.mutate(next)
+      const id = (latestRequest.current += 1)
+      mutation.mutate({ mode: next, id })
     },
     [mode, mutation],
   )

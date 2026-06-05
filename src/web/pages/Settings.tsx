@@ -157,7 +157,14 @@ export function Settings() {
       onSubmit={(e) => {
         e.preventDefault()
         if (dirty && !hasErrors && !saveMut.isPending) {
-          saveMut.mutate({ ...draft, reviewExcludeGlobs: cleanGlobs(draft.reviewExcludeGlobs) })
+          // `diffViewMode` has no field on this page (it's toggled in Files
+          // Changed). Preserve the freshest server value so a stale mount-time
+          // draft can't clobber a layout the reviewer changed elsewhere.
+          saveMut.mutate({
+            ...draft,
+            diffViewMode: cfgQ.data.config.diffViewMode,
+            reviewExcludeGlobs: cleanGlobs(draft.reviewExcludeGlobs),
+          })
         }
       }}
       className="px-8 py-10 mx-auto max-w-2xl space-y-10"
