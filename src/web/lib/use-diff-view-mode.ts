@@ -39,6 +39,18 @@ export function useDiffViewMode(): UseDiffViewModeResult {
   // request can't resolve last and clobber the reviewer's final selection.
   const latestRequest = useRef(0)
 
+  // Last server-confirmed diffViewMode — the baseline a failed toggle rolls back
+  // to. This must NOT be a prior optimistic cache snapshot: two toggles that both
+  // fail (split then unified) would otherwise leave the UI on the un-persisted
+  // `split` from the first toggle's snapshot while disk still holds `unified`.
+  // Seed it from the server value only while no toggle is in flight — once a
+  // mutation fires, the query cache is optimistic and no longer authoritative;
+  // from then on onSuccess advances this baseline from the server's response.
+  const confirmedMode = useRef<DiffViewMode | undefined>(undefined)
+  if (latestRequest.current === 0 && data) {
+    confirmedMode.current = data.config.diffViewMode
+  }
+
   const mutation = useMutation({
     // Serialize writes to this preference: a scoped mutation runs only after the
     // previous one with the same id settles. Without this the two PUTs race on
@@ -53,27 +65,27 @@ export function useDiffViewMode(): UseDiffViewModeResult {
     // Optimistically flip the cached config so the toggle responds instantly,
     // before the localhost round-trip resolves.
     onMutate: ({ mode: next }: MutationVars) => {
-      const prev = qc.getQueryData<ConfigQueryData>(queryKeys.config)
-      if (prev) {
-        qc.setQueryData<ConfigQueryData>(queryKeys.config, {
-          ...prev,
-          config: { ...prev.config, diffViewMode: next },
-        })
-      }
-      return { prev }
+      qc.setQueryData<ConfigQueryData>(queryKeys.config, (curr) =>
+        curr ? { ...curr, config: { ...curr.config, diffViewMode: next } } : curr,
+      )
     },
-    onError: (_err, vars, ctx) => {
+    onError: (_err, vars) => {
       // A stale request must not roll back over a newer selection.
       if (vars.id !== latestRequest.current) return
-      const prevMode = ctx?.prev?.config.diffViewMode
-      if (prevMode === undefined) return
-      // Roll back only our own field — never the whole snapshot, which could
+      const baseline = confirmedMode.current
+      if (baseline === undefined) return
+      // Roll back to the last server-confirmed value — not a prior optimistic
+      // snapshot — and only our own field, never the whole snapshot, which could
       // revert a field another control changed while this request was in flight.
       qc.setQueryData<ConfigQueryData>(queryKeys.config, (curr) =>
-        curr ? { ...curr, config: { ...curr.config, diffViewMode: prevMode } } : curr,
+        curr ? { ...curr, config: { ...curr.config, diffViewMode: baseline } } : curr,
       )
     },
     onSuccess: ({ config }, vars) => {
+      // Every settled PATCH — even a superseded one — reports the server's true
+      // value, so always advance the rollback baseline. (Writes are serialized by
+      // scope, so the latest request's response lands last and wins here.)
+      confirmedMode.current = config.diffViewMode
       if (vars.id !== latestRequest.current) return
       // Write back only diffViewMode. The response is a full-config snapshot
       // from when the server processed this PATCH, so its other fields may be

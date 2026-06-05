@@ -221,6 +221,36 @@ describe('useDiffViewMode', () => {
     })
   })
 
+  it('rolls back to the server value when two queued PUTs both fail', async () => {
+    // split then unified, both fail. The rollback must restore the last
+    // *server-confirmed* value (unified), not the un-persisted optimistic split
+    // left in the first toggle's snapshot — otherwise the UI drifts away from disk.
+    const resolvers: Array<(r: Response) => void> = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () => new Promise<Response>((resolve) => resolvers.push(resolve)),
+    )
+    const fail = () => new Response('nope', { status: 500 })
+
+    const { qc, wrapper } = setup() // server holds diffViewMode 'unified'
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    act(() => result.current.setMode('split'))
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+    act(() => result.current.setMode('unified'))
+
+    // First PUT (split) fails; its scope-queued successor (unified) then fires.
+    act(() => resolvers[0]!(fail()))
+    await waitFor(() => expect(resolvers).toHaveLength(2))
+    act(() => resolvers[1]!(fail()))
+
+    // Gate on the mutation actually settling — the second toggle's optimistic
+    // value is already 'unified', so asserting before onError runs would pass on
+    // the transient even though a buggy rollback restores the un-persisted 'split'.
+    await waitFor(() => expect(qc.isMutating()).toBe(0))
+    // Neither write persisted, so the preference must settle back on 'unified'.
+    expect(result.current.mode).toBe('unified')
+  })
+
   it('rolls back to the previous mode when the PUT fails', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
