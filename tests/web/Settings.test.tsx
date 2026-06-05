@@ -14,6 +14,7 @@ const baseConfig: AppConfig = {
   perPRGCDays: 7,
   language: 'en',
   reviewExcludeGlobs: [],
+  diffViewMode: 'unified',
 }
 
 const baseHealth: HealthStatus = {

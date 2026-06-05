@@ -32,6 +32,9 @@ export type AgentKind = (typeof AGENT_KINDS)[number]
 export const LANGUAGES = ['en', 'zh-CN'] as const
 export type Language = (typeof LANGUAGES)[number]
 
+export const DIFF_VIEW_MODES = ['unified', 'split'] as const
+export type DiffViewMode = (typeof DIFF_VIEW_MODES)[number]
+
 // What kind of PR-head source tree the agent reads while reviewing:
 // - 'worktree': a git worktree of the user's pinned local clone, checked out at
 //   the PR head SHA. Full repo, full files-at-head fidelity.
@@ -173,6 +176,10 @@ export interface AppConfig {
   // Extra glob patterns for files to drop from the review-agent prompt, on
   // top of the built-in lockfile/generated defaults.
   reviewExcludeGlobs: string[]
+  // Reviewer's preferred Files Changed diff layout. Persisted server-side
+  // (not in browser localStorage) so it survives daemon restarts, which bind
+  // a fresh ephemeral port and therefore a new browser origin.
+  diffViewMode: DiffViewMode
 }
 
 export type SSEEvent =

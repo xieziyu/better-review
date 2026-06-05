@@ -1,48 +1,71 @@
-import { useCallback, useState } from 'react'
+import type { AppConfig, DiffViewMode } from '@shared/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 
-export type DiffViewMode = 'unified' | 'split'
+import { api, queryKeys } from './api'
 
-const STORAGE_KEY = 'better-review:diff-view-mode:v1'
+export type { DiffViewMode } from '@shared/types'
+
 const DEFAULT_MODE: DiffViewMode = 'unified'
-
-function readStored(): DiffViewMode {
-  if (typeof window === 'undefined') return DEFAULT_MODE
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw === 'split' || raw === 'unified' ? raw : DEFAULT_MODE
-  } catch {
-    return DEFAULT_MODE
-  }
-}
-
-function persist(mode: DiffViewMode): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_KEY, mode)
-  } catch {
-    // Quota or disabled storage — the choice simply won't persist.
-  }
-}
 
 export interface UseDiffViewModeResult {
   mode: DiffViewMode
   setMode: (mode: DiffViewMode) => void
 }
 
+type ConfigQueryData = { config: AppConfig; file: string }
+
 /**
  * Globally persisted unified/split preference for the Files Changed diff.
  *
- * The choice is not session-scoped (a reviewer's preferred layout carries
- * across PRs), so it lives under a single key like the theme preference rather
- * than the per-session `use-viewed-files` storage.
+ * Backed by the server-side `config.json` (not browser localStorage): the
+ * daemon binds a fresh ephemeral port on each restart, which changes the
+ * browser origin and would wipe per-origin localStorage. Persisting through
+ * the config API keeps the reviewer's preferred layout across restarts and
+ * across PRs, mirroring how `language` is stored.
  */
 export function useDiffViewMode(): UseDiffViewModeResult {
-  const [mode, setModeState] = useState<DiffViewMode>(readStored)
+  const qc = useQueryClient()
+  const { data } = useQuery({ queryKey: queryKeys.config, queryFn: api.getConfig })
+  const mode = data?.config.diffViewMode ?? DEFAULT_MODE
 
-  const setMode = useCallback((next: DiffViewMode) => {
-    setModeState(next)
-    persist(next)
-  }, [])
+  const mutation = useMutation({
+    mutationFn: (next: DiffViewMode) => {
+      const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
+      if (!current) throw new Error('config not loaded')
+      return api.putConfig({ ...current.config, diffViewMode: next })
+    },
+    // Optimistically flip the cached config so the toggle responds instantly,
+    // before the localhost round-trip resolves.
+    onMutate: (next: DiffViewMode) => {
+      const prev = qc.getQueryData<ConfigQueryData>(queryKeys.config)
+      if (prev) {
+        qc.setQueryData<ConfigQueryData>(queryKeys.config, {
+          ...prev,
+          config: { ...prev.config, diffViewMode: next },
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.config, ctx.prev)
+    },
+    onSuccess: ({ config }) => {
+      const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
+      qc.setQueryData<ConfigQueryData>(queryKeys.config, {
+        config,
+        file: current?.file ?? '',
+      })
+    },
+  })
+
+  const setMode = useCallback(
+    (next: DiffViewMode) => {
+      if (next === mode) return
+      mutation.mutate(next)
+    },
+    [mode, mutation],
+  )
 
   return { mode, setMode }
 }

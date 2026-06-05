@@ -15,6 +15,7 @@ const baseConfig: AppConfig = {
   perPRGCDays: 7,
   language: 'en',
   reviewExcludeGlobs: [],
+  diffViewMode: 'unified',
 }
 
 function renderSwitcher(opts?: { config?: AppConfig }) {

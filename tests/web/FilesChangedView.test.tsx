@@ -1,6 +1,6 @@
 import type { Finding, PRSession } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Stub heavy pieces so jsdom doesn't pull Shiki WASM or actually mount the
@@ -291,41 +291,66 @@ rename to src/new.ts
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
   })
 
-  it('toggles the diff layout to split and persists the choice', () => {
-    const view = render(
-      withProviders(
-        <FilesChangedView
-          session={session}
-          findings={findings}
-          unifiedDiff={DIFF}
-          selectedPath="src/foo.ts"
-          onSelectPath={() => {}}
-          onOpenFindingInPanel={() => {}}
-        />,
-      ),
+  it('toggles the diff layout to split and persists the choice to config', async () => {
+    // Server-persisted (config.json), not browser localStorage: the daemon
+    // rebinds an ephemeral port on restart, which would wipe per-origin
+    // localStorage. The preference therefore lives in the shared config cache.
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, staleTime: Infinity },
+        mutations: { retry: false },
+      },
+    })
+    qc.setQueryData(['config'], {
+      config: {
+        port: 0,
+        maxConcurrentReviews: 4,
+        stallMinutes: 3,
+        defaultAgent: 'claude',
+        perPRGCDays: 7,
+        language: 'en',
+        reviewExcludeGlobs: [],
+        diffViewMode: 'unified',
+      },
+      file: '/Users/x/.better-review/config.json',
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const body = JSON.parse((init as RequestInit).body as string)
+      return Promise.resolve(
+        new Response(JSON.stringify({ config: body }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+    })
+    const ui = (
+      <QueryClientProvider client={qc}>
+        <SelectionProvider>
+          <FilesChangedView
+            session={session}
+            findings={findings}
+            unifiedDiff={DIFF}
+            selectedPath="src/foo.ts"
+            onSelectPath={() => {}}
+            onOpenFindingInPanel={() => {}}
+          />
+        </SelectionProvider>
+      </QueryClientProvider>
     )
+    const view = render(ui)
     // Defaults to unified — the toggle reflects it via aria-pressed.
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'unified')
     expect(screen.getByRole('button', { name: 'Unified' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Split' }))
-    expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
-    expect(screen.getByRole('button', { name: 'Split' })).toHaveAttribute('aria-pressed', 'true')
-    expect(window.localStorage.getItem('better-review:diff-view-mode:v1')).toBe('split')
-
-    // The choice is global (not session-scoped): a remount reads it back.
-    view.unmount()
-    render(
-      withProviders(
-        <FilesChangedView
-          session={session}
-          findings={findings}
-          unifiedDiff={DIFF}
-          selectedPath="src/foo.ts"
-          onSelectPath={() => {}}
-          onOpenFindingInPanel={() => {}}
-        />,
-      ),
+    await waitFor(() =>
+      expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split'),
     )
+    expect(screen.getByRole('button', { name: 'Split' })).toHaveAttribute('aria-pressed', 'true')
+
+    // The choice is global (not session-scoped): a remount reads it back from
+    // the same config cache the PUT updated.
+    view.unmount()
+    render(ui)
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
   })
 

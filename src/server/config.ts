@@ -3,7 +3,13 @@ import { join } from 'node:path'
 
 import { z } from 'zod'
 
-import { AGENT_KINDS, LANGUAGES, type AgentKind, type Language } from '../shared/types'
+import {
+  AGENT_KINDS,
+  DIFF_VIEW_MODES,
+  LANGUAGES,
+  type AgentKind,
+  type Language,
+} from '../shared/types'
 
 // Picks the supported locale that best matches the host. Used as the initial
 // default for `config.language` so a fresh install reflects the user's system
@@ -39,6 +45,7 @@ const rawConfigSchema = z.object({
   defaultAgent: z.enum(AGENT_KINDS).default('codex'),
   perPRGCDays: z.number().int().nonnegative().default(7),
   language: z.enum(LANGUAGES).default(() => detectSystemLanguage()),
+  diffViewMode: z.enum(DIFF_VIEW_MODES).default('unified'),
   // Extra glob patterns for files to drop from the review-agent prompt, on top
   // of the built-in lockfile/generated defaults. See engine/diff-filter.ts.
   reviewExcludeGlobs: z.array(z.string()).default([]),
@@ -103,6 +110,7 @@ const writableKeys = [
   'perPRGCDays',
   'language',
   'reviewExcludeGlobs',
+  'diffViewMode',
 ] as const
 
 export function saveConfig(file: string, config: Config): void {
