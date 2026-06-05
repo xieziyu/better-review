@@ -1,10 +1,12 @@
 import type { Finding, PRSession } from '@shared/types'
-import { ExternalLink, FilePlus2 } from 'lucide-react'
+import { Columns2, ExternalLink, FilePlus2, Rows3 } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
 import { findNewSideChange, type FileSummary } from '@/lib/diff-utils'
+import { useDiffViewMode } from '@/lib/use-diff-view-mode'
+import { cn } from '@/lib/utils'
 
 import { AddFindingForm } from './AddFindingForm'
 import { FileDiff } from './FileDiff'
@@ -68,6 +70,7 @@ export function FileDiffPane({
   readOnly,
 }: Props) {
   const { t } = useTranslation()
+  const { mode: viewMode, setMode: setViewMode } = useDiffViewMode()
   // Manual-finding flow:
   //   selecting    → compact PendingSelectionBar; gutter + clicks extend the
   //                  range so the diff isn't pushed out of view by a full form.
@@ -215,6 +218,37 @@ export function FileDiffPane({
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-3 shrink-0">
+          <div
+            className="inline-flex items-center rounded-md border border-rule overflow-hidden"
+            role="radiogroup"
+            aria-label={t('filesChanged.viewMode.label')}
+          >
+            {(['unified', 'split'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={viewMode === m}
+                onClick={() => setViewMode(m)}
+                title={t(`filesChanged.viewMode.${m}`)}
+                aria-label={t(`filesChanged.viewMode.${m}`)}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 h-6 text-meta transition-colors',
+                  m === 'split' && 'border-l border-rule',
+                  viewMode === m
+                    ? 'bg-brand text-brand-ink'
+                    : 'text-ink-secondary hover:text-brand hover:bg-sunken',
+                )}
+              >
+                {m === 'unified' ? (
+                  <Rows3 className="h-3.5 w-3.5" />
+                ) : (
+                  <Columns2 className="h-3.5 w-3.5" />
+                )}
+                {t(`filesChanged.viewMode.${m}`)}
+              </button>
+            ))}
+          </div>
           {!readOnly ? (
             <button
               type="button"
@@ -271,6 +305,7 @@ export function FileDiffPane({
         hunks={file.hunks}
         widgets={widgets}
         selectedChanges={selectedChanges}
+        viewType={viewMode}
         {...(readOnly
           ? {}
           : {

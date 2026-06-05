@@ -69,3 +69,34 @@
 [data-theme='dark'] .diff-gutter-selected {
   background-color: color-mix(in oklch, var(--anchor) 30%, transparent) !important;
 }
+
+/* ---- Split view ----
+ * A split `tr.diff-line` always renders 4 cells in order:
+ *   [old gutter, old code, new gutter, new code]
+ * The 3rd cell is the new-side gutter, so its left edge is the seam between
+ * the two panes. Unified rows only have 2 cells, so nth-child(3) is inert
+ * there and these rules don't bleed into unified mode. */
+.diff-line > td:nth-child(3) {
+  border-left: 1px solid var(--rule);
+}
+
+/* Continue the seam through inline widget rows. SplitWidget renders two
+ * half-width cells (empty old side + content new side) for findings anchored
+ * to a new-side line; nth-child(2) is the new-side content. A full-width
+ * widget (context-line finding) is a single colSpan=4 cell, so it has no
+ * 2nd child and correctly shows no seam. */
+.diff-widget > td:nth-child(2) {
+  border-left: 1px solid var(--rule);
+}
+
+/* The empty half of a split row (one side has no corresponding line). Tint it
+ * with the recessed surface so "no line here" reads as intentional on the
+ * white diff, and suppress the library's red omit-marker line — that marker
+ * is meant for the collapsed-lines affordance, which this app never renders. */
+.diff-line > .diff-gutter-omit,
+.diff-line > .diff-code-omit {
+  background-color: var(--bg-sunken);
+}
+.diff-line > .diff-gutter-omit::before {
+  display: none;
+}

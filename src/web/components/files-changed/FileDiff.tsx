@@ -29,6 +29,8 @@ interface Props {
   addRequestTitle?: string
   /** Highlight a specific change (e.g. when an inline finding is expanded). */
   selectedChanges?: string[]
+  /** Layout: side-by-side `split` or stacked `unified` (default). */
+  viewType?: 'unified' | 'split'
 }
 
 const renderShikiToken: RenderToken = (token, renderDefault, i) => {
@@ -61,6 +63,7 @@ export function FileDiff({
   onAddRequest,
   addRequestTitle,
   selectedChanges,
+  viewType = 'unified',
 }: Props) {
   const [tokens, setTokens] = useState<HunkTokens | null>(null)
   const lang = useMemo(() => inferLangFromFile(file), [file])
@@ -112,7 +115,7 @@ export function FileDiff({
 
   return (
     <Diff
-      viewType="unified"
+      viewType={viewType}
       diffType={fileType}
       hunks={hunks}
       widgets={widgets ?? {}}
