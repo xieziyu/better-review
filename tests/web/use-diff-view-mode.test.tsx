@@ -192,6 +192,41 @@ describe('useDiffViewMode', () => {
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ diffViewMode: 'split' })
   })
 
+  it('does not drop a fast toggle back to the current server value', async () => {
+    // Server holds 'unified'. The reviewer rapidly clicks split then unified
+    // using the SAME render's setMode — the second click fires before the first
+    // toggle's (async) optimistic write re-renders the closure, so `data` still
+    // reads 'unified'. Gating the no-op short-circuit on no pending toggle keeps
+    // the second click alive; otherwise only 'split' persists and the reviewer's
+    // final 'unified' is lost.
+    const patchBodies: Array<{ diffViewMode: string }> = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const body = JSON.parse((init as RequestInit).body as string) as { diffViewMode: string }
+      patchBodies.push(body)
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ config: { ...baseConfig, diffViewMode: body.diffViewMode } }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      )
+    })
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper: setup().wrapper })
+
+    // Both clicks share the initial render's setMode closure (data === 'unified').
+    act(() => {
+      result.current.setMode('split')
+      result.current.setMode('unified')
+    })
+
+    // Both writes go out, serialized split→unified, so disk ends on 'unified'.
+    await waitFor(() => expect(patchBodies).toHaveLength(2))
+    expect(patchBodies.map((b) => b.diffViewMode)).toEqual(['split', 'unified'])
+    await waitFor(() => expect(result.current.mode).toBe('unified'))
+  })
+
   it('does not PATCH when the mode is unchanged', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
     const { wrapper } = setup()

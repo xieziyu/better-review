@@ -121,11 +121,16 @@ export function useDiffViewMode(): UseDiffViewModeResult {
 
   const setMode = useCallback(
     (next: DiffViewMode) => {
-      // Short-circuit only against the *known* server value. `mode` falls back
-      // to the local default before the config query resolves, so comparing to
-      // it would silently drop a click that happens to match the default while
-      // the persisted value is actually the other mode.
-      if (data?.config.diffViewMode === next) return
+      // Short-circuit only against the *known* server value, and only while no
+      // toggle is pending. `mode` falls back to the local default before the
+      // config query resolves, so comparing to it would silently drop a click
+      // that matches the default while the persisted value is the other mode.
+      // The `latestRequest.current === 0` gate matters too: with a toggle in
+      // flight, `data` still holds the pre-toggle server value (the optimistic
+      // write is async and hasn't re-rendered this closure yet), so without the
+      // gate a fast split→unified would treat the second click as a no-op and
+      // drop the reviewer's final selection while the first PATCH still lands.
+      if (latestRequest.current === 0 && data?.config.diffViewMode === next) return
       const id = (latestRequest.current += 1)
       mutation.mutate({ mode: next, id })
     },
