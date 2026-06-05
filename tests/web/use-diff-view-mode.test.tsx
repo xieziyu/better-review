@@ -251,6 +251,50 @@ describe('useDiffViewMode', () => {
     expect(result.current.mode).toBe('unified')
   })
 
+  it('rolls back to a server value refreshed after the last toggle, not a stale baseline', async () => {
+    // The rollback baseline must keep following the config query once a toggle
+    // settles. Otherwise a later refetch (window refocus, cross-tab save) updates
+    // the displayed value while the baseline stays pinned to the prior toggle, and
+    // the next failed toggle reverts the UI to that stale value instead of disk.
+    let failNext = false
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const body = JSON.parse((init as RequestInit).body as string) as { diffViewMode: string }
+      if (failNext) return Promise.resolve(new Response('nope', { status: 500 }))
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ config: { ...baseConfig, diffViewMode: body.diffViewMode } }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      )
+    })
+
+    const { qc, wrapper } = setup() // server holds 'unified'
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    // First toggle succeeds; the baseline advances to 'split'.
+    act(() => result.current.setMode('split'))
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+    await waitFor(() => expect(qc.isMutating()).toBe(0))
+
+    // A later config refetch brings a different server-confirmed value.
+    act(() =>
+      qc.setQueryData<{ config: AppConfig; file: string }>(['config'], (prev) =>
+        prev ? { ...prev, config: { ...prev.config, diffViewMode: 'unified' } } : prev,
+      ),
+    )
+    await waitFor(() => expect(result.current.mode).toBe('unified'))
+
+    // The next toggle fails — rollback must restore the refreshed 'unified', not
+    // the stale 'split' baseline left by the first toggle.
+    failNext = true
+    act(() => result.current.setMode('split'))
+    await waitFor(() => expect(qc.isMutating()).toBe(0))
+    expect(result.current.mode).toBe('unified')
+  })
+
   it('rolls back to the previous mode when the PUT fails', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')

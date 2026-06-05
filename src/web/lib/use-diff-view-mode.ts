@@ -99,6 +99,17 @@ export function useDiffViewMode(): UseDiffViewModeResult {
           : { config, file: '' },
       )
     },
+    onSettled: (_data, _error, vars: MutationVars) => {
+      // Once the newest toggle settles there's nothing left in flight, so clear
+      // the "request pending" marker. This re-arms the baseline re-seed above
+      // (gated on `latestRequest.current === 0`): a later config refetch — window
+      // refocus, cross-tab save, manual refetch — can then refresh `confirmedMode`
+      // to the server's current value instead of leaving a failed toggle to roll
+      // back to a stale baseline. A superseded request leaves the marker alone.
+      if (vars.id === latestRequest.current) {
+        latestRequest.current = 0
+      }
+    },
   })
 
   const setMode = useCallback(
