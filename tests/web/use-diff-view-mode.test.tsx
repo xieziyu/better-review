@@ -163,6 +163,51 @@ describe('useDiffViewMode', () => {
     await waitFor(() => expect(patchBodies).toEqual([{ diffViewMode: 'unified' }]))
   })
 
+  it('refetches server truth when a cold-start toggle fails with no baseline', async () => {
+    // Disk holds 'split' but the initial GET is still in flight (no data yet), so
+    // the hook shows the local default 'unified'. The user toggles 'unified';
+    // onMutate cancels that GET, then the PATCH fails. With no server-confirmed
+    // baseline to roll back to, onError must refetch config so the UI recovers to
+    // the real on-disk 'split' instead of sitting on the default forever.
+    let getCalls = 0
+    let resolveSecondGet!: (r: Response) => void
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const method = (init as RequestInit | undefined)?.method ?? 'GET'
+      if (method === 'PATCH') return Promise.resolve(new Response('nope', { status: 500 }))
+      getCalls += 1
+      // First GET stays in flight (cancelled by onMutate). The recovery refetch
+      // is the second GET — resolve it with the true on-disk value.
+      if (getCalls === 1) return new Promise<Response>(() => {})
+      return new Promise<Response>((resolve) => (resolveSecondGet = resolve))
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    expect(result.current.mode).toBe('unified')
+    act(() => result.current.setMode('unified'))
+
+    // The failed toggle must have triggered a recovery refetch (second GET).
+    await waitFor(() => expect(getCalls).toBe(2))
+    act(() =>
+      resolveSecondGet(
+        new Response(
+          JSON.stringify({ config: { ...baseConfig, diffViewMode: 'split' }, file: '/x' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      ),
+    )
+
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+  })
+
   it('defaults to unified when config stores unified', () => {
     const { wrapper } = setup()
     const { result } = renderHook(() => useDiffViewMode(), { wrapper })

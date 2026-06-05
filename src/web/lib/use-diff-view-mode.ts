@@ -80,7 +80,16 @@ export function useDiffViewMode(): UseDiffViewModeResult {
       // A stale request must not roll back over a newer selection.
       if (vars.id !== latestRequest.current) return
       const baseline = confirmedMode.current
-      if (baseline === undefined) return
+      if (baseline === undefined) {
+        // Cold start: the toggle fired before the initial config GET resolved,
+        // and onMutate cancelled that GET. With no server-confirmed baseline to
+        // roll back to and the PATCH now failed, the cache is still empty — the
+        // UI would sit on the local default while disk holds the other value
+        // until some incidental refetch. Refetch the server truth so it recovers
+        // immediately instead.
+        void qc.invalidateQueries({ queryKey: queryKeys.config })
+        return
+      }
       // Roll back to the last server-confirmed value — not a prior optimistic
       // snapshot — and only our own field, never the whole snapshot, which could
       // revert a field another control changed while this request was in flight.
