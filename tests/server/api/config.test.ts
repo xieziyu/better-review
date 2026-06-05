@@ -185,6 +185,20 @@ describe('config API', () => {
     expect(d.getConfig()).toMatchObject({ diffViewMode: 'split', language: 'zh-CN' })
   })
 
+  it('PATCH /api/config rejects unknown keys with a 400 instead of silently no-op-ing', async () => {
+    const d = makeTestDeps()
+    const app = createApp(d)
+    const before = { ...d.getConfig() }
+    // A typo'd field name must not be swallowed as a successful empty change.
+    const res = await app.request('/api/config', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ diffViewmode: 'split' }),
+    })
+    expect(res.status).toBe(400)
+    expect(d.getConfig()).toEqual(before)
+  })
+
   it('PATCH /api/config rejects an invalid field with a 400 and leaves config untouched', async () => {
     const d = makeTestDeps()
     const app = createApp(d)

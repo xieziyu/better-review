@@ -79,11 +79,15 @@ export function useDiffViewMode(): UseDiffViewModeResult {
 
   const setMode = useCallback(
     (next: DiffViewMode) => {
-      if (next === mode) return
+      // Short-circuit only against the *known* server value. `mode` falls back
+      // to the local default before the config query resolves, so comparing to
+      // it would silently drop a click that happens to match the default while
+      // the persisted value is actually the other mode.
+      if (data?.config.diffViewMode === next) return
       const id = (latestRequest.current += 1)
       mutation.mutate({ mode: next, id })
     },
-    [mode, mutation],
+    [data?.config.diffViewMode, mutation],
   )
 
   return { mode, setMode }

@@ -79,6 +79,38 @@ describe('useDiffViewMode', () => {
     await waitFor(() => expect(result.current.mode).toBe('split'))
   })
 
+  it('persists a click matching the local default while config is unresolved', async () => {
+    // Disk holds 'split', but the GET hasn't resolved so the hook shows the
+    // local default 'unified'. Clicking 'unified' must still PATCH — otherwise
+    // the choice is dropped and the UI snaps back to 'split' once GET returns.
+    const patchBodies: unknown[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const method = (init as RequestInit | undefined)?.method ?? 'GET'
+      if (method === 'PATCH') {
+        patchBodies.push(JSON.parse((init as RequestInit).body as string))
+        return Promise.resolve(
+          new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: 'unified' } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return new Promise<Response>(() => {})
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    expect(result.current.mode).toBe('unified')
+    act(() => result.current.setMode('unified'))
+
+    await waitFor(() => expect(patchBodies).toEqual([{ diffViewMode: 'unified' }]))
+  })
+
   it('defaults to unified when config stores unified', () => {
     const { wrapper } = setup()
     const { result } = renderHook(() => useDiffViewMode(), { wrapper })

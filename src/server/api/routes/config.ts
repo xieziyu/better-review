@@ -21,7 +21,11 @@ const updatableSchema = z.object({
 // toggle, the language switcher, the Settings form) persist only the fields it
 // owns, so concurrent writes from different controls can't clobber each other
 // by each round-tripping a full stale snapshot.
-const patchSchema = updatableSchema.partial()
+//
+// `.strict()`: reject unknown keys with a 400 instead of silently stripping
+// them. A partial endpoint that swallowed `{ diffViewmode: 'split' }` (typo) as
+// a no-op 200 would let a stale client think it persisted a change it didn't.
+const patchSchema = updatableSchema.partial().strict()
 
 function zodError(e: unknown): string {
   return e instanceof ZodError
