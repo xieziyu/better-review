@@ -79,6 +79,58 @@ describe('useDiffViewMode', () => {
     await waitFor(() => expect(result.current.mode).toBe('split'))
   })
 
+  it('is not clobbered by a stale config GET that resolves after the PATCH', async () => {
+    // Cold start: the initial GET is still reading the OLD value ('unified') off
+    // disk when the user toggles to 'split'. The PATCH persists 'split' and its
+    // success seeds the cache. The stale GET must NOT then resolve last and snap
+    // the UI back to 'unified' — onMutate cancels the in-flight GET so its result
+    // is discarded.
+    let resolveGet!: (r: Response) => void
+    const patchBodies: unknown[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const method = (init as RequestInit | undefined)?.method ?? 'GET'
+      if (method === 'PATCH') {
+        patchBodies.push(JSON.parse((init as RequestInit).body as string))
+        return Promise.resolve(
+          new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: 'split' } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      // GET /api/config — held open, resolves later with the pre-PATCH value.
+      return new Promise<Response>((resolve) => (resolveGet = resolve))
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    expect(result.current.mode).toBe('unified')
+    act(() => result.current.setMode('split'))
+
+    await waitFor(() => expect(patchBodies).toEqual([{ diffViewMode: 'split' }]))
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+
+    // The stale GET now resolves with the OLD on-disk value.
+    act(() =>
+      resolveGet(
+        new Response(JSON.stringify({ config: baseConfig, file: '/x' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+
+    // It must be ignored: the cancelled GET can't overwrite the persisted choice.
+    await waitFor(() => expect(qc.isFetching()).toBe(0))
+    expect(result.current.mode).toBe('split')
+    expect(qc.getQueryData<{ config: AppConfig }>(['config'])?.config.diffViewMode).toBe('split')
+  })
+
   it('persists a click matching the local default while config is unresolved', async () => {
     // Disk holds 'split', but the GET hasn't resolved so the hook shows the
     // local default 'unified'. Clicking 'unified' must still PATCH — otherwise

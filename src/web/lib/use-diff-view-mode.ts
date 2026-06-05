@@ -64,7 +64,14 @@ export function useDiffViewMode(): UseDiffViewModeResult {
     mutationFn: ({ mode: next }: MutationVars) => api.patchConfig({ diffViewMode: next }),
     // Optimistically flip the cached config so the toggle responds instantly,
     // before the localhost round-trip resolves.
-    onMutate: ({ mode: next }: MutationVars) => {
+    onMutate: async ({ mode: next }: MutationVars) => {
+      // Cancel any config GET already in flight first. On cold start the toggle
+      // can be clicked while the initial `/api/config` GET is still reading the
+      // OLD value off disk; without this it could resolve last and overwrite the
+      // value this PATCH just persisted — leaving the UI on a stale layout until
+      // the next refetch. cancelQueries makes React Query discard that GET's
+      // result so onSuccess's write wins.
+      await qc.cancelQueries({ queryKey: queryKeys.config })
       qc.setQueryData<ConfigQueryData>(queryKeys.config, (curr) =>
         curr ? { ...curr, config: { ...curr.config, diffViewMode: next } } : curr,
       )
