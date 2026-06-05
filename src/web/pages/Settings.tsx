@@ -59,16 +59,29 @@ function globsEqual(a: string[], b: string[]): boolean {
   return a.every((v, i) => v === b[i])
 }
 
+// Build a PATCH body of only the fields the user actually changed relative to
+// the server config. Sending unchanged fields would make this form a writer of
+// them too, so a Save with (say) only `stallMinutes` dirty would round-trip a
+// possibly-stale `language` and clobber a concurrent top-bar LanguageSwitcher
+// change — both server-side (it merges every key it receives) and in the cache
+// writeback. `isDirty` derives from the same payload so the two never drift.
+function buildPatch(server: AppConfig, draft: AppConfig): Partial<AppConfig> {
+  const patch: Partial<AppConfig> = {}
+  if (server.port !== draft.port) patch.port = draft.port
+  if (server.maxConcurrentReviews !== draft.maxConcurrentReviews) {
+    patch.maxConcurrentReviews = draft.maxConcurrentReviews
+  }
+  if (server.stallMinutes !== draft.stallMinutes) patch.stallMinutes = draft.stallMinutes
+  if (server.defaultAgent !== draft.defaultAgent) patch.defaultAgent = draft.defaultAgent
+  if (server.perPRGCDays !== draft.perPRGCDays) patch.perPRGCDays = draft.perPRGCDays
+  if (server.language !== draft.language) patch.language = draft.language
+  const globs = cleanGlobs(draft.reviewExcludeGlobs)
+  if (!globsEqual(cleanGlobs(server.reviewExcludeGlobs), globs)) patch.reviewExcludeGlobs = globs
+  return patch
+}
+
 function isDirty(server: AppConfig, draft: AppConfig): boolean {
-  return (
-    server.port !== draft.port ||
-    server.maxConcurrentReviews !== draft.maxConcurrentReviews ||
-    server.stallMinutes !== draft.stallMinutes ||
-    server.defaultAgent !== draft.defaultAgent ||
-    server.perPRGCDays !== draft.perPRGCDays ||
-    server.language !== draft.language ||
-    !globsEqual(cleanGlobs(server.reviewExcludeGlobs), cleanGlobs(draft.reviewExcludeGlobs))
-  )
+  return Object.keys(buildPatch(server, draft)).length > 0
 }
 
 export function Settings() {
@@ -110,22 +123,29 @@ export function Settings() {
   const hasErrors = Object.values(errors).some(Boolean)
 
   const saveMut = useMutation({
-    // Field-level PATCH of just the fields this form edits. `diffViewMode` has
-    // no control here (it's toggled in Files Changed), so it's deliberately
-    // omitted — the server preserves it instead of this form round-tripping a
-    // possibly-stale snapshot of it.
+    // Field-level PATCH of only the fields this Save actually changed (see
+    // buildPatch). Fields this form doesn't touch — including `diffViewMode`,
+    // which has no control here — are never sent, so the server's merge keeps
+    // whatever another control last wrote.
     mutationFn: (next: Partial<AppConfig>) => api.patchConfig(next),
-    onSuccess: ({ config }) => {
-      // This form doesn't own diffViewMode, so don't write it back: preserve
-      // whatever the cache currently holds (the toggle may have changed it),
-      // rather than reverting it to this PATCH response's snapshot.
+    onSuccess: ({ config }, patched) => {
+      // Merge only the fields this Save wrote back into the cache. The response
+      // is a full snapshot from this PATCH's merge point, so its other fields
+      // may trail a concurrent write (the top-bar LanguageSwitcher, the Files
+      // Changed diff-layout toggle) — writing them back would clobber it.
+      const picked = Object.fromEntries(
+        (Object.keys(patched) as (keyof AppConfig)[]).map((k) => [k, config[k]]),
+      ) as Partial<AppConfig>
       qc.setQueryData<{ config: AppConfig; file: string }>(queryKeys.config, (prev) => ({
-        config: prev ? { ...config, diffViewMode: prev.config.diffViewMode } : config,
+        config: prev ? { ...prev.config, ...picked } : config,
         file: prev?.file ?? cfgQ.data?.file ?? '',
       }))
       void qc.invalidateQueries({ queryKey: queryKeys.health })
       void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
-      setDraft({ ...config })
+      // Re-sync the draft from the merged cache, not the raw response, so a
+      // concurrent change to a field this form didn't save isn't reverted.
+      const live = qc.getQueryData<{ config: AppConfig }>(queryKeys.config)
+      setDraft({ ...(live?.config ?? config) })
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 2000)
     },
@@ -167,15 +187,7 @@ export function Settings() {
       onSubmit={(e) => {
         e.preventDefault()
         if (dirty && !hasErrors && !saveMut.isPending) {
-          saveMut.mutate({
-            port: draft.port,
-            maxConcurrentReviews: draft.maxConcurrentReviews,
-            stallMinutes: draft.stallMinutes,
-            defaultAgent: draft.defaultAgent,
-            perPRGCDays: draft.perPRGCDays,
-            language: draft.language,
-            reviewExcludeGlobs: cleanGlobs(draft.reviewExcludeGlobs),
-          })
+          saveMut.mutate(buildPatch(cfgQ.data.config, draft))
         }
       }}
       className="px-8 py-10 mx-auto max-w-2xl space-y-10"

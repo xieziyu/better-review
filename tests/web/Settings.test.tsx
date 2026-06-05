@@ -230,6 +230,68 @@ describe('Settings', () => {
     expect(body).not.toHaveProperty('diffViewMode')
   })
 
+  it('sends only the changed fields so a concurrent language change is not clobbered', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    renderSettings()
+
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [, init] = fetchMock.mock.calls[0]!
+    const body = JSON.parse((init as RequestInit).body as string)
+    // Only the dirty field is sent. `language` (unchanged) must be absent so a
+    // concurrent top-bar LanguageSwitcher write isn't reverted by this Save —
+    // the server merges every key it receives.
+    expect(body).toEqual({ stallMinutes: 5 })
+    expect(body).not.toHaveProperty('language')
+  })
+
+  it('preserves a concurrent cache language change across a Save of another field', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    // The PATCH response is a stale full snapshot: it still reports language
+    // 'en' because the language switch landed at the server after this merge.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    const { qc } = renderSettings()
+
+    const stall = screen.getByLabelText(/stall minutes/i)
+    await user.clear(stall)
+    await user.type(stall, '5')
+
+    // The top-bar LanguageSwitcher writes through the shared cache mid-edit.
+    qc.setQueryData(['config'], {
+      config: { ...baseConfig, language: 'zh-CN' as const },
+      file: '/Users/x/.better-review/config.json',
+    })
+    // Let the lockstep effect reflect the switch (as the real UI would before
+    // the user can click Save) so language reads as clean, not a pending edit.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^language$/i })).toHaveTextContent('简体中文'),
+    )
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument())
+
+    // The save merged only stallMinutes; the concurrent language change survives
+    // in the cache rather than being reverted to the stale response snapshot.
+    const cached = qc.getQueryData<{ config: AppConfig }>(['config'])
+    expect(cached?.config.language).toBe('zh-CN')
+    expect(cached?.config.stallMinutes).toBe(5)
+  })
+
   it('renders an inline error when the save mutation fails', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
