@@ -45,13 +45,47 @@ describe('useDiffViewMode', () => {
     expect(result.current.mode).toBe('split')
   })
 
+  it('persists the first toggle even before the config query has loaded', async () => {
+    const patchBodies: unknown[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      const method = (init as RequestInit | undefined)?.method ?? 'GET'
+      if (method === 'PATCH') {
+        patchBodies.push(JSON.parse((init as RequestInit).body as string))
+        return Promise.resolve(
+          new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: 'split' } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      // GET /api/config — never resolves, simulating "config not loaded yet".
+      return new Promise<Response>(() => {})
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    // No seeded cache: the user clicks while the config query is still in flight.
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    expect(result.current.mode).toBe('unified')
+    act(() => result.current.setMode('split'))
+
+    // The PATCH fired (no "config not loaded" throw) carrying only its field,
+    // and its success populates the cache so the choice takes effect.
+    await waitFor(() => expect(patchBodies).toEqual([{ diffViewMode: 'split' }]))
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+  })
+
   it('defaults to unified when config stores unified', () => {
     const { wrapper } = setup()
     const { result } = renderHook(() => useDiffViewMode(), { wrapper })
     expect(result.current.mode).toBe('unified')
   })
 
-  it('PUTs the full config with the new mode and optimistically updates', async () => {
+  it('PATCHes only diffViewMode and optimistically updates', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: 'split' } }), {
         status: 200,
@@ -68,12 +102,13 @@ describe('useDiffViewMode', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/config')
-    expect((init as RequestInit).method).toBe('PUT')
-    const body = JSON.parse((init as RequestInit).body as string)
-    expect(body).toMatchObject({ ...baseConfig, diffViewMode: 'split' })
+    expect((init as RequestInit).method).toBe('PATCH')
+    // Only the field this control owns — not a full snapshot that could clobber
+    // another control's concurrent write.
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ diffViewMode: 'split' })
   })
 
-  it('does not PUT when the mode is unchanged', () => {
+  it('does not PATCH when the mode is unchanged', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
     const { wrapper } = setup()
     const { result } = renderHook(() => useDiffViewMode(), { wrapper })

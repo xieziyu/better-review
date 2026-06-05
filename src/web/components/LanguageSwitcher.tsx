@@ -31,10 +31,9 @@ export function LanguageSwitcher() {
   }, [open])
 
   const change = useMutation({
-    mutationFn: (next: Language) => {
-      if (!data) return Promise.reject(new Error('config not loaded'))
-      return api.putConfig({ ...data.config, language: next })
-    },
+    // Send only `language`; the server merges it so a concurrent write from
+    // another control (e.g. the Files Changed layout toggle) isn't clobbered.
+    mutationFn: (next: Language) => api.patchConfig({ language: next }),
     onSuccess: ({ config }) => {
       qc.setQueryData(queryKeys.config, { config, file: data?.file ?? '' })
       void qc.invalidateQueries({ queryKey: queryKeys.health })

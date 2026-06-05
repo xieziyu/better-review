@@ -164,7 +164,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
   })
 
-  it('PUTs the form on Save and shows the success flash', async () => {
+  it('PATCHes the form on Save and shows the success flash', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
@@ -182,7 +182,7 @@ describe('Settings', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/config')
-    expect((init as RequestInit).method).toBe('PUT')
+    expect((init as RequestInit).method).toBe('PATCH')
     expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({ stallMinutes: 5 })
 
     await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument())
@@ -205,7 +205,7 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
   })
 
-  it('preserves the cached diffViewMode on Save instead of the stale mount-time draft', async () => {
+  it('omits diffViewMode from the Save payload so the server preserves it', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ config: { ...baseConfig, stallMinutes: 5 } }), {
@@ -213,14 +213,7 @@ describe('Settings', () => {
         headers: { 'content-type': 'application/json' },
       }),
     )
-    const { qc } = renderSettings()
-
-    // Simulate the Files Changed toggle flipping diffViewMode through the
-    // shared cache while Settings stays mounted (e.g. a cross-tab refetch).
-    qc.setQueryData(['config'], {
-      config: { ...baseConfig, diffViewMode: 'split' as const },
-      file: '/Users/x/.better-review/config.json',
-    })
+    renderSettings()
 
     const stall = screen.getByLabelText(/stall minutes/i)
     await user.clear(stall)
@@ -230,9 +223,11 @@ describe('Settings', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [, init] = fetchMock.mock.calls[0]!
     const body = JSON.parse((init as RequestInit).body as string)
-    // The PUT must carry the latest diffViewMode, not the unified value the
-    // draft captured at mount.
-    expect(body).toMatchObject({ stallMinutes: 5, diffViewMode: 'split' })
+    // The form has no diffViewMode control, so it must not send the field at
+    // all — the PATCH merge on the server keeps whatever the toggle last set,
+    // rather than this form round-tripping a possibly-stale snapshot of it.
+    expect(body).toMatchObject({ stallMinutes: 5 })
+    expect(body).not.toHaveProperty('diffViewMode')
   })
 
   it('renders an inline error when the save mutation fails', async () => {

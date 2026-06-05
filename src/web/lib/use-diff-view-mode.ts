@@ -45,11 +45,11 @@ export function useDiffViewMode(): UseDiffViewModeResult {
     // the server too, and whichever lands on disk last wins — so a stale earlier
     // request could persist the wrong layout even though the cache looks right.
     scope: { id: 'diff-view-mode' },
-    mutationFn: ({ mode: next }: MutationVars) => {
-      const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
-      if (!current) throw new Error('config not loaded')
-      return api.putConfig({ ...current.config, diffViewMode: next })
-    },
+    // Send only the field this control owns. The server merges it, so a
+    // concurrent write from another control (e.g. the language switcher) can't
+    // be clobbered — and we don't need the full config to be loaded first, so a
+    // toggle clicked before the config query resolves still persists.
+    mutationFn: ({ mode: next }: MutationVars) => api.patchConfig({ diffViewMode: next }),
     // Optimistically flip the cached config so the toggle responds instantly,
     // before the localhost round-trip resolves.
     onMutate: ({ mode: next }: MutationVars) => {

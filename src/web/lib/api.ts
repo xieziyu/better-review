@@ -150,8 +150,11 @@ export const api = {
       method: 'DELETE',
     }),
   getConfig: (): Promise<{ config: AppConfig; file: string }> => req('/api/config'),
-  putConfig: (b: AppConfig): Promise<{ config: AppConfig }> =>
-    req('/api/config', { method: 'PUT', body: JSON.stringify(b) }),
+  // Partial update: each UI control persists only the fields it owns, and the
+  // server merges them over the current config. Avoids clobbering fields a
+  // concurrent control just changed (see PATCH handler in routes/config.ts).
+  patchConfig: (b: Partial<AppConfig>): Promise<{ config: AppConfig }> =>
+    req('/api/config', { method: 'PATCH', body: JSON.stringify(b) }),
 }
 
 export const queryKeys = {

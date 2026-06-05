@@ -110,7 +110,11 @@ export function Settings() {
   const hasErrors = Object.values(errors).some(Boolean)
 
   const saveMut = useMutation({
-    mutationFn: (next: AppConfig) => api.putConfig(next),
+    // Field-level PATCH of just the fields this form edits. `diffViewMode` has
+    // no control here (it's toggled in Files Changed), so it's deliberately
+    // omitted — the server preserves it instead of this form round-tripping a
+    // possibly-stale snapshot of it.
+    mutationFn: (next: Partial<AppConfig>) => api.patchConfig(next),
     onSuccess: ({ config }) => {
       qc.setQueryData(queryKeys.config, { config, file: cfgQ.data?.file ?? '' })
       void qc.invalidateQueries({ queryKey: queryKeys.health })
@@ -157,12 +161,13 @@ export function Settings() {
       onSubmit={(e) => {
         e.preventDefault()
         if (dirty && !hasErrors && !saveMut.isPending) {
-          // `diffViewMode` has no field on this page (it's toggled in Files
-          // Changed). Preserve the freshest server value so a stale mount-time
-          // draft can't clobber a layout the reviewer changed elsewhere.
           saveMut.mutate({
-            ...draft,
-            diffViewMode: cfgQ.data.config.diffViewMode,
+            port: draft.port,
+            maxConcurrentReviews: draft.maxConcurrentReviews,
+            stallMinutes: draft.stallMinutes,
+            defaultAgent: draft.defaultAgent,
+            perPRGCDays: draft.perPRGCDays,
+            language: draft.language,
             reviewExcludeGlobs: cleanGlobs(draft.reviewExcludeGlobs),
           })
         }

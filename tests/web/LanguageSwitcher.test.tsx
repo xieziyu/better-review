@@ -59,7 +59,7 @@ describe('LanguageSwitcher', () => {
     expect(zh).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('PUTs /api/config with the new language when picking the other option', async () => {
+  it('PATCHes /api/config with only the new language when picking the other option', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ config: { ...baseConfig, language: 'zh-CN' } }), {
@@ -75,12 +75,12 @@ describe('LanguageSwitcher', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/config')
-    expect((init as RequestInit).method).toBe('PUT')
-    const body = JSON.parse((init as RequestInit).body as string)
-    expect(body).toMatchObject({ ...baseConfig, language: 'zh-CN' })
+    expect((init as RequestInit).method).toBe('PATCH')
+    // Only `language` is sent; the server merges it so other fields are safe.
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ language: 'zh-CN' })
   })
 
-  it('does not PUT when the user re-selects the current language', async () => {
+  it('does not PATCH when the user re-selects the current language', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.spyOn(globalThis, 'fetch')
     renderSwitcher()

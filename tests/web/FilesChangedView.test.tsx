@@ -314,10 +314,13 @@ rename to src/new.ts
       },
       file: '/Users/x/.better-review/config.json',
     })
+    // Mimic the server's PATCH merge: fold the partial body into the current
+    // config rather than echoing it, so the cache keeps a full config object.
     vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
-      const body = JSON.parse((init as RequestInit).body as string)
+      const partial = JSON.parse((init as RequestInit).body as string)
+      const current = qc.getQueryData<{ config: Record<string, unknown> }>(['config'])
       return Promise.resolve(
-        new Response(JSON.stringify({ config: body }), {
+        new Response(JSON.stringify({ config: { ...current?.config, ...partial } }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         }),

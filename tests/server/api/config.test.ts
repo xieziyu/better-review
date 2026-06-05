@@ -143,4 +143,60 @@ describe('config API', () => {
     expect(e.error).toMatch(/reviewExcludeGlobs/)
     expect(d.getConfig()).toEqual(before)
   })
+
+  it('PATCH /api/config merges a partial and leaves other fields untouched', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'br-cfg-'))
+    const configFile = join(home, 'config.json')
+    const d = makeTestDeps({ configFile })
+    const app = createApp(d)
+    const before = { ...d.getConfig() }
+
+    const res = await app.request('/api/config', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ diffViewMode: 'split' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { config: typeof before }
+    // Only diffViewMode changed; every other field is preserved.
+    expect(j.config).toEqual({ ...before, diffViewMode: 'split' })
+    expect(d.getConfig()).toMatchObject({ ...before, diffViewMode: 'split' })
+    expect(loadConfig(home)).toMatchObject({ ...before, diffViewMode: 'split' })
+  })
+
+  it('PATCH /api/config does not clobber a field changed by a concurrent writer', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'br-cfg-'))
+    const d = makeTestDeps({ configFile: join(home, 'config.json') })
+    const app = createApp(d)
+
+    // Two independent controls each patch only their own field.
+    await app.request('/api/config', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ diffViewMode: 'split' }),
+    })
+    await app.request('/api/config', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'zh-CN' }),
+    })
+
+    // The second write merged rather than reverting diffViewMode to its old value.
+    expect(d.getConfig()).toMatchObject({ diffViewMode: 'split', language: 'zh-CN' })
+  })
+
+  it('PATCH /api/config rejects an invalid field with a 400 and leaves config untouched', async () => {
+    const d = makeTestDeps()
+    const app = createApp(d)
+    const before = { ...d.getConfig() }
+    const res = await app.request('/api/config', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ diffViewMode: 'sideways' }),
+    })
+    expect(res.status).toBe(400)
+    const e = (await res.json()) as { error: string }
+    expect(e.error).toMatch(/diffViewMode/)
+    expect(d.getConfig()).toEqual(before)
+  })
 })
