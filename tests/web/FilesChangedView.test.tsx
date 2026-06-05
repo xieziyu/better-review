@@ -304,10 +304,12 @@ rename to src/new.ts
         />,
       ),
     )
-    // Defaults to unified.
+    // Defaults to unified — the toggle reflects it via aria-pressed.
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'unified')
-    fireEvent.click(screen.getByRole('radio', { name: 'Split' }))
+    expect(screen.getByRole('button', { name: 'Unified' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Split' }))
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
+    expect(screen.getByRole('button', { name: 'Split' })).toHaveAttribute('aria-pressed', 'true')
     expect(window.localStorage.getItem('better-review:diff-view-mode:v1')).toBe('split')
 
     // The choice is global (not session-scoped): a remount reads it back.

@@ -71,12 +71,16 @@
 }
 
 /* ---- Split view ----
- * A split `tr.diff-line` always renders 4 cells in order:
- *   [old gutter, old code, new gutter, new code]
- * The 3rd cell is the new-side gutter, so its left edge is the seam between
- * the two panes. Unified rows only have 2 cells, so nth-child(3) is inert
- * there and these rules don't bleed into unified mode. */
-.diff-line > td:nth-child(3) {
+ * react-diff-view tags the root table with `.diff-<viewType>`, so all of
+ * these rules are scoped under `.diff-split`. This matters because cell counts
+ * differ by view: a unified `tr.diff-line` is [old gutter, new gutter, code]
+ * (3 cells) while a split one is [old gutter, old code, new gutter, new code]
+ * (4 cells). A bare `td:nth-child(3)` would therefore hit the unified code
+ * cell too — scoping keeps these purely split-mode styles. */
+
+/* The 3rd cell of a split row is the new-side gutter, so its left edge is the
+ * seam between the two panes. */
+.diff-split .diff-line > td:nth-child(3) {
   border-left: 1px solid var(--rule);
 }
 
@@ -85,7 +89,7 @@
  * to a new-side line; nth-child(2) is the new-side content. A full-width
  * widget (context-line finding) is a single colSpan=4 cell, so it has no
  * 2nd child and correctly shows no seam. */
-.diff-widget > td:nth-child(2) {
+.diff-split .diff-widget > td:nth-child(2) {
   border-left: 1px solid var(--rule);
 }
 
@@ -93,10 +97,10 @@
  * with the recessed surface so "no line here" reads as intentional on the
  * white diff, and suppress the library's red omit-marker line — that marker
  * is meant for the collapsed-lines affordance, which this app never renders. */
-.diff-line > .diff-gutter-omit,
-.diff-line > .diff-code-omit {
+.diff-split .diff-line > .diff-gutter-omit,
+.diff-split .diff-line > .diff-code-omit {
   background-color: var(--bg-sunken);
 }
-.diff-line > .diff-gutter-omit::before {
+.diff-split .diff-line > .diff-gutter-omit::before {
   display: none;
 }

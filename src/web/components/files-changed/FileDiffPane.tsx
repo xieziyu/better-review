@@ -220,15 +220,14 @@ export function FileDiffPane({
         <div className="ml-auto flex items-center gap-3 shrink-0">
           <div
             className="inline-flex items-center rounded-md border border-rule overflow-hidden"
-            role="radiogroup"
+            role="group"
             aria-label={t('filesChanged.viewMode.label')}
           >
             {(['unified', 'split'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
-                role="radio"
-                aria-checked={viewMode === m}
+                aria-pressed={viewMode === m}
                 onClick={() => setViewMode(m)}
                 title={t(`filesChanged.viewMode.${m}`)}
                 aria-label={t(`filesChanged.viewMode.${m}`)}

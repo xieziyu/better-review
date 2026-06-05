@@ -28,11 +28,16 @@ describe('FileDiff viewType', () => {
     const { container } = render(
       <FileDiff file="src/x.ts" fileType="modify" hunks={hunksOf(DIFF)} viewType="unified" />,
     )
-    // Unified rows carry one gutter + one code cell; the split-only line
-    // classes never appear.
+    // The root table carries diff-unified — the split-seam CSS is scoped under
+    // .diff-split so it must NOT apply here. (This is the regression the seam
+    // selectors caused: a unified row is [old gutter, new gutter, code] = 3
+    // cells, so an unscoped nth-child(3) would have hit the code cell.)
+    expect(container.querySelector('table.diff-unified')).not.toBeNull()
+    expect(container.querySelector('table.diff-split')).toBeNull()
     expect(container.querySelector('.diff-line-new-only')).toBeNull()
     expect(container.querySelector('.diff-line-old-only')).toBeNull()
     const firstLine = container.querySelector('tr.diff-line')
+    expect(firstLine?.querySelectorAll('td')).toHaveLength(3)
     expect(firstLine?.querySelectorAll('.diff-code')).toHaveLength(1)
   })
 
@@ -40,7 +45,9 @@ describe('FileDiff viewType', () => {
     const { container } = render(
       <FileDiff file="src/x.ts" fileType="modify" hunks={hunksOf(DIFF)} viewType="split" />,
     )
-    // Split emits side-specific line classes and two code cells per row.
+    // Split tags the root .diff-split and emits side-specific line classes with
+    // two code cells per row.
+    expect(container.querySelector('table.diff-split')).not.toBeNull()
     expect(container.querySelector('.diff-line-new-only')).not.toBeNull()
     const firstLine = container.querySelector('tr.diff-line')
     expect(firstLine?.querySelectorAll('.diff-code')).toHaveLength(2)
