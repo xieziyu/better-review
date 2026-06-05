@@ -81,11 +81,13 @@ describe('useDiffViewMode', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('keeps the last selection when an earlier PUT resolves after a later one', async () => {
+  it('serializes overlapping PUTs so the server persists the last selection', async () => {
     const resolvers: Array<(r: Response) => void> = []
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
-      () => new Promise<Response>((resolve) => resolvers.push(resolve)),
-    )
+    const bodies: Array<{ diffViewMode: string }> = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      bodies.push(JSON.parse((init as RequestInit).body as string))
+      return new Promise<Response>((resolve) => resolvers.push(resolve))
+    })
     const ok = (m: 'split' | 'unified') =>
       new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: m } }), {
         status: 200,
@@ -95,21 +97,24 @@ describe('useDiffViewMode', () => {
     const { wrapper } = setup()
     const { result } = renderHook(() => useDiffViewMode(), { wrapper })
 
-    // Two overlapping toggles: split, then unified. Neither PUT resolves yet.
+    // Toggle to split, then to unified while the first PUT is still in flight.
     act(() => result.current.setMode('split'))
     await waitFor(() => expect(result.current.mode).toBe('split'))
     act(() => result.current.setMode('unified'))
-    await waitFor(() => expect(result.current.mode).toBe('unified'))
-    expect(resolvers).toHaveLength(2)
 
-    // Resolve the LATER request (unified) first, then the stale earlier one.
+    // The second write is withheld (scoped serialization) until the first
+    // settles — so the server never sees them out of order.
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0]).toMatchObject({ diffViewMode: 'split' })
+
+    // Complete the first PUT; the queued second one now fires, after it.
+    act(() => resolvers[0]!(ok('split')))
+    await waitFor(() => expect(bodies).toHaveLength(2))
+    expect(bodies[1]).toMatchObject({ diffViewMode: 'unified' })
+
+    // The last write on the wire is the reviewer's last selection.
     act(() => resolvers[1]!(ok('unified')))
     await waitFor(() => expect(result.current.mode).toBe('unified'))
-    act(() => resolvers[0]!(ok('split')))
-
-    // The stale split success must not clobber the final unified selection.
-    await waitFor(() => expect(result.current.mode).toBe('unified'))
-    expect(result.current.mode).toBe('unified')
   })
 
   it('rolls back to the previous mode when the PUT fails', async () => {

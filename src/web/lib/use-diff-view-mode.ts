@@ -40,6 +40,11 @@ export function useDiffViewMode(): UseDiffViewModeResult {
   const latestRequest = useRef(0)
 
   const mutation = useMutation({
+    // Serialize writes to this preference: a scoped mutation runs only after the
+    // previous one with the same id settles. Without this the two PUTs race on
+    // the server too, and whichever lands on disk last wins — so a stale earlier
+    // request could persist the wrong layout even though the cache looks right.
+    scope: { id: 'diff-view-mode' },
     mutationFn: ({ mode: next }: MutationVars) => {
       const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
       if (!current) throw new Error('config not loaded')
