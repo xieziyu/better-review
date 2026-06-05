@@ -116,7 +116,13 @@ export function Settings() {
     // possibly-stale snapshot of it.
     mutationFn: (next: Partial<AppConfig>) => api.patchConfig(next),
     onSuccess: ({ config }) => {
-      qc.setQueryData(queryKeys.config, { config, file: cfgQ.data?.file ?? '' })
+      // This form doesn't own diffViewMode, so don't write it back: preserve
+      // whatever the cache currently holds (the toggle may have changed it),
+      // rather than reverting it to this PATCH response's snapshot.
+      qc.setQueryData<{ config: AppConfig; file: string }>(queryKeys.config, (prev) => ({
+        config: prev ? { ...config, diffViewMode: prev.config.diffViewMode } : config,
+        file: prev?.file ?? cfgQ.data?.file ?? '',
+      }))
       void qc.invalidateQueries({ queryKey: queryKeys.health })
       void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
       setDraft({ ...config })

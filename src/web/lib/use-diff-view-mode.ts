@@ -65,15 +65,27 @@ export function useDiffViewMode(): UseDiffViewModeResult {
     onError: (_err, vars, ctx) => {
       // A stale request must not roll back over a newer selection.
       if (vars.id !== latestRequest.current) return
-      if (ctx?.prev) qc.setQueryData(queryKeys.config, ctx.prev)
+      const prevMode = ctx?.prev?.config.diffViewMode
+      if (prevMode === undefined) return
+      // Roll back only our own field — never the whole snapshot, which could
+      // revert a field another control changed while this request was in flight.
+      qc.setQueryData<ConfigQueryData>(queryKeys.config, (curr) =>
+        curr ? { ...curr, config: { ...curr.config, diffViewMode: prevMode } } : curr,
+      )
     },
     onSuccess: ({ config }, vars) => {
       if (vars.id !== latestRequest.current) return
-      const current = qc.getQueryData<ConfigQueryData>(queryKeys.config)
-      qc.setQueryData<ConfigQueryData>(queryKeys.config, {
-        config,
-        file: current?.file ?? '',
-      })
+      // Write back only diffViewMode. The response is a full-config snapshot
+      // from when the server processed this PATCH, so its other fields may be
+      // stale relative to a concurrent write (e.g. the language switcher) that
+      // already updated the cache — merging just our field avoids clobbering it.
+      // When the cache is still empty (toggle clicked before the config query
+      // resolved), seed it from the response so the choice is reflected.
+      qc.setQueryData<ConfigQueryData>(queryKeys.config, (curr) =>
+        curr
+          ? { ...curr, config: { ...curr.config, diffViewMode: config.diffViewMode } }
+          : { config, file: '' },
+      )
     },
   })
 

@@ -1,4 +1,4 @@
-import { LANGUAGES, type Language } from '@shared/types'
+import { LANGUAGES, type AppConfig, type Language } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Globe } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -35,7 +35,15 @@ export function LanguageSwitcher() {
     // another control (e.g. the Files Changed layout toggle) isn't clobbered.
     mutationFn: (next: Language) => api.patchConfig({ language: next }),
     onSuccess: ({ config }) => {
-      qc.setQueryData(queryKeys.config, { config, file: data?.file ?? '' })
+      // Merge only `language` into the live cache. The response is a full
+      // snapshot from this PATCH's merge point, so its other fields may trail a
+      // concurrent write (e.g. the diff-layout toggle); writing them back would
+      // clobber it.
+      qc.setQueryData<{ config: AppConfig; file: string }>(queryKeys.config, (prev) =>
+        prev
+          ? { ...prev, config: { ...prev.config, language: config.language } }
+          : { config, file: data?.file ?? '' },
+      )
       void qc.invalidateQueries({ queryKey: queryKeys.health })
       void qc.invalidateQueries({ queryKey: queryKeys.promptsBase })
     },

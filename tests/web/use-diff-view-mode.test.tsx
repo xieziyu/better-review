@@ -184,6 +184,43 @@ describe('useDiffViewMode', () => {
     await waitFor(() => expect(result.current.mode).toBe('unified'))
   })
 
+  it('does not clobber another field when a stale PATCH response arrives', async () => {
+    let resolveDiff!: (r: Response) => void
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () => new Promise<Response>((resolve) => (resolveDiff = resolve)),
+    )
+    const { qc, wrapper } = setup() // seeded { language: 'en', diffViewMode: 'unified' }
+    const { result } = renderHook(() => useDiffViewMode(), { wrapper })
+
+    // Diff PATCH goes out while the cache still says language 'en'.
+    act(() => result.current.setMode('split'))
+    await waitFor(() => expect(result.current.mode).toBe('split'))
+
+    // A concurrent writer (e.g. the language switcher) updates language first.
+    act(() =>
+      qc.setQueryData<{ config: AppConfig; file: string }>(['config'], (prev) =>
+        prev ? { ...prev, config: { ...prev.config, language: 'zh-CN' } } : prev,
+      ),
+    )
+
+    // The earlier diff PATCH now resolves with a snapshot taken before that
+    // language change — full-config writeback would revert language to 'en'.
+    act(() =>
+      resolveDiff(
+        new Response(
+          JSON.stringify({ config: { ...baseConfig, language: 'en', diffViewMode: 'split' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    )
+
+    await waitFor(() => {
+      const cfg = qc.getQueryData<{ config: AppConfig }>(['config'])
+      expect(cfg?.config.diffViewMode).toBe('split')
+      expect(cfg?.config.language).toBe('zh-CN')
+    })
+  })
+
   it('rolls back to the previous mode when the PUT fails', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
