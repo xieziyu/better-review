@@ -113,6 +113,11 @@
       "progress": "{{viewed}} / {{total}} viewed",
       "hideViewed": "Hide viewed"
     },
+    "viewMode": {
+      "label": "Diff layout",
+      "unified": "Unified",
+      "split": "Split"
+    },
     "resizeAria": "Resize file tree",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} files",

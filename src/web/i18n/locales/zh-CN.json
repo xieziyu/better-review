@@ -113,6 +113,11 @@
       "progress": "已查看 {{viewed}} / {{total}}",
       "hideViewed": "隐藏已查看"
     },
+    "viewMode": {
+      "label": "Diff 布局",
+      "unified": "统一",
+      "split": "分栏"
+    },
     "resizeAria": "调整文件树宽度",
     "fileCount_one": "{{count}} 个文件",
     "fileCount_other": "{{count}} 个文件",

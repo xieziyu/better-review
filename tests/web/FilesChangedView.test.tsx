@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // react-diff-view widgets (which expect a real layout). The test focuses on
 // the FilesChangedView's structural contract: tree + diff pane scaffolding.
 vi.mock('@/components/files-changed/FileDiff', () => ({
-  FileDiff: ({ file }: { file: string }) => (
-    <div data-testid="file-diff" data-file={file}>
+  FileDiff: ({ file, viewType }: { file: string; viewType?: string }) => (
+    <div data-testid="file-diff" data-file={file} data-view={viewType ?? 'unified'}>
       diff-for {file}
     </div>
   ),
@@ -289,6 +289,44 @@ rename to src/new.ts
     // The diff-pane header carries the "Viewed" checkbox for the active file.
     fireEvent.click(screen.getByLabelText('Viewed'))
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
+  })
+
+  it('toggles the diff layout to split and persists the choice', () => {
+    const view = render(
+      withProviders(
+        <FilesChangedView
+          session={session}
+          findings={findings}
+          unifiedDiff={DIFF}
+          selectedPath="src/foo.ts"
+          onSelectPath={() => {}}
+          onOpenFindingInPanel={() => {}}
+        />,
+      ),
+    )
+    // Defaults to unified — the toggle reflects it via aria-pressed.
+    expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'unified')
+    expect(screen.getByRole('button', { name: 'Unified' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Split' }))
+    expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
+    expect(screen.getByRole('button', { name: 'Split' })).toHaveAttribute('aria-pressed', 'true')
+    expect(window.localStorage.getItem('better-review:diff-view-mode:v1')).toBe('split')
+
+    // The choice is global (not session-scoped): a remount reads it back.
+    view.unmount()
+    render(
+      withProviders(
+        <FilesChangedView
+          session={session}
+          findings={findings}
+          unifiedDiff={DIFF}
+          selectedPath="src/foo.ts"
+          onSelectPath={() => {}}
+          onOpenFindingInPanel={() => {}}
+        />,
+      ),
+    )
+    expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
   })
 
   it('does not toggle viewed state on a historical (readOnly) round', () => {
