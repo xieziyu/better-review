@@ -135,7 +135,7 @@ export function FileDiffPane({
     }
     for (const [changeKey, group] of byChangeKey) {
       map[changeKey] = (
-        <div className="border-l-2 border-rule bg-canvas">
+        <div className="border-l-2 border-rule bg-sunken">
           {group.map((a) => (
             <InlineFindingCard
               key={a.finding.dbId}
@@ -179,7 +179,7 @@ export function FileDiffPane({
             />
           )
         map[key] = (
-          <div className="border-l-2 border-rule bg-canvas">
+          <div className="border-l-2 border-rule bg-sunken">
             {existing}
             {inner}
           </div>
