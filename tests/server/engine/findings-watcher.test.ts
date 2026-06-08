@@ -8,6 +8,17 @@ import type { ParseResult } from '../../../src/server/engine/findings-parser'
 import { watchFindings } from '../../../src/server/engine/findings-watcher'
 import type { FindingFromAgent } from '../../../src/shared/findings-schema'
 
+// chokidar's detection latency (plus the 100ms awaitWriteFinish window) is
+// non-deterministic under full-suite load, so poll for the callback instead of
+// sleeping a fixed amount and hoping the event already fired.
+async function waitUntil(pred: () => boolean, timeoutMs = 3000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!pred()) {
+    if (Date.now() > deadline) return
+    await new Promise((res) => setTimeout(res, 20))
+  }
+}
+
 describe('watchFindings', () => {
   it('invokes onParsed when valid JSON appears', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'br-watch-'))
@@ -30,7 +41,7 @@ describe('watchFindings', () => {
         },
       ]),
     )
-    await new Promise((res) => setTimeout(res, 250))
+    await waitUntil(() => seen.length >= 1)
     await close()
     expect(seen.length).toBeGreaterThanOrEqual(1)
     expect(seen[0]![0]!.id).toBe('R1')
@@ -44,7 +55,7 @@ describe('watchFindings', () => {
       if (!r.ok) errs.push(r.error)
     })
     writeFileSync(file, 'BROKEN')
-    await new Promise((res) => setTimeout(res, 250))
+    await waitUntil(() => errs.length >= 1)
     await close()
     expect(errs.length).toBeGreaterThanOrEqual(1)
   })
