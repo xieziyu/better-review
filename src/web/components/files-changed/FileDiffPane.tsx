@@ -240,7 +240,7 @@ export function FileDiffPane({
                     'inline-flex items-center gap-1.5 h-full px-2.5 text-meta transition-colors',
                     m === 'split' && 'border-l border-rule',
                     active
-                      ? 'bg-sunken text-ink-primary font-semibold'
+                      ? 'bg-[color:color-mix(in_oklch,var(--brand)_13%,var(--bg-main))] text-brand font-semibold'
                       : 'text-ink-secondary hover:text-ink-primary',
                   )}
                 >
