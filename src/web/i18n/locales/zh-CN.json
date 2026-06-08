@@ -583,10 +583,11 @@
       "done": "已完成",
       "stale": "过期"
     },
-    "section": {
-      "pr": "Pull Request",
-      "local": "本地仓库",
-      "localUnknownRepo": "（未知仓库）"
+    "bucket": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "week": "本周更早",
+      "older": "更早"
     },
     "status": {
       "running": "运行中",
