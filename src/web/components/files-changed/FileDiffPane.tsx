@@ -1,5 +1,5 @@
 import type { Finding, PRSession } from '@shared/types'
-import { Columns2, ExternalLink, FilePlus2, Rows3 } from 'lucide-react'
+import { Check, Columns2, ExternalLink, FilePlus2, Rows3 } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
@@ -217,67 +217,94 @@ export function FileDiffPane({
             {t('filesChanged.fileFindings', { count: findings.length })}
           </span>
         ) : null}
-        <div className="ml-auto flex items-center gap-3 shrink-0">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {/* View-preference group: quiet segmented control (no brand fill —
+              active reads as a recessed sunken cell with a brand icon). */}
           <div
-            className="inline-flex items-center rounded-md border border-rule overflow-hidden"
+            className="inline-flex items-center h-[26px] rounded-md border border-rule bg-main overflow-hidden"
             role="group"
             aria-label={t('filesChanged.viewMode.label')}
           >
-            {(['unified', 'split'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={viewMode === m}
-                onClick={() => setViewMode(m)}
-                title={t(`filesChanged.viewMode.${m}`)}
-                aria-label={t(`filesChanged.viewMode.${m}`)}
-                className={cn(
-                  'inline-flex items-center gap-1 px-2 h-6 text-meta transition-colors',
-                  m === 'split' && 'border-l border-rule',
-                  viewMode === m
-                    ? 'bg-brand text-brand-ink'
-                    : 'text-ink-secondary hover:text-brand hover:bg-sunken',
-                )}
-              >
-                {m === 'unified' ? (
-                  <Rows3 className="h-3.5 w-3.5" />
-                ) : (
-                  <Columns2 className="h-3.5 w-3.5" />
-                )}
-                {t(`filesChanged.viewMode.${m}`)}
-              </button>
-            ))}
+            {(['unified', 'split'] as const).map((m) => {
+              const active = viewMode === m
+              const Icon = m === 'unified' ? Rows3 : Columns2
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setViewMode(m)}
+                  title={t(`filesChanged.viewMode.${m}`)}
+                  aria-label={t(`filesChanged.viewMode.${m}`)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-full px-2.5 text-meta transition-colors',
+                    m === 'split' && 'border-l border-rule',
+                    active
+                      ? 'bg-sunken text-ink-primary font-semibold'
+                      : 'text-ink-secondary hover:text-ink-primary',
+                  )}
+                >
+                  <Icon className={cn('h-3.5 w-3.5', active && 'text-brand')} />
+                  {t(`filesChanged.viewMode.${m}`)}
+                </button>
+              )
+            })}
           </div>
+          <span className="w-px h-[18px] bg-rule" aria-hidden="true" />
+          {/* File-action group: shared ghost-control language (transparent
+              until hover, then sunken fill + emerging border). */}
           {!readOnly ? (
             <button
               type="button"
               onClick={() => setAdding({ phase: 'file-level' })}
               disabled={adding?.phase === 'file-level'}
-              className="inline-flex items-center justify-center h-6 w-6 rounded text-ink-secondary hover:text-brand hover:bg-sunken disabled:opacity-50 disabled:cursor-not-allowed"
+              className={cn(
+                'inline-flex items-center justify-center h-[26px] w-[26px] rounded-md border border-transparent text-ink-secondary transition-colors hover:text-ink-primary hover:bg-sunken hover:border-rule',
+                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-transparent',
+              )}
               title={t('filesChanged.addFinding.fileLevelTriggerTitle')}
               aria-label={t('filesChanged.addFinding.fileLevelTrigger')}
             >
               <FilePlus2 className="h-3.5 w-3.5" />
             </button>
           ) : null}
-          <label className="flex items-center gap-1.5 text-meta text-ink-secondary cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={isViewed}
-              disabled={readOnly}
-              onChange={onToggleViewed}
-            />
+          {/* Mark-as-viewed: the primary per-file action, so it carries real
+              weight — a stateful pill that fills green once checked. */}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={isViewed}
+            disabled={readOnly}
+            onClick={onToggleViewed}
+            className={cn(
+              'inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-md border text-meta transition-colors select-none disabled:cursor-not-allowed disabled:opacity-60',
+              isViewed
+                ? 'border-[color:color-mix(in_oklch,var(--accent-ready)_45%,var(--rule))] bg-[color:color-mix(in_oklch,var(--accent-ready)_14%,transparent)] text-ink-primary'
+                : 'border-rule bg-main text-ink-secondary hover:text-ink-primary hover:border-ink-muted',
+            )}
+          >
+            <span
+              className={cn(
+                'inline-flex items-center justify-center h-3.5 w-3.5 rounded-[4px] border-[1.5px]',
+                isViewed
+                  ? 'border-accent-ready bg-accent-ready text-brand-ink'
+                  : 'border-ink-muted text-transparent',
+              )}
+            >
+              <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+            </span>
             {t('filesChanged.viewed.toggle')}
-          </label>
+          </button>
           {fileUrl ? (
             <a
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-meta text-ink-muted hover:text-brand inline-flex items-center gap-1"
+              className="inline-flex items-center justify-center h-[26px] w-[26px] rounded-md border border-transparent text-ink-secondary transition-colors hover:text-ink-primary hover:bg-sunken hover:border-rule"
+              title={t('filesChanged.openOnGithub')}
+              aria-label={t('filesChanged.openOnGithub')}
             >
-              <ExternalLink className="h-3 w-3" />
-              {t('filesChanged.openOnGithub')}
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : null}
         </div>
