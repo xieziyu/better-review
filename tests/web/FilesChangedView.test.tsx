@@ -291,7 +291,7 @@ rename to src/new.ts
       ),
     )
     // The diff-pane header carries the "Viewed" checkbox for the active file.
-    fireEvent.click(screen.getByLabelText('Viewed'))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Viewed' }))
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
   })
 
@@ -348,6 +348,6 @@ rename to src/new.ts
         />,
       ),
     )
-    expect(screen.getByLabelText('Viewed')).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Viewed' })).toBeDisabled()
   })
 })
