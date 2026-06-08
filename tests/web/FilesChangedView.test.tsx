@@ -22,6 +22,7 @@ vi.mock('@/components/CodeBlock', () => ({
 
 import { FilesChangedView } from '@/components/files-changed/FilesChangedView'
 import { SelectionProvider } from '@/lib/selection'
+import { applyDiffViewModeDefault } from '@/lib/use-diff-view-mode'
 
 const session: PRSession = {
   id: 's1',
@@ -122,6 +123,9 @@ beforeEach(() => {
   // Viewed state and collapsed folders are persisted per-session in
   // localStorage; clear it so cases don't leak through the shared session id.
   window.localStorage.clear()
+  // The diff layout lives in a module-level session store; reset it so a toggle
+  // in one case doesn't leak into the next.
+  applyDiffViewModeDefault('unified')
 })
 
 describe('FilesChangedView', () => {
@@ -291,7 +295,7 @@ rename to src/new.ts
     expect(onSelect).toHaveBeenCalledWith('src/bar.ts')
   })
 
-  it('toggles the diff layout to split and persists the choice', () => {
+  it('toggles the diff layout to split and keeps it across a remount (session memory)', () => {
     const view = render(
       withProviders(
         <FilesChangedView
@@ -310,9 +314,10 @@ rename to src/new.ts
     fireEvent.click(screen.getByRole('button', { name: 'Split' }))
     expect(screen.getByTestId('file-diff')).toHaveAttribute('data-view', 'split')
     expect(screen.getByRole('button', { name: 'Split' })).toHaveAttribute('aria-pressed', 'true')
-    expect(window.localStorage.getItem('better-review:diff-view-mode:v1')).toBe('split')
 
-    // The choice is global (not session-scoped): a remount reads it back.
+    // The choice lives in the in-memory session store, so a remount reads it
+    // back (it is not persisted to localStorage — a full reload would reset to
+    // the configured default).
     view.unmount()
     render(
       withProviders(

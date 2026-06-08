@@ -23,6 +23,7 @@ describe('config API', () => {
       perPRGCDays: 1,
       language: 'en',
       reviewExcludeGlobs: [],
+      diffViewMode: 'unified',
     })
     expect(j.file.endsWith('config.json')).toBe(true)
   })
@@ -40,6 +41,7 @@ describe('config API', () => {
       perPRGCDays: 14,
       language: 'zh-CN' as const,
       reviewExcludeGlobs: ['dist/**', '*.snap'],
+      diffViewMode: 'split' as const,
     }
     const res = await app.request('/api/config', {
       method: 'PUT',

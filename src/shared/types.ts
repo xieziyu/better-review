@@ -32,6 +32,12 @@ export type AgentKind = (typeof AGENT_KINDS)[number]
 export const LANGUAGES = ['en', 'zh-CN'] as const
 export type Language = (typeof LANGUAGES)[number]
 
+// Layout of the Files Changed diff: 'unified' stacks removed/added lines,
+// 'split' shows them side by side. Stored as a config default; runtime toggles
+// in the UI are session-only and never written back to config.
+export const DIFF_VIEW_MODES = ['unified', 'split'] as const
+export type DiffViewMode = (typeof DIFF_VIEW_MODES)[number]
+
 // What kind of PR-head source tree the agent reads while reviewing:
 // - 'worktree': a git worktree of the user's pinned local clone, checked out at
 //   the PR head SHA. Full repo, full files-at-head fidelity.
@@ -173,6 +179,9 @@ export interface AppConfig {
   // Extra glob patterns for files to drop from the review-agent prompt, on
   // top of the built-in lockfile/generated defaults.
   reviewExcludeGlobs: string[]
+  // Default layout for the Files Changed diff. Seeds the first view each time
+  // the SPA loads; in-session unified/split toggles do not persist back here.
+  diffViewMode: DiffViewMode
 }
 
 export type SSEEvent =

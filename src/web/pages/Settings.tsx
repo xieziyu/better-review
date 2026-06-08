@@ -1,5 +1,12 @@
-import { AGENT_KINDS, LANGUAGES, type AppConfig } from '@shared/types'
+import {
+  AGENT_KINDS,
+  DIFF_VIEW_MODES,
+  LANGUAGES,
+  type AppConfig,
+  type DiffViewMode,
+} from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Columns2, Rows3 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
@@ -54,6 +61,13 @@ function cleanGlobs(globs: string[]): string[] {
   return globs.map((g) => g.trim()).filter((g) => g.length > 0)
 }
 
+// Mirror the icons used by the Files Changed diff toggle so the Settings
+// default and the in-panel switch read as the same control.
+function DiffViewModeIcon({ mode }: { mode: DiffViewMode }) {
+  const Icon = mode === 'split' ? Columns2 : Rows3
+  return <Icon className="h-3.5 w-3.5" />
+}
+
 function globsEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
   return a.every((v, i) => v === b[i])
@@ -67,6 +81,7 @@ function isDirty(server: AppConfig, draft: AppConfig): boolean {
     server.defaultAgent !== draft.defaultAgent ||
     server.perPRGCDays !== draft.perPRGCDays ||
     server.language !== draft.language ||
+    server.diffViewMode !== draft.diffViewMode ||
     !globsEqual(cleanGlobs(server.reviewExcludeGlobs), cleanGlobs(draft.reviewExcludeGlobs))
   )
 }
@@ -198,6 +213,30 @@ export function Settings() {
             renderOption={(lng, selected) => (
               <>
                 <span className="flex-1">{t(`settings.language.options.${lng}`)}</span>
+                <SelectMenuCheck selected={selected} />
+              </>
+            )}
+          />
+        </Field>
+
+        <Field label={t('settings.diffViewMode.label')} hint={t('settings.diffViewMode.hint')}>
+          <SelectMenu
+            value={draft.diffViewMode}
+            options={DIFF_VIEW_MODES}
+            onChange={(m) => set('diffViewMode', m)}
+            getKey={(m) => m}
+            ariaLabel={t('settings.diffViewMode.label')}
+            menuAriaLabel={t('settings.diffViewMode.menuAria')}
+            renderTrigger={(m) => (
+              <>
+                <DiffViewModeIcon mode={m} />
+                <span className="flex-1">{t(`filesChanged.viewMode.${m}`)}</span>
+              </>
+            )}
+            renderOption={(m, selected) => (
+              <>
+                <DiffViewModeIcon mode={m} />
+                <span className="flex-1">{t(`filesChanged.viewMode.${m}`)}</span>
                 <SelectMenuCheck selected={selected} />
               </>
             )}

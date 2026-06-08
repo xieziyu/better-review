@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z, ZodError } from 'zod'
 
-import { AGENT_KINDS, LANGUAGES } from '../../../shared/types'
+import { AGENT_KINDS, DIFF_VIEW_MODES, LANGUAGES } from '../../../shared/types'
 import { saveConfig, type Config } from '../../config'
 import type { AppDeps } from '../app'
 
@@ -13,6 +13,7 @@ const updatableSchema = z.object({
   perPRGCDays: z.number().int().min(0).max(365),
   language: z.enum(LANGUAGES),
   reviewExcludeGlobs: z.array(z.string().max(200)).max(100),
+  diffViewMode: z.enum(DIFF_VIEW_MODES),
 })
 
 export function configRoutes(deps: AppDeps): Hono {

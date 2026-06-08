@@ -39,6 +39,7 @@ describe('prompts API', () => {
         perPRGCDays: 1,
         language: 'zh-CN',
         reviewExcludeGlobs: [],
+        diffViewMode: 'unified',
       },
     })
     const app = createApp(d)

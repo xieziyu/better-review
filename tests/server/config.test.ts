@@ -51,6 +51,18 @@ describe('loadConfig', () => {
     )
     expect(loadConfig(home).reviewExcludeGlobs).toEqual(['*.generated.ts', 'docs/api/**'])
   })
+  it('defaults diffViewMode to unified when the field is missing', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ port: 1 }))
+    expect(loadConfig(home).diffViewMode).toBe('unified')
+  })
+  it('round-trips an explicit split diffViewMode', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ diffViewMode: 'split' }))
+    expect(loadConfig(home).diffViewMode).toBe('split')
+  })
+  it('rejects an unsupported diffViewMode value', () => {
+    writeFileSync(join(home, 'config.json'), JSON.stringify({ diffViewMode: 'sideways' }))
+    expect(() => loadConfig(home)).toThrow()
+  })
   it('round-trips a zh-CN language setting', () => {
     writeFileSync(join(home, 'config.json'), JSON.stringify({ language: 'zh-CN' }))
     expect(loadConfig(home).language).toBe('zh-CN')

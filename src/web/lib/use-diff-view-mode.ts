@@ -1,27 +1,49 @@
-import { useCallback, useState } from 'react'
+import type { DiffViewMode } from '@shared/types'
+import { useCallback, useSyncExternalStore } from 'react'
 
-export type DiffViewMode = 'unified' | 'split'
+export type { DiffViewMode }
 
-const STORAGE_KEY = 'better-review:diff-view-mode:v1'
-const DEFAULT_MODE: DiffViewMode = 'unified'
+// Session-only unified/split preference for the Files Changed diff.
+//
+// Unlike the theme/viewed-files preferences, this is NOT persisted. The default
+// lives in `config.diffViewMode` (editable in Settings); the SPA seeds this
+// store from it on load via `applyDiffViewModeDefault`. Runtime toggles only
+// live in module memory — they survive remounts and route changes within the
+// current page, but a full reload returns to the configured default. They are
+// never written back to config.
+let current: DiffViewMode = 'unified'
+const listeners = new Set<() => void>()
 
-function readStored(): DiffViewMode {
-  if (typeof window === 'undefined') return DEFAULT_MODE
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw === 'split' || raw === 'unified' ? raw : DEFAULT_MODE
-  } catch {
-    return DEFAULT_MODE
+function emit(): void {
+  for (const listener of listeners) listener()
+}
+
+function subscribe(onChange: () => void): () => void {
+  listeners.add(onChange)
+  return () => {
+    listeners.delete(onChange)
   }
 }
 
-function persist(mode: DiffViewMode): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_KEY, mode)
-  } catch {
-    // Quota or disabled storage — the choice simply won't persist.
-  }
+function getSnapshot(): DiffViewMode {
+  return current
+}
+
+function setCurrent(next: DiffViewMode): void {
+  if (current === next) return
+  current = next
+  emit()
+}
+
+/**
+ * Apply the configured default as the active view mode. Called once the config
+ * query resolves and again whenever the user changes the default in Settings.
+ * Because it only fires when the *config* value changes, in-session toggles via
+ * `setMode` are preserved between config changes but overwritten when the user
+ * deliberately saves a new default — i.e. Settings stays the source of truth.
+ */
+export function applyDiffViewModeDefault(mode: DiffViewMode): void {
+  setCurrent(mode)
 }
 
 export interface UseDiffViewModeResult {
@@ -29,20 +51,10 @@ export interface UseDiffViewModeResult {
   setMode: (mode: DiffViewMode) => void
 }
 
-/**
- * Globally persisted unified/split preference for the Files Changed diff.
- *
- * The choice is not session-scoped (a reviewer's preferred layout carries
- * across PRs), so it lives under a single key like the theme preference rather
- * than the per-session `use-viewed-files` storage.
- */
 export function useDiffViewMode(): UseDiffViewModeResult {
-  const [mode, setModeState] = useState<DiffViewMode>(readStored)
-
+  const mode = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const setMode = useCallback((next: DiffViewMode) => {
-    setModeState(next)
-    persist(next)
+    setCurrent(next)
   }, [])
-
   return { mode, setMode }
 }
