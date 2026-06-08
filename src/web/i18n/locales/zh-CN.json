@@ -586,7 +586,7 @@
     "bucket": {
       "today": "今天",
       "yesterday": "昨天",
-      "week": "本周更早",
+      "week": "近 7 天",
       "older": "更早"
     },
     "status": {

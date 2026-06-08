@@ -175,6 +175,22 @@ describe('Sidebar', () => {
     expect(screen.getByText('fresh')).toBeInTheDocument()
   })
 
+  it('keeps a 3-day-old session in the past-week bucket, not Older', () => {
+    const now = Date.now()
+    const DAY = 86_400_000
+    const recent = mkSession({ id: 'r', number: 1, title: 'three days', updatedAt: now - 3 * DAY })
+    const ancient = mkSession({ id: 'a', number: 2, title: 'ten days', updatedAt: now - 10 * DAY })
+    render(withClient(<Sidebar />, { sessions: [recent, ancient] }))
+    expect(screen.getByText('Past 7 days')).toBeInTheDocument()
+    expect(screen.getByText('Older')).toBeInTheDocument()
+    // The 3-day-old session must sit under "Past 7 days" (above the 10-day one).
+    const recentEl = screen.getByText('three days')
+    const ancientEl = screen.getByText('ten days')
+    expect(
+      recentEl.compareDocumentPosition(ancientEl) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
   it('shows the no-match empty state when filter excludes everything', async () => {
     const user = userEvent.setup()
     render(
