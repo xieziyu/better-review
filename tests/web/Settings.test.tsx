@@ -14,6 +14,7 @@ const baseConfig: AppConfig = {
   perPRGCDays: 7,
   language: 'en',
   reviewExcludeGlobs: [],
+  diffViewMode: 'unified',
 }
 
 const baseHealth: HealthStatus = {
@@ -202,6 +203,29 @@ describe('Settings', () => {
     // Form is back to clean — the external change matched the server, so
     // Save stays disabled rather than reading as a pending user edit.
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+  })
+
+  it('reflects the configured diff layout and PUTs the chosen value', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ config: { ...baseConfig, diffViewMode: 'split' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    renderSettings({ config: { ...baseConfig, diffViewMode: 'unified' } })
+
+    const trigger = screen.getByRole('button', { name: /diff layout/i })
+    expect(trigger).toHaveTextContent('Unified')
+    await user.click(trigger)
+    await user.click(screen.getByRole('menuitemradio', { name: /split/i }))
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
+      diffViewMode: 'split',
+    })
   })
 
   it('renders an inline error when the save mutation fails', async () => {

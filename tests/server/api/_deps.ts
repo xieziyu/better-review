@@ -50,6 +50,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     perPRGCDays: 1,
     language: 'en',
     reviewExcludeGlobs: [],
+    diffViewMode: 'unified',
   }
   const defaultDelete = makeDeleteSession({
     db,

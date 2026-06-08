@@ -327,6 +327,11 @@
         "zh-CN": "简体中文"
       }
     },
+    "diffViewMode": {
+      "label": "Diff layout",
+      "hint": "Default layout for the Files Changed diff each time the app loads. You can still switch unified/split while reviewing — that choice is session-only and won't change this default.",
+      "menuAria": "Select diff layout"
+    },
     "defaultAgent": {
       "label": "Default agent",
       "hint": "Used when a new review session does not pick one explicitly. Missing agents stay selectable so you can install them later.",

@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { api, queryKeys } from '@/lib/api'
 import { SelectionProvider } from '@/lib/selection'
 import { ToastProvider } from '@/lib/toast'
+import { applyDiffViewModeDefault } from '@/lib/use-diff-view-mode'
 
 // Routes that expose the sessions sidebar. The sidebar is scoped to session
 // surfaces only; /prompt and /settings render without it.
@@ -62,6 +63,14 @@ export function App() {
     void i18n.changeLanguage(lang)
     if (typeof document !== 'undefined') document.documentElement.lang = lang
   }, [cfg?.config.language, i18n])
+
+  // Seed the diff layout from the configured default. The dep is the config
+  // value, so this only re-fires on initial load and when the user saves a new
+  // default in Settings — in-session unified/split toggles stay untouched.
+  const diffViewMode = cfg?.config.diffViewMode
+  useEffect(() => {
+    if (diffViewMode) applyDiffViewModeDefault(diffViewMode)
+  }, [diffViewMode])
 
   return (
     <SelectionProvider>

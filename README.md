@@ -184,6 +184,7 @@ sessions/pr-<...>/        # per-review workdir: diff.cache, findings.json, summa
 | `perPRGCDays`          | `7`                   | Garbage-collect per-PR workdirs older than this many days; `0` disables GC.                                                                                                         |
 | `language`             | auto (`en` / `zh-CN`) | UI + built-in prompt language. Auto-detected from `LANG` / `LC_ALL` / OS locale on first boot.                                                                                      |
 | `reviewExcludeGlobs`   | `[]`                  | Extra glob patterns for files to drop from the review agent's prompt (saves tokens), on top of built-in lockfile / generated-file defaults. Does not affect the Files Changed view. |
+| `diffViewMode`         | `"unified"`           | `"unified"` / `"split"`. Default layout for the Files Changed diff each time the SPA loads. Toggling unified/split while reviewing is session-only and never written back here.     |
 
 ## Development
 

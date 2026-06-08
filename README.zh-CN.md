@@ -183,6 +183,7 @@ sessions/pr-<...>/        # 每条 review 的工作目录：diff.cache、finding
 | `perPRGCDays`          | `7`                    | 超过这么多天的 per-PR 工作目录会被 GC 掉；填 `0` 关闭 GC                                                                                     |
 | `language`             | 自动（`en` / `zh-CN`） | UI 和内置 prompt 的语言，首次启动按 `LANG` / `LC_ALL` / 系统 locale 自动选                                                                   |
 | `reviewExcludeGlobs`   | `[]`                   | 额外 glob 列表，匹配到的文件会在内置 lockfile / 生成文件默认规则之外，额外从评审 agent 的 prompt 中移除以省 token；不影响 Files Changed 视图 |
+| `diffViewMode`         | `"unified"`            | 可选 `"unified"` / `"split"`；每次打开 SPA 时 Files Changed diff 的默认布局。评审过程中切换 unified/split 仅当前会话生效，不会写回此项       |
 
 ## 开发
 
