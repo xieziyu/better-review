@@ -36,16 +36,35 @@ const ALL_GROUPS = new Set<GroupKey>(GROUP_ORDER)
 type BucketKey = 'today' | 'yesterday' | 'week' | 'older'
 const BUCKET_ORDER: BucketKey[] = ['today', 'yesterday', 'week', 'older']
 
-const DAY_MS = 86_400_000
+interface RecencyBounds {
+  today: number
+  yesterday: number
+  week: number
+}
+
+// Calendar-day boundaries for the recency buckets, computed via the Date
+// constructor (not fixed-ms subtraction) so each lands on a true *local*
+// midnight and stays correct across DST transitions, where a day is not 24h.
+// `week` is a rolling window of the last 7 calendar days, deliberately *not*
+// a Monday-anchored calendar week: a calendar week would empty this bucket
+// early in the week (a Friday review would drop to "Older" by Monday), which
+// defeats the point of a recency-first list.
+function recencyBounds(now: Date): RecencyBounds {
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const d = now.getDate()
+  return {
+    today: new Date(y, m, d).getTime(),
+    yesterday: new Date(y, m, d - 1).getTime(),
+    week: new Date(y, m, d - 6).getTime(),
+  }
+}
 
 // Classify an updatedAt timestamp into a recency bucket relative to `now`.
-// Boundaries are calendar-day starts so "today"/"yesterday" match the user's
-// wall clock rather than a rolling 24h window; "week" covers the remainder of
-// the last 7 calendar days.
-function bucketOf(updatedAt: number, startOfToday: number): BucketKey {
-  if (updatedAt >= startOfToday) return 'today'
-  if (updatedAt >= startOfToday - DAY_MS) return 'yesterday'
-  if (updatedAt >= startOfToday - 6 * DAY_MS) return 'week'
+function bucketOf(updatedAt: number, b: RecencyBounds): BucketKey {
+  if (updatedAt >= b.today) return 'today'
+  if (updatedAt >= b.yesterday) return 'yesterday'
+  if (updatedAt >= b.week) return 'week'
   return 'older'
 }
 
@@ -420,11 +439,10 @@ export function Sidebar() {
       (s) => effectiveFilter.has(GROUP_OF[s.status]) && matchesSearch(s, query),
     )
     filtered.sort((a, b) => b.updatedAt - a.updatedAt)
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const bounds = recencyBounds(new Date())
     const byBucket = new Map<BucketKey, PRSession[]>()
     for (const s of filtered) {
-      const b = bucketOf(s.updatedAt, startOfToday)
+      const b = bucketOf(s.updatedAt, bounds)
       const arr = byBucket.get(b) ?? []
       arr.push(s)
       byBucket.set(b, arr)

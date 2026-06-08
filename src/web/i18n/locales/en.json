@@ -586,7 +586,7 @@
     "bucket": {
       "today": "Today",
       "yesterday": "Yesterday",
-      "week": "Earlier this week",
+      "week": "Past 7 days",
       "older": "Older"
     },
     "status": {
