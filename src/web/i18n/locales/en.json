@@ -583,10 +583,11 @@
       "done": "Done",
       "stale": "Stale"
     },
-    "section": {
-      "pr": "Pull requests",
-      "local": "Local repos",
-      "localUnknownRepo": "(unknown repo)"
+    "bucket": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
     },
     "status": {
       "running": "Running",

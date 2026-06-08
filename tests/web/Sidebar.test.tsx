@@ -62,7 +62,7 @@ describe('Sidebar', () => {
     expect(screen.getByText(/feat: add login/)).toBeInTheDocument()
   })
 
-  it('groups sessions by status', () => {
+  it('shows each session status label', () => {
     render(
       withClient(<Sidebar />, {
         sessions: [
@@ -126,7 +126,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('done one')).toBeInTheDocument()
   })
 
-  it('splits sessions into PR and Local repos top-level sections', () => {
+  it('renders PR, local-branch, and vbranch sessions in one flat list', () => {
     const pr = mkSession({ id: 'p', number: 7, title: 'pr-title' })
     const local = mkSession({
       id: 'l',
@@ -150,32 +150,29 @@ describe('Sidebar', () => {
       number: 0,
     })
     render(withClient(<Sidebar />, { sessions: [pr, local, vbranch] }))
-    expect(screen.getByText(/Pull requests/i)).toBeInTheDocument()
-    expect(screen.getByText(/Local repos/i)).toBeInTheDocument()
+    // No PR/Local structural sections any more — all three live in one stream.
+    expect(screen.queryByText(/Pull requests/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Local repos/i)).not.toBeInTheDocument()
     expect(screen.getByText('pr-title')).toBeInTheDocument()
     expect(screen.getByText('local-title')).toBeInTheDocument()
     expect(screen.getByText('vbranch-title')).toBeInTheDocument()
   })
 
-  it('groups local sessions under their repo basename', () => {
-    const a = mkSession({
-      id: 'a',
-      title: 'first',
-      source: { kind: 'local-branch', repoPath: '/u/me/foo', head: 'feat', base: 'main' },
-      owner: '',
-      repo: '',
-      number: 0,
-    })
-    const b = mkSession({
-      id: 'b',
-      title: 'second',
-      source: { kind: 'local-branch', repoPath: '/u/me/foo', head: 'fix', base: 'main' },
-      owner: '',
-      repo: '',
-      number: 0,
-    })
-    render(withClient(<Sidebar />, { sessions: [a, b] }))
-    expect(screen.getAllByText('foo').length).toBeGreaterThan(0)
+  it('orders sessions by most-recent activity, newest first', () => {
+    const older = mkSession({ id: 'o', number: 1, title: 'older one', updatedAt: 1000 })
+    const newer = mkSession({ id: 'n', number: 2, title: 'newer one', updatedAt: 5000 })
+    // Pass in stale-first order to prove the component sorts, not the input.
+    render(withClient(<Sidebar />, { sessions: [older, newer] }))
+    const newerEl = screen.getByText('newer one')
+    const olderEl = screen.getByText('older one')
+    expect(newerEl.compareDocumentPosition(olderEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('groups sessions under a recency bucket header', () => {
+    const today = mkSession({ id: 't', number: 1, title: 'fresh', updatedAt: Date.now() })
+    render(withClient(<Sidebar />, { sessions: [today] }))
+    expect(screen.getByText('Today')).toBeInTheDocument()
+    expect(screen.getByText('fresh')).toBeInTheDocument()
   })
 
   it('shows the no-match empty state when filter excludes everything', async () => {

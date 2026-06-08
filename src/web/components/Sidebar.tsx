@@ -8,7 +8,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { EmptyState } from '@/components/ui'
 import { api, queryKeys } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
-import { isLocalSource, repoBasename, sessionDisplayLabel } from '@/lib/session-display'
+import { sessionDisplayLabel } from '@/lib/session-display'
 import { useSSE } from '@/lib/sse'
 import { useResizable } from '@/lib/use-resizable'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,27 @@ const GROUP_OF: Record<SessionStatus, GroupKey> = {
 
 const GROUP_ORDER: GroupKey[] = ['active', 'done', 'stale']
 const ALL_GROUPS = new Set<GroupKey>(GROUP_ORDER)
+
+// Recency buckets for the flat session stream. Sessions are sorted by
+// updatedAt desc and split into these calendar-relative windows so the
+// most-recently-touched review is always near the top — independent of its
+// type (PR vs local) or status. Browsing by repo/PR/status is handled by
+// the search box + status chips, not by structural grouping.
+type BucketKey = 'today' | 'yesterday' | 'week' | 'older'
+const BUCKET_ORDER: BucketKey[] = ['today', 'yesterday', 'week', 'older']
+
+const DAY_MS = 86_400_000
+
+// Classify an updatedAt timestamp into a recency bucket relative to `now`.
+// Boundaries are calendar-day starts so "today"/"yesterday" match the user's
+// wall clock rather than a rolling 24h window; "week" covers the remainder of
+// the last 7 calendar days.
+function bucketOf(updatedAt: number, startOfToday: number): BucketKey {
+  if (updatedAt >= startOfToday) return 'today'
+  if (updatedAt >= startOfToday - DAY_MS) return 'yesterday'
+  if (updatedAt >= startOfToday - 6 * DAY_MS) return 'week'
+  return 'older'
+}
 
 const STATUS_TONE: Record<SessionStatus, string> = {
   running: 'text-accent-active',
@@ -122,6 +143,13 @@ export function matchesSearch(session: PRSession, query: string): boolean {
   return haystacks.some((h) => h.toLowerCase().includes(q))
 }
 
+// A one-glyph type marker shown before the identity label. With the PR/Local
+// sections gone, this is what distinguishes a GitHub PR (`#`) from a local
+// branch / GitButler vbranch (`⎇`) at a glance.
+function sourceGlyph(session: PRSession): string {
+  return session.source.kind === 'github-pr' ? '#' : '⎇'
+}
+
 interface SessionRowProps {
   session: PRSession
 }
@@ -155,10 +183,13 @@ function SessionRow({ session }: SessionRowProps) {
         {session.title ?? t('sidebar.noTitle')}
       </h3>
       <div
-        className="mt-1.5 font-mono text-meta text-ink-secondary tabular-nums truncate"
+        className="mt-1.5 flex items-center gap-1.5 font-mono text-meta text-ink-secondary tabular-nums min-w-0"
         title={sessionDisplayLabel(session)}
       >
-        {sessionDisplayLabel(session)}
+        <span aria-hidden="true" className="shrink-0 text-ink-muted">
+          {sourceGlyph(session)}
+        </span>
+        <span className="truncate">{sessionDisplayLabel(session)}</span>
       </div>
       <div className="mt-1 flex items-baseline gap-1.5 text-meta min-w-0">
         <span
@@ -186,41 +217,26 @@ function SessionRow({ session }: SessionRowProps) {
   )
 }
 
-// Top-level Sidebar section (PR / Local repos). Caller renders the per-
-// section sub-groups (status for PR, repoPath for Local) as children.
-function SidebarSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <section className="pt-4 first:pt-2">
-      <h2 className="px-5 pb-2 pt-1 text-caps tracking-caps text-ink-primary uppercase font-semibold">
-        {label}
-      </h2>
-      {children}
-    </section>
-  )
-}
-
-// One sub-section under a top-level Sidebar section. Status group for PR
-// section, repo basename for Local section.
-function SubGroup({
+// One recency bucket (Today / Yesterday / …) and its rows. The list is a
+// single flat stream split only by these time windows.
+function BucketGroup({
   label,
   count,
-  title,
   children,
 }: {
   label: string
   count: number
-  title?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="pt-3 first:pt-0">
-      <h3 className="flex items-center gap-2 px-5 pb-1.5" title={title}>
+    <section className="pt-3 first:pt-2">
+      <h2 className="flex items-center gap-2 px-5 pb-1.5 pt-1">
         <span className="text-caps tracking-caps text-ink-muted uppercase truncate">{label}</span>
         <span className="font-mono text-meta text-ink-muted tabular-nums">{count}</span>
         <span aria-hidden="true" className="flex-1 h-px bg-rule" />
-      </h3>
+      </h2>
       <div>{children}</div>
-    </div>
+    </section>
   )
 }
 
@@ -395,43 +411,28 @@ export function Sidebar() {
   // not a way to nuke the sidebar.
   const effectiveFilter = filter.size === 0 ? ALL_GROUPS : filter
 
-  // Top-level split: PR (status sub-groups) vs Local repos (repoPath sub-
-  // groups). Status filter chips apply to both halves; within each half items
-  // are sorted by updatedAt desc.
-  const visible = useMemo(() => {
-    const prByStatus = new Map<GroupKey, PRSession[]>()
-    const localByRepo = new Map<string, PRSession[]>()
-    for (const s of sessions) {
-      const g = GROUP_OF[s.status]
-      if (!effectiveFilter.has(g)) continue
-      if (!matchesSearch(s, query)) continue
-      if (isLocalSource(s.source)) {
-        const path = 'repoPath' in s.source ? s.source.repoPath : ''
-        const arr = localByRepo.get(path) ?? []
-        arr.push(s)
-        localByRepo.set(path, arr)
-      } else {
-        const arr = prByStatus.get(g) ?? []
-        arr.push(s)
-        prByStatus.set(g, arr)
-      }
-    }
-    for (const arr of prByStatus.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
-    for (const arr of localByRepo.values()) arr.sort((a, b) => b.updatedAt - a.updatedAt)
-    // Sort repos by most-recent activity so the repo the user just touched
-    // floats to the top of the local section.
-    const repoOrder = Array.from(localByRepo.entries()).sort(
-      ([, a], [, b]) => (b[0]?.updatedAt ?? 0) - (a[0]?.updatedAt ?? 0),
+  // Flat recency stream: filter by the active status chips + search, then sort
+  // by updatedAt desc and split into calendar-relative buckets. The most-
+  // recently-touched review floats to the top regardless of type or status;
+  // repo/PR/status browsing is delegated to search + chips.
+  const buckets = useMemo(() => {
+    const filtered = sessions.filter(
+      (s) => effectiveFilter.has(GROUP_OF[s.status]) && matchesSearch(s, query),
     )
-    return { prByStatus, localByRepo, repoOrder }
+    filtered.sort((a, b) => b.updatedAt - a.updatedAt)
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const byBucket = new Map<BucketKey, PRSession[]>()
+    for (const s of filtered) {
+      const b = bucketOf(s.updatedAt, startOfToday)
+      const arr = byBucket.get(b) ?? []
+      arr.push(s)
+      byBucket.set(b, arr)
+    }
+    return { byBucket, count: filtered.length }
   }, [sessions, effectiveFilter, query])
 
-  const visibleCount = useMemo(() => {
-    let n = 0
-    for (const arr of visible.prByStatus.values()) n += arr.length
-    for (const arr of visible.localByRepo.values()) n += arr.length
-    return n
-  }, [visible])
+  const visibleCount = buckets.count
 
   const toggleFilter = useCallback((g: GroupKey) => {
     setFilter((prev) => {
@@ -565,38 +566,17 @@ export function Sidebar() {
               </div>
             ) : (
               <div className="pb-6">
-                {Array.from(visible.prByStatus.values()).some((arr) => arr.length > 0) ? (
-                  <SidebarSection label={t('sidebar.section.pr')}>
-                    {GROUP_ORDER.map((g) => {
-                      const items = visible.prByStatus.get(g)
-                      if (!items || items.length === 0) return null
-                      return (
-                        <SubGroup key={g} label={t(`sidebar.group.${g}`)} count={items.length}>
-                          {items.map((s) => (
-                            <SessionRow key={s.id} session={s} />
-                          ))}
-                        </SubGroup>
-                      )
-                    })}
-                  </SidebarSection>
-                ) : null}
-
-                {visible.repoOrder.length > 0 ? (
-                  <SidebarSection label={t('sidebar.section.local')}>
-                    {visible.repoOrder.map(([repoPath, items]) => (
-                      <SubGroup
-                        key={repoPath || '(unknown)'}
-                        label={repoBasename(repoPath) || t('sidebar.section.localUnknownRepo')}
-                        count={items.length}
-                        title={repoPath}
-                      >
-                        {items.map((s) => (
-                          <SessionRow key={s.id} session={s} />
-                        ))}
-                      </SubGroup>
-                    ))}
-                  </SidebarSection>
-                ) : null}
+                {BUCKET_ORDER.map((b) => {
+                  const items = buckets.byBucket.get(b)
+                  if (!items || items.length === 0) return null
+                  return (
+                    <BucketGroup key={b} label={t(`sidebar.bucket.${b}`)} count={items.length}>
+                      {items.map((s) => (
+                        <SessionRow key={s.id} session={s} />
+                      ))}
+                    </BucketGroup>
+                  )
+                })}
               </div>
             )}
           </nav>
