@@ -1,6 +1,6 @@
 {
   "name": "@xieziyu/better-review",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Local PR review helper combining a review-agent CLI (codex / claude / pi) and gh CLI with a browser UI.",
   "keywords": [
     "claude",

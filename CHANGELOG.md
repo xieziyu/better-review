@@ -8,6 +8,24 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.5.0] — 2026-06-08
+
+### Added
+
+- **Split / unified diff layout toggle** — a segmented control in the `FileDiffPane` header switches the Files Changed diff between the existing unified view and a side-by-side split view (powered by `react-diff-view`'s `viewType="split"`). Findings anchored to new-side lines render in the right column via the library's `SplitWidget`; split-only CSS (pane seam, recessed empty-half tint, suppressed omit markers) is scoped under `.diff-split` so unified mode is untouched. (#39)
+- **Configurable default diff layout** — a new `diffViewMode` config key (`"unified" | "split"`, default `"unified"`) lets reviewers pin the default Files Changed layout from Settings, wired end-to-end like `language` / `defaultAgent`. Config is the sole default: it seeds the layout on each SPA load and re-applies immediately on save, while the in-panel toggle is now session-only (survives remounts, resets to the configured default on reload, never written back to config). (#41)
+
+### Changed
+
+- **White diff surface** — the Files Changed diff pane now sits on a near-white surface (`bg-main`) with finding cards floating above a recessed `bg-sunken` gutter, so react-diff-view's pastel insert/delete colors (calibrated for white) read cleanly instead of muddy on the old grey canvas. Dark mode is unchanged. (#38)
+- **Recency-stream sidebar** — the sidebar's two-layer type/status grouping is replaced by a single flat time stream: status chips + search filter first, then `updatedAt`-descending order segmented only by calendar-relative recency buckets (Today / Yesterday / Past 7 days / Older). Each row gains a type glyph (`#` PR / `⎇` local·vbranch); status chips, search, ⌘K, collapse/rail, and the running badge are preserved. (#43)
+- **Unified diff-pane header controls** — the `FileDiffPane` header's control cluster now speaks one visual language: the viewMode toggle drops its brand fill for a quiet `bg-sunken` active cell, a divider splits the view-preference group from the file-action group, add-finding / open-on-GitHub become consistent 26px ghost icon buttons, and mark-as-viewed becomes a stateful green pill (`role="checkbox"`) — giving the primary per-file action the visual weight it deserves. (#45)
+
+### Fixed
+
+- **Decouple local-branch and GitButler repo inputs** — the new-review local-branch and GitButler tabs no longer share an auto-prefilled repo path (a regression from #33 where both opened on the same `mostRecentRepoPath`, causing a plain git repo to prefill the GitButler tab and error as "not a GitButler project"). Each tab's repo input now starts empty and reflects only what you type or pick in that tab; the PR tab's URL-match auto-fill is unaffected. (#42)
+- **DST-safe, honestly-labeled recency buckets** — the sidebar recency-bucket boundaries are now computed via the `Date` constructor (`new Date(y, m, d - n)`) so they always land on true local midnight instead of drifting on DST transitions from fixed-ms subtraction. The third bucket's misleading "Earlier this week" label (its boundary is a rolling 6-day window) is corrected to "Past 7 days" / "近 7 天". (#44)
+
 ## [0.4.0] — 2026-06-02
 
 ### Added
