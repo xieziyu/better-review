@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { expandFromRawCode, getCollapsedLinesCountBetween, type HunkData } from 'react-diff-view'
+import { insertHunk, textLinesToHunk, type HunkData } from 'react-diff-view'
 
 import { api } from './api'
 
@@ -8,23 +8,42 @@ export type ExpansionStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
 export interface FileExpansion {
   /** Hunks with any expanded context materialized into them. */
   hunks: HunkData[]
-  /** Total line count of the file (old side), known once raw content loads. */
+  /** Total NEW-side line count of the file, known once raw content loads. */
   totalLines: number | null
   status: ExpansionStatus
   /**
-   * Expand the half-open OLD-side line range [start, end) into the hunks.
+   * Reveal NEW-side lines [newStart, newEnd) as context, numbering the old
+   * side from `oldStart` (the gap is unchanged, so old/new advance in lockstep).
    * No-op (and triggers a one-time raw fetch) until content is available.
    */
-  expand: (start: number, end: number) => void
+  expand: (newStart: number, newEnd: number, oldStart: number) => void
   /** Expand the entire collapsed gap that contains the given NEW-side line. */
   expandGapContaining: (newLine: number) => void
 }
 
-// react-diff-view's expandFromRawCode treats `end` as exclusive (slice
-// semantics) over OLD-side line numbers; getCollapsedLinesCountBetween counts
-// the hidden lines in a gap. This hook fetches the full file once (cheap for
-// worktree/snapshot disk reads; a single cached gh blob otherwise) so every
-// expander click is synchronous afterwards.
+// We fetch the file at the PR head (NEW side) once — cheap for worktree /
+// snapshot disk reads; a single cached gh blob otherwise — then materialize
+// hidden context from it.
+//
+// IMPORTANT: react-diff-view's expandFromRawCode indexes its source by OLD
+// line numbers, so it expects the *base* file. We only have the head file, so
+// we build the revealed lines directly in NEW-side coordinates with
+// textLinesToHunk + insertHunk. Collapsed gaps are unchanged regions, so head
+// content matches base content there and the only thing that differs is the
+// old/new line numbering — captured by the constant offset between them.
+function buildExpansion(
+  prev: HunkData[],
+  rawLines: string[],
+  newStart: number,
+  newEnd: number,
+  oldStart: number,
+): HunkData[] {
+  const slice = rawLines.slice(Math.max(newStart, 1) - 1, newEnd - 1)
+  if (slice.length === 0) return prev
+  const hunk = textLinesToHunk(slice, oldStart, newStart)
+  return hunk ? insertHunk(prev, hunk) : prev
+}
+
 export function useFileExpansion(
   sessionId: string,
   filePath: string,
@@ -63,11 +82,11 @@ export function useFileExpansion(
   }, [sessionId, filePath])
 
   const expand = useCallback(
-    (start: number, end: number) => {
+    (newStart: number, newEnd: number, oldStart: number) => {
       void (async () => {
         const raw = await ensureRaw()
         if (!raw) return
-        setHunks((prev) => expandFromRawCode(prev, raw, start, end))
+        setHunks((prev) => buildExpansion(prev, raw, newStart, newEnd, oldStart))
       })()
     },
     [ensureRaw],
@@ -79,32 +98,27 @@ export function useFileExpansion(
         const raw = await ensureRaw()
         if (!raw) return
         setHunks((prev) => {
-          // Locate the collapsed gap holding `newLine` (new-side) and expand it
-          // fully in OLD-side coordinates, which is what expandFromRawCode wants.
+          // Locate the collapsed gap (new-side) holding `newLine` and reveal it
+          // fully. Old-side start comes from the previous hunk's end (or 1).
           for (let i = 0; i < prev.length; i++) {
             const hunk = prev[i]
             if (!hunk) continue
-            const newStart = hunk.newStart
             const prevHunk = i === 0 ? null : (prev[i - 1] ?? null)
-            const collapsed = getCollapsedLinesCountBetween(prevHunk, hunk)
-            if (collapsed <= 0) continue
-            // New-side span of this gap: just below the previous hunk up to
-            // just above the current hunk's first line.
-            const gapNewEnd = newStart - 1
             const gapNewStart = prevHunk ? prevHunk.newStart + prevHunk.newLines : 1
-            if (newLine >= gapNewStart && newLine <= gapNewEnd) {
+            const gapNewEnd = hunk.newStart // exclusive
+            if (gapNewEnd <= gapNewStart) continue
+            if (newLine >= gapNewStart && newLine < gapNewEnd) {
               const gapOldStart = prevHunk ? prevHunk.oldStart + prevHunk.oldLines : 1
-              const gapOldEnd = hunk.oldStart // exclusive
-              return expandFromRawCode(prev, raw, gapOldStart, gapOldEnd)
+              return buildExpansion(prev, raw, gapNewStart, gapNewEnd, gapOldStart)
             }
           }
           // Past the last hunk (trailing gap).
           const last = prev[prev.length - 1]
-          if (last && raw.length > 0) {
-            const lastNewEnd = last.newStart + last.newLines - 1
-            if (newLine > lastNewEnd) {
-              const oldStart = last.oldStart + last.oldLines
-              return expandFromRawCode(prev, raw, oldStart, raw.length + 1)
+          if (last) {
+            const gapNewStart = last.newStart + last.newLines
+            if (newLine >= gapNewStart) {
+              const gapOldStart = last.oldStart + last.oldLines
+              return buildExpansion(prev, raw, gapNewStart, raw.length + 1, gapOldStart)
             }
           }
           return prev

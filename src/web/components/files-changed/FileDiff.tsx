@@ -34,10 +34,10 @@ interface Props {
   viewType?: 'unified' | 'split'
   /** Render GitHub-style expanders in the gaps between hunks / at file edges. */
   expandable?: boolean
-  /** Total OLD-side line count of the file; enables the bottom-of-file expander. */
+  /** Total NEW-side line count of the file; enables the bottom-of-file expander. */
   totalLines?: number | null
-  /** Expand the half-open OLD-side range [start, end) into the hunks. */
-  onExpand?: (start: number, end: number) => void
+  /** Reveal NEW-side lines [newStart, newEnd) numbered from oldStart on the old side. */
+  onExpand?: (newStart: number, newEnd: number, oldStart: number) => void
 }
 
 const renderShikiToken: RenderToken = (token, renderDefault, i) => {
