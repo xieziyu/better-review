@@ -301,10 +301,15 @@ export function Home() {
     }
     setVbranchSelected('')
   }, [vbranchTabRepoTrim])
+  // Gate submit on the selected vbranch still existing in the current inspect
+  // result, not just on the persisted string being non-empty. After a refresh
+  // the stored vbranch may have been deleted/renamed (or absent from `but
+  // status`), in which case the UI shows nothing selected — the button must
+  // not stay enabled and submit a stale, invisible name.
   const vbranchCanSubmit =
     vbranchTabRepoTrim.length > 0 &&
     vbranchInspect?.kind === 'gitbutler' &&
-    vbranchSelected.length > 0 &&
+    vbranchInspect.vbranches?.some((v) => v.name === vbranchSelected) === true &&
     !create.isPending
 
   function submitPrTab(): void {
