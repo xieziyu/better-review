@@ -125,6 +125,14 @@
     "fileFindings_other": "{{count}} 条 findings",
     "offDiffHeader_one": "未锚定 ({{count}})",
     "offDiffHeader_other": "未锚定 ({{count}})",
+    "expand": {
+      "up": "向上展开",
+      "down": "向下展开",
+      "all": "展开全部隐藏行",
+      "label_one": "展开 {{count}} 行隐藏代码",
+      "label_other": "展开 {{count}} 行隐藏代码",
+      "reveal": "在上下文中查看"
+    },
     "openOnGithub": "在 GitHub 打开",
     "suggestion": "建议",
     "includeInReview": "纳入提交",

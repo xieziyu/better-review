@@ -1,7 +1,7 @@
 import type { Severity } from '@shared/findings-schema'
 import type { Finding, PRSession } from '@shared/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, LocateFixed, Pencil, Trash2 } from 'lucide-react'
 import { isValidElement, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -20,6 +20,8 @@ interface Props {
   onOpenInPanel?: () => void
   /** Historical (archived) round — hide Include/Edit/Delete affordances. */
   readOnly?: boolean | undefined
+  /** Reveal this off-diff finding in the surrounding diff context. */
+  onRevealInContext?: () => void
 }
 
 const STRIPE: Record<Severity, string> = {
@@ -41,6 +43,7 @@ export function InlineFindingCard({
   onToggle,
   onOpenInPanel,
   readOnly,
+  onRevealInContext,
 }: Props) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -104,6 +107,18 @@ export function InlineFindingCard({
             {sourceLabel}
           </span>
         </button>
+        {onRevealInContext ? (
+          <div className="px-3 pb-2 -mt-1 pl-[34px]">
+            <button
+              type="button"
+              onClick={onRevealInContext}
+              className="inline-flex items-center gap-1 text-meta text-brand hover:underline"
+            >
+              <LocateFixed className="h-3 w-3" />
+              {t('filesChanged.expand.reveal')}
+            </button>
+          </div>
+        ) : null}
         {expanded ? (
           <div className="px-3 pb-3 space-y-3">
             <div className="prose prose-sm max-w-none text-body text-ink-secondary leading-relaxed prose-headings:text-ink-primary prose-p:text-ink-primary prose-strong:text-ink-primary prose-code:text-ink-primary prose-a:text-brand prose-a:no-underline hover:prose-a:underline">
@@ -166,6 +181,11 @@ interface OffDiffSectionProps {
   onToggle: (dbId: string) => void
   onOpenInPanel?: (dbId: string) => void
   readOnly?: boolean | undefined
+  /**
+   * Expand the diff around an off-diff finding's line so it shows in context.
+   * Only offered for findings that carry a line (file-level ones have none).
+   */
+  onRevealInContext?: (finding: Finding) => void
 }
 
 export function OffDiffFindingsSection({
@@ -175,6 +195,7 @@ export function OffDiffFindingsSection({
   onToggle,
   onOpenInPanel,
   readOnly,
+  onRevealInContext,
 }: OffDiffSectionProps) {
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
@@ -206,6 +227,9 @@ export function OffDiffFindingsSection({
               onToggle={() => onToggle(f.dbId)}
               readOnly={readOnly}
               {...(onOpenInPanel ? { onOpenInPanel: () => onOpenInPanel(f.dbId) } : {})}
+              {...(onRevealInContext && f.line != null
+                ? { onRevealInContext: () => onRevealInContext(f) }
+                : {})}
             />
           ))
         : null}

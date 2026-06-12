@@ -104,3 +104,71 @@
 .diff-split .diff-line > .diff-gutter-omit::before {
   display: none;
 }
+
+/* ---- Hidden-line expanders ----
+ * GitHub-style bar rendered (via react-diff-view <Decoration>) in the gaps
+ * between hunks and at the file head / tail. The actions cluster aligns with
+ * the gutter width; the label fills the rest of the row. */
+.diff-decoration-content {
+  padding: 0 !important;
+}
+.diff-expander {
+  display: flex;
+  align-items: stretch;
+  background: color-mix(in oklch, var(--anchor) 7%, var(--bg-sunken));
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-secondary);
+}
+.diff-expander-actions {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-width: 84px;
+  border-right: 1px solid var(--rule);
+  background: color-mix(in oklch, var(--anchor) 11%, var(--bg-sunken));
+}
+.diff-expander-actions-single {
+  flex-direction: row;
+}
+.diff-expander-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--anchor);
+  cursor: pointer;
+}
+.diff-expander-btn:hover {
+  background: color-mix(in oklch, var(--anchor) 20%, transparent);
+}
+.diff-expander-actions .diff-expander-btn + .diff-expander-btn {
+  border-top: 1px solid color-mix(in oklch, var(--anchor) 18%, transparent);
+}
+.diff-expander-actions-single .diff-expander-btn + .diff-expander-btn {
+  border-top: none;
+  border-left: 1px solid color-mix(in oklch, var(--anchor) 18%, transparent);
+}
+.diff-expander-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+.diff-expander-label:hover {
+  color: var(--ink-primary);
+}
+.diff-expander-range {
+  font-family: var(--diff-font-family);
+  color: var(--ink-muted);
+}
