@@ -162,7 +162,7 @@ describe('SessionDetail', () => {
   it('Prompt rules button jumps to the prompt editor carrying the repo', async () => {
     const user = userEvent.setup()
     renderWithPromptProbe({ ...session, localRepoPath: '/Users/me/code/web' })
-    await user.click(screen.getByRole('button', { name: /prompt rules/i }))
+    await user.click(screen.getByRole('button', { name: /^prompt$/i }))
     expect(screen.getByTestId('prompt-location')).toHaveTextContent(
       `/prompt?repo=${encodeURIComponent('/Users/me/code/web')}`,
     )
@@ -171,7 +171,7 @@ describe('SessionDetail', () => {
   it('Prompt rules button jumps without a repo param when none is pinned', async () => {
     const user = userEvent.setup()
     renderWithPromptProbe(session)
-    await user.click(screen.getByRole('button', { name: /prompt rules/i }))
+    await user.click(screen.getByRole('button', { name: /^prompt$/i }))
     expect(screen.getByTestId('prompt-location')).toHaveTextContent(/^\/prompt$/)
   })
 

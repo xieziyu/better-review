@@ -379,7 +379,7 @@
     "openOnGithub": "在 GitHub 中打开 PR",
     "github": "GitHub",
     "localRepoLabel": "本地仓库：{{path}}",
-    "viewPromptRules": "提示词规则",
+    "viewPromptRules": "提示词",
     "viewPromptRulesTitle": "打开提示词编辑器，查看本次评审使用的规则",
     "viewPromptRulesTitleWithRepo": "带上该仓库打开提示词编辑器，查看本次评审使用的规则",
     "sourceWorktreeLabel": "源码：PR head 工作树",

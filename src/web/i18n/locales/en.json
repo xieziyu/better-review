@@ -379,7 +379,7 @@
     "openOnGithub": "Open PR on GitHub",
     "github": "GitHub",
     "localRepoLabel": "Local repo: {{path}}",
-    "viewPromptRules": "Prompt rules",
+    "viewPromptRules": "Prompt",
     "viewPromptRulesTitle": "Open the prompt editor to see the rules this review uses",
     "viewPromptRulesTitleWithRepo": "Open the prompt editor with this repo to see the rules this review uses",
     "sourceWorktreeLabel": "Source: PR head worktree",
