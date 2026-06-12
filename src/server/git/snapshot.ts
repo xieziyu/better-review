@@ -48,6 +48,23 @@ export function changedPathsFromDiff(unifiedDiff: string): string[] {
   return [...out]
 }
 
+// Every path a unified diff touches, on BOTH the pre- and post-image sides
+// (`--- a/<old>` and `+++ b/<new>`), excluding /dev/null. The file-content
+// endpoint uses this as a read allowlist so it can only ever serve files that
+// actually appear in the review diff — covering renames (old + new path) and
+// deletions (old path) — rather than any path in the repo / GitHub head.
+export function diffTouchedPaths(unifiedDiff: string): Set<string> {
+  const out = new Set<string>()
+  for (const line of unifiedDiff.split('\n')) {
+    if (!line.startsWith('+++ ') && !line.startsWith('--- ')) continue
+    const after = line.slice(4).trim()
+    if (after === '/dev/null') continue
+    const path = after.startsWith('a/') || after.startsWith('b/') ? after.slice(2) : after
+    if (path && path !== '/dev/null') out.add(path)
+  }
+  return out
+}
+
 export async function prepareDiffSnapshot(args: PrepareSnapshotArgs): Promise<SnapshotResult> {
   const { gh, owner, repo, headSha, unifiedDiff, snapshotDir, log } = args
   mkdirSync(snapshotDir, { recursive: true })

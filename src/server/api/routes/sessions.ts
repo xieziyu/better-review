@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 
 import { AGENT_KINDS, type AgentKind, type PrepCall, type PrepStep } from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
-import { snapshotDirFor } from '../../git/snapshot'
+import { diffTouchedPaths, snapshotDirFor } from '../../git/snapshot'
 import { worktreeDirFor } from '../../git/worktree'
 import { parseSessionInput } from '../../source/parse'
 import type { AppDeps } from '../app'
@@ -117,6 +117,17 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const rel = c.req.query('path')
     if (typeof rel !== 'string' || rel.length === 0) {
       return c.json({ error: 'path required' }, 400)
+    }
+    // Capability boundary: this endpoint only exists to expand the hidden
+    // context of diff-touched files, so restrict it to the paths that actually
+    // appear in this session's review diff. Without this, any local caller that
+    // knows the session id could read arbitrary repo files (e.g. `.env`) — or,
+    // via the GitHub fallback, any file in a private repo at the head SHA using
+    // the user's gh credentials, neither of which is in the product contract.
+    const diffCache = join(s.workdir, 'diff.cache')
+    const diffText = existsSync(diffCache) ? readFileSync(diffCache, 'utf8') : ''
+    if (!diffTouchedPaths(diffText).has(rel)) {
+      return c.json({ error: 'not in diff' }, 404)
     }
     // Read candidates in priority order. Two layers of containment: a cheap
     // lexical `..`-escape check, then a realpath check that also defeats

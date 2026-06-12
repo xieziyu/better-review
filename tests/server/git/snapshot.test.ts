@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   changedPathsFromDiff,
+  diffTouchedPaths,
   prepareDiffSnapshot,
   snapshotDirFor,
 } from '../../../src/server/git/snapshot'
@@ -38,6 +39,28 @@ describe('changedPathsFromDiff', () => {
       '+hi',
     ].join('\n')
     expect(changedPathsFromDiff(diff)).toEqual(['src/a.ts', 'src/added.ts'])
+  })
+})
+
+describe('diffTouchedPaths', () => {
+  it('collects both pre- and post-image paths (renames + deletes), skipping /dev/null', () => {
+    const diff = [
+      // modify: old == new
+      '--- a/src/a.ts',
+      '+++ b/src/a.ts',
+      // rename: old != new, both should be allowlisted
+      '--- a/src/old-name.ts',
+      '+++ b/src/new-name.ts',
+      // delete: only the old side survives
+      '--- a/src/gone.ts',
+      '+++ /dev/null',
+      // add: only the new side survives
+      '--- /dev/null',
+      '+++ b/src/added.ts',
+    ].join('\n')
+    expect(diffTouchedPaths(diff)).toEqual(
+      new Set(['src/a.ts', 'src/old-name.ts', 'src/new-name.ts', 'src/gone.ts', 'src/added.ts']),
+    )
   })
 })
 
