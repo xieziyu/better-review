@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { isLineInDiff, isLineRangeInDiff } from '../../../src/server/engine/diff-line-validator'
+import { isLineInDiff, isLineRangeInDiff } from '../../src/shared/diff-lines'
 
 const SAMPLE = `diff --git a/foo.ts b/foo.ts
 --- a/foo.ts

@@ -2,22 +2,9 @@ import { spawn } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 
 import { consumeLines } from './lines'
+import { shortJson } from './short-json'
 import type { AgentRunHandle, AgentSpawnArgs, ReviewAgent } from './types'
 import { whichBinary } from './which'
-
-const TOOL_INPUT_MAX = 120
-
-function shortJson(v: unknown): string {
-  let s: string
-  try {
-    s = JSON.stringify(v)
-  } catch {
-    s = String(v)
-  }
-  if (s === undefined) return ''
-  if (s.length > TOOL_INPUT_MAX) s = s.slice(0, TOOL_INPUT_MAX - 1) + '…'
-  return s
-}
 
 interface PiTextBlock {
   type?: string

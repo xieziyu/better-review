@@ -1,3 +1,9 @@
+// New-side line / line-range membership checks against a unified diff.
+// Used by the server (payload-builder, to split inline-eligible findings
+// from PR-wide ones) and by the web SubmitDrawer (to preview that same
+// split) — keep both on this one implementation so they can never
+// disagree about what is inline-eligible.
+
 interface FileHunks {
   ranges: Array<{ start: number; length: number }>
 }

@@ -1,6 +1,6 @@
+import { isLineInDiff, isLineRangeInDiff } from '../../shared/diff-lines'
 import type { Finding, ReviewEvent } from '../../shared/types'
 import type { ReviewPayload, ReviewComment } from '../github/gh-client'
-import { isLineInDiff, isLineRangeInDiff } from './diff-line-validator'
 
 export interface BuildArgs {
   diff: string
