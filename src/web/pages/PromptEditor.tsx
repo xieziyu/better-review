@@ -200,62 +200,64 @@ export function PromptEditor() {
           ) : null}
         </header>
 
-        <div className="px-8 pt-4">
-          <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas">
-            <FolderGit2 size={15} className="text-ink-muted shrink-0" aria-hidden="true" />
-            <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
-              {t('prompt.repo.label')}
-            </span>
-            <input
-              type="text"
-              list="prompt-recent-repos"
-              value={repo}
-              onChange={(e) => setRepo(e.target.value)}
-              placeholder={t('prompt.repo.placeholder')}
-              className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
-              aria-label={t('prompt.repo.ariaLabel')}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            {folderPickerSupported ? (
-              <button
-                type="button"
-                onClick={browseRepo}
-                disabled={pickerBusy}
-                className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
-                aria-label={t('prompt.repo.browseAriaLabel')}
-              >
-                <FolderOpen size={14} aria-hidden="true" />
-                {pickerBusy ? t('prompt.repo.opening') : t('prompt.repo.browse')}
-              </button>
-            ) : null}
-            {repo ? (
-              <button
-                type="button"
-                onClick={() => setRepo('')}
-                className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
-                aria-label={t('prompt.repo.clearAriaLabel')}
-              >
-                {t('prompt.repo.clear')}
-              </button>
-            ) : null}
+        {tab === 'project' ? (
+          <div className="px-8 pt-4">
+            <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas">
+              <FolderGit2 size={15} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
+                {t('prompt.repo.label')}
+              </span>
+              <input
+                type="text"
+                list="prompt-recent-repos"
+                value={repo}
+                onChange={(e) => setRepo(e.target.value)}
+                placeholder={t('prompt.repo.placeholder')}
+                className="flex-1 py-1.5 bg-transparent text-meta text-ink-primary placeholder:text-ink-muted focus:outline-none font-mono"
+                aria-label={t('prompt.repo.ariaLabel')}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              {folderPickerSupported ? (
+                <button
+                  type="button"
+                  onClick={browseRepo}
+                  disabled={pickerBusy}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-meta text-ink-secondary hover:text-ink-primary hover:bg-canvas transition-colors duration-180 ease-out-quart disabled:opacity-50 disabled:cursor-progress"
+                  aria-label={t('prompt.repo.browseAriaLabel')}
+                >
+                  <FolderOpen size={14} aria-hidden="true" />
+                  {pickerBusy ? t('prompt.repo.opening') : t('prompt.repo.browse')}
+                </button>
+              ) : null}
+              {repo ? (
+                <button
+                  type="button"
+                  onClick={() => setRepo('')}
+                  className="text-meta text-ink-muted hover:text-ink-secondary transition-colors duration-180 ease-out-quart"
+                  aria-label={t('prompt.repo.clearAriaLabel')}
+                >
+                  {t('prompt.repo.clear')}
+                </button>
+              ) : null}
+            </div>
+            <datalist id="prompt-recent-repos">
+              {recentRepos?.items.map((r) => (
+                <option key={r.path} value={r.path}>
+                  {t('prompt.repo.recentMeta', {
+                    when: relativeTime(r.lastUsedAt),
+                    count: r.useCount,
+                  })}
+                </option>
+              ))}
+            </datalist>
+            {pickerError ? (
+              <div className="text-meta text-severity-must mt-1 pl-1">{pickerError}</div>
+            ) : (
+              <p className="text-meta text-ink-muted mt-1 pl-1">{t('prompt.repo.hint')}</p>
+            )}
           </div>
-          <datalist id="prompt-recent-repos">
-            {recentRepos?.items.map((r) => (
-              <option key={r.path} value={r.path}>
-                {t('prompt.repo.recentMeta', {
-                  when: relativeTime(r.lastUsedAt),
-                  count: r.useCount,
-                })}
-              </option>
-            ))}
-          </datalist>
-          {pickerError ? (
-            <div className="text-meta text-severity-must mt-1 pl-1">{pickerError}</div>
-          ) : (
-            <p className="text-meta text-ink-muted mt-1 pl-1">{t('prompt.repo.hint')}</p>
-          )}
-        </div>
+        ) : null}
 
         <div className="flex-1 min-h-0 overflow-auto px-8 py-6 space-y-4">
           {!data ? (

@@ -41,8 +41,9 @@ const baseState: PromptStateResponse = {
   },
 }
 
-// Enters a repo path into the Project-scope repo selector so the Project /
-// Guidelines tabs have a repo to resolve against.
+// Enters a repo path into the Project-scope repo selector so the Project tab
+// has a repo to resolve against. The selector only renders on the Project tab,
+// so callers must switch to it before invoking this helper.
 async function pickRepo(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/local repository path for project rules/i), '/proj')
 }
@@ -77,8 +78,8 @@ describe('PromptEditor', () => {
   it("shows 'Override at this scope' when project has no override", async () => {
     const user = userEvent.setup()
     render(withClient(<PromptEditor />, { prompts: baseState }))
-    await pickRepo(user)
     await user.click(screen.getByRole('tab', { name: /project/i }))
+    await pickRepo(user)
     expect(screen.getByRole('button', { name: /override at this scope/i })).toBeInTheDocument()
   })
 
@@ -103,8 +104,8 @@ describe('PromptEditor', () => {
       },
     }
     render(withClient(<PromptEditor />, { prompts: state }))
-    await pickRepo(user)
     await user.click(screen.getByRole('tab', { name: /project/i }))
+    await pickRepo(user)
     const ta = screen.getByLabelText(/^project rules$/i) as HTMLTextAreaElement
     expect(ta).not.toHaveAttribute('readonly')
     expect(ta.value).toBe('# project body')
@@ -137,8 +138,8 @@ describe('PromptEditor', () => {
   it("hides 'Apply to current session' when no eligible sessions", async () => {
     const user = userEvent.setup()
     render(withClient(<PromptEditor />, { prompts: baseState, sessions: [] }))
-    await pickRepo(user)
     await user.click(screen.getByRole('tab', { name: /project/i }))
+    await pickRepo(user)
     expect(
       screen.queryByRole('button', { name: /apply to current session/i }),
     ).not.toBeInTheDocument()
@@ -188,8 +189,8 @@ describe('PromptEditor', () => {
       },
     }
     render(withClient(<PromptEditor />, { prompts: state, sessions }))
-    await pickRepo(user)
     await user.click(screen.getByRole('tab', { name: /project/i }))
+    await pickRepo(user)
     expect(screen.getByRole('button', { name: /apply to current session/i })).toBeInTheDocument()
   })
 })
