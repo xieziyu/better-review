@@ -252,8 +252,7 @@
       "baseAriaLabel": "Diff base ref",
       "baseMenuAriaLabel": "Pick a base branch",
       "branchesEmptyHint": "Pick a local repository above to list its branches.",
-      "branchHeadBadge": "HEAD",
-      "readOnlyHint": "Local reviews are read-only — findings stay in the UI and aren't posted to GitHub."
+      "branchHeadBadge": "HEAD"
     },
     "vbranch": {
       "repoPlaceholder": "GitButler project path — /Users/you/code/owner/repo",
@@ -266,8 +265,7 @@
       "inspecting": "Inspecting the project for virtual branches…",
       "notARepo": "That path is not a git repository.",
       "notGitButler": "This is a plain git repository — set it up with `but setup` to review virtual branches, or switch to the Local branch tab.",
-      "empty": "No reviewable virtual branches (all branches are empty).",
-      "readOnlyHint": "vbranch reviews are read-only — findings stay in the UI and aren't posted anywhere."
+      "empty": "No reviewable virtual branches (all branches are empty)."
     },
     "prUrlPlaceholder": "https://github.com/owner/repo/pull/123",
     "prAriaLabel": "PR target",
