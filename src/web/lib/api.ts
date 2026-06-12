@@ -70,6 +70,17 @@ export const api = {
     }
     return await res.text()
   },
+  // Full content of a diff-touched file, used to expand the context hidden
+  // between diff hunks. Returns null when the file is unavailable (404) —
+  // e.g. a `none` source with no GitHub blob — so callers can disable the
+  // expander gracefully instead of surfacing an error.
+  getSessionFile: async (id: string, path: string): Promise<string | null> => {
+    const res = await fetch(`/api/sessions/${id}/file?path=${encodeURIComponent(path)}`)
+    if (res.status === 404 || res.status === 400) return null
+    if (!res.ok) throw new ApiError(res.status, res.statusText)
+    const j = (await res.json()) as { content?: string }
+    return j.content ?? null
+  },
   getSessionTranscript: (id: string): Promise<{ chunks: string[]; truncated: boolean }> =>
     req(`/api/sessions/${id}/transcript`),
   getSessionPrepLog: (

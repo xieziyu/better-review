@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Diff,
-  Hunk,
   type ChangeData,
   type HunkData,
   type HunkTokens,
@@ -12,6 +11,8 @@ import {
 import { inferLangFromFile } from '@/lib/lang-from-file'
 import { getHighlighter } from '@/lib/shiki'
 import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
+
+import { renderHunksWithExpanders } from './DiffExpander'
 
 import 'react-diff-view/style/index.css'
 import '../DiffViewer.css'
@@ -31,6 +32,12 @@ interface Props {
   selectedChanges?: string[]
   /** Layout: side-by-side `split` or stacked `unified` (default). */
   viewType?: 'unified' | 'split'
+  /** Render GitHub-style expanders in the gaps between hunks / at file edges. */
+  expandable?: boolean
+  /** Total NEW-side line count of the file; enables the bottom-of-file expander. */
+  totalLines?: number | null
+  /** Reveal NEW-side lines [newStart, newEnd) numbered from oldStart on the old side. */
+  onExpand?: (newStart: number, newEnd: number, oldStart: number) => void
 }
 
 const renderShikiToken: RenderToken = (token, renderDefault, i) => {
@@ -64,6 +71,9 @@ export function FileDiff({
   addRequestTitle,
   selectedChanges,
   viewType = 'unified',
+  expandable,
+  totalLines,
+  onExpand,
 }: Props) {
   const [tokens, setTokens] = useState<HunkTokens | null>(null)
   const lang = useMemo(() => inferLangFromFile(file), [file])
@@ -124,7 +134,13 @@ export function FileDiff({
       renderToken={renderShikiToken}
       renderGutter={renderGutter}
     >
-      {(hs: HunkData[]) => hs.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)}
+      {(hs: HunkData[]) =>
+        renderHunksWithExpanders(hs, {
+          expandable: Boolean(expandable && onExpand),
+          totalLines: totalLines ?? null,
+          onExpand: onExpand ?? (() => {}),
+        })
+      }
     </Diff>
   )
 }

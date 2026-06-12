@@ -125,6 +125,14 @@
     "fileFindings_other": "{{count}} findings",
     "offDiffHeader_one": "Off-diff ({{count}})",
     "offDiffHeader_other": "Off-diff ({{count}})",
+    "expand": {
+      "up": "Expand up",
+      "down": "Expand down",
+      "all": "Expand all hidden lines",
+      "label_one": "Expand {{count}} hidden line",
+      "label_other": "Expand {{count}} hidden lines",
+      "reveal": "View in context"
+    },
     "openOnGithub": "Open file on GitHub",
     "suggestion": "Suggestion",
     "includeInReview": "Include in review",

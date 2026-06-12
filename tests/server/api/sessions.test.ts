@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -465,6 +465,259 @@ describe('sessions API', () => {
     const app = createApp(deps)
     const res = await app.request('/api/sessions/missing/diff')
     expect(res.status).toBe(404)
+  })
+
+  it('GET /api/sessions/:id/file reads from a worktree source', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-wt-'))
+    mkdirSync(join(wd, 'repo', 'src'), { recursive: true })
+    writeFileSync(join(wd, 'repo', 'src', 'a.ts'), 'export const a = 1\n')
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/a.ts\n+++ b/src/a.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/a.ts')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { content: string }
+    expect(j.content).toBe('export const a = 1\n')
+  })
+
+  it('GET /api/sessions/:id/file reads from a snapshot source', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-snap-'))
+    mkdirSync(join(wd, 'source', 'src'), { recursive: true })
+    writeFileSync(join(wd, 'source', 'src', 'b.ts'), 'export const b = 2\n')
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/b.ts\n+++ b/src/b.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'snapshot',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/b.ts')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { content: string }
+    expect(j.content).toBe('export const b = 2\n')
+  })
+
+  it('GET /api/sessions/:id/file refuses to read through a symlink escaping the source', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-symlink-'))
+    const repo = join(wd, 'repo', 'src')
+    mkdirSync(repo, { recursive: true })
+    // A secret living outside the session workdir, plus an in-tree symlink to it.
+    const outside = mkdtempSync(join(tmpdir(), 'br-secret-'))
+    const secret = join(outside, 'id_rsa')
+    writeFileSync(secret, 'PRIVATE KEY')
+    symlinkSync(secret, join(repo, 'leak.ts'))
+    // The symlink path is in the diff, so it clears the allowlist and reaches
+    // the realpath guard — which is what rejects it.
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/leak.ts\n+++ b/src/leak.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/leak.ts')
+    expect(res.status).toBe(400)
+  })
+
+  it('GET /api/sessions/:id/file refuses a file that exists on disk but is not in the diff', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-allow-'))
+    mkdirSync(join(wd, 'repo', 'src'), { recursive: true })
+    // Both files exist in the worktree, but only a.ts is in the review diff.
+    writeFileSync(join(wd, 'repo', 'src', 'a.ts'), 'export const a = 1\n')
+    writeFileSync(join(wd, 'repo', '.env'), 'SECRET=hunter2\n')
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/a.ts\n+++ b/src/a.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    expect((await app.request('/api/sessions/s1/file?path=.env')).status).toBe(404)
+    // The in-diff file is still served.
+    expect((await app.request('/api/sessions/s1/file?path=src/a.ts')).status).toBe(200)
+  })
+
+  it('GET /api/sessions/:id/file rejects path traversal (not in diff)', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-trav-'))
+    mkdirSync(join(wd, 'repo'), { recursive: true })
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/a.ts\n+++ b/src/a.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request(
+      '/api/sessions/s1/file?path=' + encodeURIComponent('../../etc/passwd'),
+    )
+    expect(res.status).toBe(404)
+  })
+
+  it('GET /api/sessions/:id/file falls back to gh contents for a none source and caches', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-none-'))
+    let calls = 0
+    deps.gh = {
+      getFileAtRef: async (args: { path: string; ref: string }) => {
+        calls += 1
+        expect(args.ref).toBe('deadbeef')
+        return `// fetched ${args.path}\n`
+      },
+    } as unknown as typeof deps.gh
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/c.ts\n+++ b/src/c.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'none',
+      headSha: 'deadbeef',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/c.ts')
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { content: string }).content).toBe('// fetched src/c.ts\n')
+    // Second request hits the on-disk cache, not the network.
+    const res2 = await app.request('/api/sessions/s1/file?path=src/c.ts')
+    expect(((await res2.json()) as { content: string }).content).toBe('// fetched src/c.ts\n')
+    expect(calls).toBe(1)
+  })
+
+  it('GET /api/sessions/:id/file returns 404 when the file is unavailable', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-404-'))
+    writeFileSync(join(wd, 'diff.cache'), '--- a/src/missing.ts\n+++ b/src/missing.ts\n')
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'none',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/missing.ts')
+    expect(res.status).toBe(404)
+  })
+
+  it('GET /api/sessions/:id/file returns 404 when session unknown', async () => {
+    const deps = makeTestDeps()
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing/file?path=x')
+    expect(res.status).toBe(404)
+  })
+
+  it('GET /api/sessions/:id/file returns 400 when path missing', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-nopath-'))
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file')
+    expect(res.status).toBe(400)
   })
 
   it('GET /api/sessions/:id/transcript replays agent.log into chunks', async () => {

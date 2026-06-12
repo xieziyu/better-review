@@ -1,11 +1,12 @@
 import type { Finding, PRSession } from '@shared/types'
 import { Check, Columns2, ExternalLink, FilePlus2, Rows3 } from 'lucide-react'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getChangeKey } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
 import { findNewSideChange, type FileSummary } from '@/lib/diff-utils'
 import { useDiffViewMode } from '@/lib/use-diff-view-mode'
+import { useFileExpansion } from '@/lib/use-file-expansion'
 import { cn } from '@/lib/utils'
 
 import { AddFindingForm } from './AddFindingForm'
@@ -83,8 +84,59 @@ export function FileDiffPane({
     | { phase: 'editing'; start: number; end: number }
     | { phase: 'file-level' }
   const [adding, setAdding] = useState<Adding | null>(null)
+  const paneRef = useRef<HTMLDivElement>(null)
 
-  const { anchored, offDiff } = useMemo(() => classifyFindings(findings, file), [findings, file])
+  // Expandable context: the displayed hunks start from the diff's own hunks
+  // but grow as the reviewer expands the gaps between them, pulling the full
+  // file from the session source. Classification + selection all run against
+  // these (expanded) hunks so an off-diff finding becomes inline-anchored the
+  // moment its line is revealed.
+  const { hunks, totalLines, status, expand, expandGapContaining } = useFileExpansion(
+    session.id,
+    file.path,
+    file.hunks,
+  )
+  const expandable = status !== 'unavailable'
+
+  // After "view in context" reveals an off-diff finding's line, briefly
+  // highlight + scroll to the now-anchored row.
+  const [revealLine, setRevealLine] = useState<number | null>(null)
+
+  const fileForClassify = useMemo<FileSummary>(() => ({ ...file, hunks }), [file, hunks])
+  const { anchored, offDiff } = useMemo(
+    () => classifyFindings(findings, fileForClassify),
+    [findings, fileForClassify],
+  )
+
+  const handleRevealInContext = useCallback(
+    (finding: Finding) => {
+      if (finding.line == null) return
+      expandGapContaining(finding.line)
+      if (!expandedFindingIds.has(finding.dbId)) onToggleFinding(finding.dbId)
+      setRevealLine(finding.line)
+    },
+    [expandGapContaining, expandedFindingIds, onToggleFinding],
+  )
+
+  const revealChangeKeys = useMemo<string[]>(() => {
+    if (revealLine == null) return []
+    const c = findNewSideChange(hunks, revealLine)
+    return c ? [getChangeKey(c)] : []
+  }, [revealLine, hunks])
+
+  useEffect(() => {
+    if (revealLine == null) return
+    const scroll = window.setTimeout(() => {
+      paneRef.current
+        ?.querySelector('.diff-gutter-selected')
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 60)
+    const clear = window.setTimeout(() => setRevealLine(null), 2400)
+    return () => {
+      window.clearTimeout(scroll)
+      window.clearTimeout(clear)
+    }
+  }, [revealLine, hunks])
 
   const range = useMemo(() => {
     if (!adding) return null
@@ -101,20 +153,20 @@ export function FileDiffPane({
     if (!range) return []
     const keys: string[] = []
     for (let l = range.start; l <= range.end; l++) {
-      const c = findNewSideChange(file.hunks, l)
+      const c = findNewSideChange(hunks, l)
       if (c) keys.push(getChangeKey(c))
     }
     return keys
-  }, [range, file.hunks])
+  }, [range, hunks])
 
   const validateRange = useCallback(
     (start: number, end: number): boolean => {
       for (let l = start; l <= end; l++) {
-        if (!findNewSideChange(file.hunks, l)) return false
+        if (!findNewSideChange(hunks, l)) return false
       }
       return true
     },
-    [file.hunks],
+    [hunks],
   )
 
   const handleAddRequest = useCallback((line: number, opts: { extend: boolean }) => {
@@ -155,7 +207,7 @@ export function FileDiffPane({
     }
     // Inline selection bar or full form at the change for the range's end line.
     if (adding && range) {
-      const change = findNewSideChange(file.hunks, range.end)
+      const change = findNewSideChange(hunks, range.end)
       if (change) {
         const key = getChangeKey(change)
         const existing = map[key]
@@ -196,7 +248,7 @@ export function FileDiffPane({
     range,
     validateRange,
     expandedFindingIds,
-    file.hunks,
+    hunks,
     file.path,
     onOpenInPanel,
     onToggleFinding,
@@ -205,7 +257,7 @@ export function FileDiffPane({
   ])
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div ref={paneRef} className="flex flex-col min-h-0">
       <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-raised border-b border-rule">
         <span className="font-mono text-body font-medium truncate">{file.path}</span>
         <span className="text-meta text-ink-muted font-mono shrink-0 tabular-nums">
@@ -316,6 +368,7 @@ export function FileDiffPane({
         onToggle={onToggleFinding}
         onOpenInPanel={onOpenInPanel}
         readOnly={readOnly}
+        {...(expandable ? { onRevealInContext: handleRevealInContext } : {})}
       />
       {adding?.phase === 'file-level' ? (
         <AddFindingForm
@@ -328,10 +381,13 @@ export function FileDiffPane({
       <FileDiff
         file={file.path}
         fileType={file.status}
-        hunks={file.hunks}
+        hunks={hunks}
         widgets={widgets}
-        selectedChanges={selectedChanges}
+        selectedChanges={[...selectedChanges, ...revealChangeKeys]}
         viewType={viewMode}
+        expandable={expandable}
+        totalLines={totalLines}
+        onExpand={expand}
         {...(readOnly
           ? {}
           : {

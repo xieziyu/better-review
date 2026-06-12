@@ -53,3 +53,36 @@ describe('FileDiff viewType', () => {
     expect(firstLine?.querySelectorAll('.diff-code')).toHaveLength(2)
   })
 })
+
+describe('FileDiff hidden-line expanders', () => {
+  it('renders no expander when not expandable', () => {
+    const { container } = render(
+      <FileDiff file="src/x.ts" fileType="modify" hunks={hunksOf(DIFF)} viewType="unified" />,
+    )
+    expect(container.querySelector('.diff-expander')).toBeNull()
+  })
+
+  it('renders a head-gap expander whose click expands toward the hunk', () => {
+    // The only hunk starts at old line 40, so lines 1-39 are collapsed above it.
+    const calls: Array<[number, number]> = []
+    const { container } = render(
+      <FileDiff
+        file="src/x.ts"
+        fileType="modify"
+        hunks={hunksOf(DIFF)}
+        viewType="unified"
+        expandable
+        totalLines={50}
+        onExpand={(start, end) => calls.push([start, end])}
+      />,
+    )
+    const expander = container.querySelector('.diff-expander')
+    expect(expander).not.toBeNull()
+    // A 39-line gap is "big" (> EXPAND_STEP), so it offers up + down arrows.
+    const btns = expander!.querySelectorAll('.diff-expander-btn')
+    expect(btns.length).toBe(2)
+    // The bottom-of-file expander also shows because totalLines (50) exceeds the
+    // last hunk's end (44).
+    expect(container.querySelectorAll('.diff-expander').length).toBe(2)
+  })
+})

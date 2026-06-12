@@ -1,10 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
 
 import { Hono } from 'hono'
 
 import { AGENT_KINDS, type AgentKind, type PrepCall, type PrepStep } from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
+import { diffTouchedPaths, snapshotDirFor } from '../../git/snapshot'
+import { worktreeDirFor } from '../../git/worktree'
 import { parseSessionInput } from '../../source/parse'
 import type { AppDeps } from '../app'
 
@@ -102,6 +104,87 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const cache = join(s.workdir, 'diff.cache')
     const diff = existsSync(cache) ? readFileSync(cache, 'utf8') : null
     return c.json({ diff })
+  })
+  // Serve the full content of a diff-touched file so the UI can expand the
+  // context hidden between diff hunks (GitHub-style). Reads from the session's
+  // materialized source (worktree / snapshot); for `none` sources — or a disk
+  // miss — falls back to fetching the blob at the PR head SHA via the Contents
+  // API and caches it under <workdir>/fetched for repeat expansions.
+  r.get('/sessions/:id/file', async (c) => {
+    const id = c.req.param('id')
+    const s = deps.sessions.getById(id)
+    if (!s) return c.json({ error: 'not found' }, 404)
+    const rel = c.req.query('path')
+    if (typeof rel !== 'string' || rel.length === 0) {
+      return c.json({ error: 'path required' }, 400)
+    }
+    // Capability boundary: this endpoint only exists to expand the hidden
+    // context of diff-touched files, so restrict it to the paths that actually
+    // appear in this session's review diff. Without this, any local caller that
+    // knows the session id could read arbitrary repo files (e.g. `.env`) — or,
+    // via the GitHub fallback, any file in a private repo at the head SHA using
+    // the user's gh credentials, neither of which is in the product contract.
+    const diffCache = join(s.workdir, 'diff.cache')
+    const diffText = existsSync(diffCache) ? readFileSync(diffCache, 'utf8') : ''
+    if (!diffTouchedPaths(diffText).has(rel)) {
+      return c.json({ error: 'not in diff' }, 404)
+    }
+    // Read candidates in priority order. Two layers of containment: a cheap
+    // lexical `..`-escape check, then a realpath check that also defeats
+    // symlinks inside the source tree (a checked-out PR could carry e.g.
+    // `src/secret -> ~/.ssh/id_rsa`; following it would leak files outside the
+    // session dir). Both the candidate dir and the resolved target are
+    // canonicalised before comparison so the macOS /var → /private/var symlink
+    // doesn't trip the guard.
+    const fetchCache = join(s.workdir, 'fetched')
+    const candidates: string[] = []
+    if (s.sourceKind === 'worktree') candidates.push(worktreeDirFor(s.workdir))
+    if (s.sourceKind === 'snapshot') candidates.push(snapshotDirFor(s.workdir))
+    candidates.push(fetchCache)
+    for (const dir of candidates) {
+      const resolved = resolve(dir, rel)
+      if (resolved !== dir && !resolved.startsWith(dir + sep)) {
+        return c.json({ error: 'invalid path' }, 400)
+      }
+      if (!existsSync(resolved) || !statSync(resolved).isFile()) continue
+      let realDir: string
+      let realTarget: string
+      try {
+        realDir = realpathSync(dir)
+        realTarget = realpathSync(resolved)
+      } catch {
+        return c.json({ error: 'file unavailable' }, 404)
+      }
+      if (realTarget !== realDir && !realTarget.startsWith(realDir + sep)) {
+        // Symlink escapes the source tree — refuse to read through it.
+        return c.json({ error: 'invalid path' }, 400)
+      }
+      return c.json({ content: readFileSync(realTarget, 'utf8') })
+    }
+    // Disk miss: fetch from GitHub at head SHA when this is a github-pr source.
+    if (s.headSha && s.owner && s.repo) {
+      try {
+        const content = await deps.gh.getFileAtRef({
+          owner: s.owner,
+          repo: s.repo,
+          path: rel,
+          ref: s.headSha,
+        })
+        try {
+          const dst = resolve(fetchCache, rel)
+          if (dst === fetchCache || dst.startsWith(fetchCache + sep)) {
+            mkdirSync(dirname(dst), { recursive: true })
+            writeFileSync(dst, content)
+          }
+        } catch {
+          // Cache write is best-effort; serve the content regardless.
+        }
+        return c.json({ content })
+      } catch {
+        return c.json({ error: 'file unavailable' }, 404)
+      }
+    }
+    return c.json({ error: 'file unavailable' }, 404)
   })
   // Replay the persisted agent.log into transcript lines so completed
   // sessions keep a read-only view of their last run after a page reload
