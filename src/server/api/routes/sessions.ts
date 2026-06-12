@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 
 import { Hono } from 'hono'
@@ -118,8 +118,13 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     if (typeof rel !== 'string' || rel.length === 0) {
       return c.json({ error: 'path required' }, 400)
     }
-    // Read candidates in priority order. The containment guard rejects any
-    // `..` traversal that would escape the dir before we touch the disk.
+    // Read candidates in priority order. Two layers of containment: a cheap
+    // lexical `..`-escape check, then a realpath check that also defeats
+    // symlinks inside the source tree (a checked-out PR could carry e.g.
+    // `src/secret -> ~/.ssh/id_rsa`; following it would leak files outside the
+    // session dir). Both the candidate dir and the resolved target are
+    // canonicalised before comparison so the macOS /var → /private/var symlink
+    // doesn't trip the guard.
     const fetchCache = join(s.workdir, 'fetched')
     const candidates: string[] = []
     if (s.sourceKind === 'worktree') candidates.push(worktreeDirFor(s.workdir))
@@ -130,9 +135,20 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       if (resolved !== dir && !resolved.startsWith(dir + sep)) {
         return c.json({ error: 'invalid path' }, 400)
       }
-      if (existsSync(resolved) && statSync(resolved).isFile()) {
-        return c.json({ content: readFileSync(resolved, 'utf8') })
+      if (!existsSync(resolved) || !statSync(resolved).isFile()) continue
+      let realDir: string
+      let realTarget: string
+      try {
+        realDir = realpathSync(dir)
+        realTarget = realpathSync(resolved)
+      } catch {
+        return c.json({ error: 'file unavailable' }, 404)
       }
+      if (realTarget !== realDir && !realTarget.startsWith(realDir + sep)) {
+        // Symlink escapes the source tree — refuse to read through it.
+        return c.json({ error: 'invalid path' }, 400)
+      }
+      return c.json({ content: readFileSync(realTarget, 'utf8') })
     }
     // Disk miss: fetch from GitHub at head SHA when this is a github-pr source.
     if (s.headSha && s.owner && s.repo) {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -523,6 +523,38 @@ describe('sessions API', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { content: string }
     expect(j.content).toBe('export const b = 2\n')
+  })
+
+  it('GET /api/sessions/:id/file refuses to read through a symlink escaping the source', async () => {
+    const deps = makeTestDeps()
+    const wd = mkdtempSync(join(tmpdir(), 'br-file-symlink-'))
+    const repo = join(wd, 'repo', 'src')
+    mkdirSync(repo, { recursive: true })
+    // A secret living outside the session workdir, plus an in-tree symlink to it.
+    const outside = mkdtempSync(join(tmpdir(), 'br-secret-'))
+    const secret = join(outside, 'id_rsa')
+    writeFileSync(secret, 'PRIVATE KEY')
+    symlinkSync(secret, join(repo, 'leak.ts'))
+    deps.sessions.insert({
+      id: 's1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: wd,
+      localRepoPath: null,
+      sourceKind: 'worktree',
+      promptUsed: 'p',
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/file?path=src/leak.ts')
+    expect(res.status).toBe(400)
   })
 
   it('GET /api/sessions/:id/file rejects path traversal with 400', async () => {
