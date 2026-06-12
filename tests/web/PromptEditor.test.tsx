@@ -41,9 +41,9 @@ const baseState: PromptStateResponse = {
   },
 }
 
-// Enters a repo path into the Project-scope repo selector so the Project tab
-// has a repo to resolve against. The selector only renders on the Project tab,
-// so callers must switch to it before invoking this helper.
+// Enters a repo path into the repo selector so the Project tab has a repo to
+// resolve against. The selector renders on the Guidelines and Project tabs
+// (both depend on the project tier), so callers on either tab can use it.
 async function pickRepo(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/local repository path for project rules/i), '/proj')
 }
@@ -66,6 +66,23 @@ describe('PromptEditor', () => {
     const ta = screen.getByLabelText(/^framework$/i) as HTMLTextAreaElement
     expect(ta).toHaveAttribute('readonly')
     expect(ta.value).toContain('{{RULES}}')
+  })
+
+  it('shows the repo selector on Guidelines and Project, hides it on Framework and Global', async () => {
+    const user = userEvent.setup()
+    render(withClient(<PromptEditor />, { prompts: baseState }))
+    const selector = () => screen.queryByLabelText(/local repository path for project rules/i)
+
+    // Guidelines (default) and Project resolve through the project tier.
+    expect(selector()).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /project/i }))
+    expect(selector()).toBeInTheDocument()
+
+    // Framework and Global don't depend on a repo.
+    await user.click(screen.getByRole('tab', { name: /framework/i }))
+    expect(selector()).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /global/i }))
+    expect(selector()).not.toBeInTheDocument()
   })
 
   it('Project tab prompts to pick a repo when none is selected', async () => {

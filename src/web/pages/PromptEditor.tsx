@@ -200,7 +200,7 @@ export function PromptEditor() {
           ) : null}
         </header>
 
-        {tab === 'project' ? (
+        {tab === 'effective' || tab === 'project' ? (
           <div className="px-8 pt-4">
             <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas">
               <FolderGit2 size={15} className="text-ink-muted shrink-0" aria-hidden="true" />
