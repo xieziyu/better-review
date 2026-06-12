@@ -8,6 +8,7 @@ import {
   FolderGit2,
   FolderOpen,
   GitBranch,
+  GitCompareArrows,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -621,8 +622,8 @@ export function Home() {
               <div className="text-meta text-severity-must -mt-1 pl-1">{pickerError}</div>
             ) : null}
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 min-w-0 items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
                 <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
                   {t('home.local.headLabel')}
                 </span>
@@ -655,7 +656,8 @@ export function Home() {
                   )}
                 />
               </div>
-              <div className="flex items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
+              <GitCompareArrows size={16} className="text-ink-muted shrink-0" aria-hidden="true" />
+              <div className="flex flex-1 min-w-0 items-center gap-2.5 rounded-lg bg-raised border border-rule pl-3.5 pr-3 py-1 transition-[border-color,box-shadow,background-color] duration-180 ease-out-quart focus-within:border-brand focus-within:bg-canvas focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--brand)_16%,transparent)]">
                 <span className="text-caps tracking-caps text-ink-muted uppercase shrink-0">
                   {t('home.local.baseLabel')}
                 </span>
@@ -680,9 +682,6 @@ export function Home() {
                   )}
                 />
               </div>
-            </div>
-            <div className="text-meta text-ink-muted -mt-1 pl-1">
-              {t('home.local.readOnlyHint')}
             </div>
 
             {extraPromptPanel}
@@ -803,10 +802,6 @@ export function Home() {
                 )
               })()
             ) : null}
-
-            <div className="text-meta text-ink-muted -mt-1 pl-1">
-              {t('home.vbranch.readOnlyHint')}
-            </div>
 
             {extraPromptPanel}
             {agentFieldset}
