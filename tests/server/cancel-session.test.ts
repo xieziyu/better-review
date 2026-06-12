@@ -4,16 +4,13 @@ import { join } from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import {
-  makeCancelSession,
-  SessionNotFoundError,
-  SessionNotRunningError,
-} from '../../src/server/cancel-session'
+import { makeCancelSession } from '../../src/server/cancel-session'
 import { openDatabase } from '../../src/server/db/connection'
 import { SessionsRepo } from '../../src/server/db/sessions'
 import { EventBus } from '../../src/server/engine/events'
 import { ConcurrencyQueue } from '../../src/server/engine/queue'
 import { RunnerRegistry } from '../../src/server/engine/runner-registry'
+import { SessionNotFoundError, SessionNotRunningError } from '../../src/server/session-errors'
 import type { SSEEvent } from '../../src/shared/types'
 
 function setup() {

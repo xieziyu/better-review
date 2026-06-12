@@ -1,6 +1,7 @@
 import type { AgentKind } from '../shared/types'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
+import { SessionNotFoundError } from './session-errors'
 import type { StartSessionFn, StartSessionInput } from './start-session'
 
 export interface RerunSessionDeps {
@@ -25,7 +26,7 @@ export type RerunSessionFn = (
 export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
   return async function rerunSession(id, opts) {
     const s = deps.sessions.getById(id)
-    if (!s) throw new Error('not found')
+    if (!s) throw new SessionNotFoundError()
     // Archived rounds are normally frozen historical snapshots, but a previous
     // rerun can leave an orphan: archiveAllForSession + setStatus('archived')
     // run before startSession, and startSession has synchronous failure modes

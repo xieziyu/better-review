@@ -5,6 +5,7 @@
 
 import { execa } from 'execa'
 
+import type { LocalBranchEntry } from '../../shared/types'
 import type { Logger } from '../logger'
 
 export interface LocalBranchInspect {
@@ -218,12 +219,6 @@ export async function readDiff(repoPath: string, base: string, head: string): Pr
     throw new LocalGitError(`git diff ${base}...${head} failed in ${repoPath}`)
   }
   return r.stdout
-}
-
-export interface LocalBranchEntry {
-  name: string
-  sha: string
-  committedAt: number
 }
 
 // List local branches in `repoPath`, newest commit first, with the

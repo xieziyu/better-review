@@ -9,6 +9,7 @@ import type { ConcurrencyQueue } from './engine/queue'
 import type { RunnerRegistry } from './engine/runner-registry'
 import { cleanupWorktree, worktreeDirFor } from './git/worktree'
 import type { Logger } from './logger'
+import { SessionNotFoundError } from './session-errors'
 
 export interface DeleteSessionDeps {
   db: Database.Database
@@ -21,13 +22,6 @@ export interface DeleteSessionDeps {
 }
 
 export type DeleteSessionFn = (id: string) => Promise<void>
-
-export class SessionNotFoundError extends Error {
-  constructor() {
-    super('not found')
-    this.name = 'SessionNotFoundError'
-  }
-}
 
 export function makeDeleteSession(deps: DeleteSessionDeps): DeleteSessionFn {
   const safeRoot = resolve(deps.sessionsDir)
