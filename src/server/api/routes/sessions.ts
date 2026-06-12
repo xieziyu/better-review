@@ -1,10 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
 
 import { Hono } from 'hono'
 
 import { AGENT_KINDS, type AgentKind, type PrepCall, type PrepStep } from '../../../shared/types'
 import { getAgent } from '../../engine/agent'
+import { snapshotDirFor } from '../../git/snapshot'
+import { worktreeDirFor } from '../../git/worktree'
 import { parseSessionInput } from '../../source/parse'
 import type { AppDeps } from '../app'
 
@@ -102,6 +104,60 @@ export function sessionsRoutes(deps: AppDeps): Hono {
     const cache = join(s.workdir, 'diff.cache')
     const diff = existsSync(cache) ? readFileSync(cache, 'utf8') : null
     return c.json({ diff })
+  })
+  // Serve the full content of a diff-touched file so the UI can expand the
+  // context hidden between diff hunks (GitHub-style). Reads from the session's
+  // materialized source (worktree / snapshot); for `none` sources — or a disk
+  // miss — falls back to fetching the blob at the PR head SHA via the Contents
+  // API and caches it under <workdir>/fetched for repeat expansions.
+  r.get('/sessions/:id/file', async (c) => {
+    const id = c.req.param('id')
+    const s = deps.sessions.getById(id)
+    if (!s) return c.json({ error: 'not found' }, 404)
+    const rel = c.req.query('path')
+    if (typeof rel !== 'string' || rel.length === 0) {
+      return c.json({ error: 'path required' }, 400)
+    }
+    // Read candidates in priority order. The containment guard rejects any
+    // `..` traversal that would escape the dir before we touch the disk.
+    const fetchCache = join(s.workdir, 'fetched')
+    const candidates: string[] = []
+    if (s.sourceKind === 'worktree') candidates.push(worktreeDirFor(s.workdir))
+    if (s.sourceKind === 'snapshot') candidates.push(snapshotDirFor(s.workdir))
+    candidates.push(fetchCache)
+    for (const dir of candidates) {
+      const resolved = resolve(dir, rel)
+      if (resolved !== dir && !resolved.startsWith(dir + sep)) {
+        return c.json({ error: 'invalid path' }, 400)
+      }
+      if (existsSync(resolved) && statSync(resolved).isFile()) {
+        return c.json({ content: readFileSync(resolved, 'utf8') })
+      }
+    }
+    // Disk miss: fetch from GitHub at head SHA when this is a github-pr source.
+    if (s.headSha && s.owner && s.repo) {
+      try {
+        const content = await deps.gh.getFileAtRef({
+          owner: s.owner,
+          repo: s.repo,
+          path: rel,
+          ref: s.headSha,
+        })
+        try {
+          const dst = resolve(fetchCache, rel)
+          if (dst === fetchCache || dst.startsWith(fetchCache + sep)) {
+            mkdirSync(dirname(dst), { recursive: true })
+            writeFileSync(dst, content)
+          }
+        } catch {
+          // Cache write is best-effort; serve the content regardless.
+        }
+        return c.json({ content })
+      } catch {
+        return c.json({ error: 'file unavailable' }, 404)
+      }
+    }
+    return c.json({ error: 'file unavailable' }, 404)
   })
   // Replay the persisted agent.log into transcript lines so completed
   // sessions keep a read-only view of their last run after a page reload
