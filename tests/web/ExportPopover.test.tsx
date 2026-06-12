@@ -56,7 +56,7 @@ const mkFinding = (overrides: Partial<Finding> = {}): Finding => ({
 // Stub the clipboard + download helpers so tests can assert what was passed
 // without touching the JSDOM clipboard (which is flaky) or triggering an
 // actual file download.
-const copyMock = vi.fn(async () => {})
+const copyMock = vi.fn(async (_text: string) => {})
 const downloadMock = vi.fn()
 vi.mock('@/lib/export-clipboard', () => ({
   copyTextToClipboard: (text: string) => copyMock(text),

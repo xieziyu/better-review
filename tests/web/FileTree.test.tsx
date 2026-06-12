@@ -26,7 +26,7 @@ function mkFile(path: string, opts: MkFileOpts = {}): FileSummary {
       oldPath: path,
       newPath: path,
       hunks: [],
-    } as FileData,
+    } as unknown as FileData,
   }
 }
 

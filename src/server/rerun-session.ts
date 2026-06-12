@@ -18,10 +18,9 @@ export interface RerunSessionOptions {
   extraPrompt?: string
 }
 
-export type RerunSessionFn = (
-  id: string,
-  opts?: RerunSessionOptions,
-) => Promise<{ freshId: string }>
+// Resolves to the replacement session's id (a fresh id, not the one
+// passed in — the input session is archived).
+export type RerunSessionFn = (id: string, opts?: RerunSessionOptions) => Promise<{ id: string }>
 
 export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
   return async function rerunSession(id, opts) {
@@ -58,6 +57,6 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     const carryOver = opts?.extraPrompt !== undefined ? opts.extraPrompt : (s.extraPrompt ?? '')
     if (carryOver.trim().length > 0) startInput.extraPrompt = carryOver
     const fresh = await deps.startSession(startInput)
-    return { freshId: fresh.id }
+    return { id: fresh.id }
   }
 }

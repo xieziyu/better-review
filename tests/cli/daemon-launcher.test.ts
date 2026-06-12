@@ -19,7 +19,7 @@ describe('daemon-launcher', () => {
   })
 
   it('returns existing daemon info if alive', async () => {
-    const h = await startDaemon({ home, cwd: home })
+    const h = await startDaemon({ home })
     active.push(h)
     const info = await ensureDaemon({
       home,
@@ -36,7 +36,7 @@ describe('daemon-launcher', () => {
       home,
       spawnFn: async () => {
         called = true
-        const h = await startDaemon({ home, cwd: home })
+        const h = await startDaemon({ home })
         active.push(h)
         return { pid: h.pid, port: h.port, startedAt: Date.now() }
       },

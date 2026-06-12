@@ -7,6 +7,7 @@ import { RunStrip } from '@/components/RunStrip'
 const baseSession: PRSession = {
   id: 's1',
   owner: 'acme',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'web', number: 42 },
   repo: 'web',
   number: 42,
   title: 'feat(auth): refresh tokens',

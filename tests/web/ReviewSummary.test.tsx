@@ -29,6 +29,7 @@ function makeSession(over: Partial<PRSession> = {}): PRSession {
   return {
     id: 's1',
     owner: 'o',
+    source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
     repo: 'r',
     number: 1,
     title: 'pr',

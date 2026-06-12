@@ -1072,8 +1072,8 @@ describe('sessions API', () => {
     const app = createApp(deps)
     const res = await app.request('/api/sessions/orphan/rerun', { method: 'POST' })
     expect(res.status).toBe(202)
-    const body = (await res.json()) as { freshId: string }
-    expect(body.freshId).toBe('recovered')
+    const body = (await res.json()) as { id: string }
+    expect(body.id).toBe('recovered')
   })
 
   it('POST /api/sessions/:id/cancel cancels a running session and writes cancelled status', async () => {

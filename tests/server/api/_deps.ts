@@ -98,6 +98,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
         agents: {
           claude: { found: true, path: '/usr/bin/claude' },
           codex: { found: false },
+          pi: { found: false },
         },
         defaultAgent: 'claude',
         gh: { found: true, path: '/usr/bin/gh', authed: true },
