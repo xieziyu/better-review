@@ -1,15 +1,6 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type ReactElement,
-  type ReactNode,
-} from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Diff,
-  Hunk,
-  getCollapsedLinesCountBetween,
   type ChangeData,
   type HunkData,
   type HunkTokens,
@@ -21,7 +12,7 @@ import { inferLangFromFile } from '@/lib/lang-from-file'
 import { getHighlighter } from '@/lib/shiki'
 import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
 
-import { DiffExpander } from './DiffExpander'
+import { renderHunksWithExpanders } from './DiffExpander'
 
 import 'react-diff-view/style/index.css'
 import '../DiffViewer.css'
@@ -143,44 +134,13 @@ export function FileDiff({
       renderToken={renderShikiToken}
       renderGutter={renderGutter}
     >
-      {(hs: HunkData[]) => {
-        if (!expandable || !onExpand) {
-          return hs.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
-        }
-        const out: ReactElement[] = []
-        hs.forEach((h, i) => {
-          const prev = i === 0 ? null : (hs[i - 1] ?? null)
-          const collapsed = getCollapsedLinesCountBetween(prev, h)
-          if (collapsed > 0) {
-            const gapStart = prev ? prev.oldStart + prev.oldLines : 1
-            out.push(
-              <DiffExpander
-                key={`exp-${h.oldStart}-${h.newStart}`}
-                gapStart={gapStart}
-                gapEnd={h.oldStart}
-                onExpand={onExpand}
-              />,
-            )
-          }
-          out.push(<Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
+      {(hs: HunkData[]) =>
+        renderHunksWithExpanders(hs, {
+          expandable: Boolean(expandable && onExpand),
+          totalLines: totalLines ?? null,
+          onExpand: onExpand ?? (() => {}),
         })
-        // Trailing gap: only known once the full file's line count has loaded.
-        const last = hs[hs.length - 1]
-        if (last && totalLines != null) {
-          const tailStart = last.oldStart + last.oldLines
-          if (totalLines >= tailStart) {
-            out.push(
-              <DiffExpander
-                key="exp-tail"
-                gapStart={tailStart}
-                gapEnd={totalLines + 1}
-                onExpand={onExpand}
-              />,
-            )
-          }
-        }
-        return out
-      }}
+      }
     </Diff>
   )
 }

@@ -1,7 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 
 import { DiffViewer } from '@/components/DiffViewer'
+
+// The hidden-line expanders fetch full file content; stub it so tests stay
+// offline. Returning null marks the source unavailable, which disables the
+// expanders — the rendering assertions below don't depend on expansion.
+vi.mock('@/lib/api', () => ({ api: { getSessionFile: vi.fn(async () => null) } }))
 
 const sampleDiff = `diff --git a/src/x.ts b/src/x.ts
 index 0000001..0000002 100644
@@ -62,7 +67,15 @@ describe('DiffViewer', () => {
     // Old behaviour would have filtered changes to [38, 44] AND broken hunk
     // structure; the new behaviour shows the full containing hunk so
     // additions/deletions are visible.
-    render(<DiffViewer unifiedDiff={sampleDiff} file="src/x.ts" line={41} findingId="R1" />)
+    render(
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={sampleDiff}
+        file="src/x.ts"
+        line={41}
+        findingId="R1"
+      />,
+    )
 
     expect(screen.getByText('removed line')).toBeInTheDocument()
     expect(screen.getByText('added line one')).toBeInTheDocument()
@@ -73,7 +86,13 @@ describe('DiffViewer', () => {
   it('marks the finding line with diff-code-selected when it lands on an inserted line', () => {
     // anchor is 42 — the first '+ added line one'.
     const { container } = render(
-      <DiffViewer unifiedDiff={sampleDiff} file="src/x.ts" line={42} findingId="R1" />,
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={sampleDiff}
+        file="src/x.ts"
+        line={42}
+        findingId="R1"
+      />,
     )
 
     const selected = container.querySelectorAll('.diff-code-selected')
@@ -84,7 +103,13 @@ describe('DiffViewer', () => {
   it('marks the finding line with diff-code-selected when it lands on a context line', () => {
     // anchor is 41 — the ' context B' context line.
     const { container } = render(
-      <DiffViewer unifiedDiff={sampleDiff} file="src/x.ts" line={41} findingId="R1" />,
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={sampleDiff}
+        file="src/x.ts"
+        line={41}
+        findingId="R1"
+      />,
     )
 
     const selected = container.querySelectorAll('.diff-code-selected')
@@ -92,51 +117,68 @@ describe('DiffViewer', () => {
     expect(selected[0]?.textContent).toContain('context B')
   })
 
-  it('falls back to "No diff context" when finding.line is off any hunk', () => {
-    render(<DiffViewer unifiedDiff={sampleDiff} file="src/x.ts" line={999} findingId="R1" />)
+  it('still renders the diff hunks when finding.line is off any hunk', () => {
+    // Off-diff line (999 is past the hunk). The viewer no longer dead-ends with
+    // "No diff context"; it shows the file's hunks and would auto-expand the
+    // surrounding gap toward the line when the source is available.
+    render(
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={sampleDiff}
+        file="src/x.ts"
+        line={999}
+        findingId="R1"
+      />,
+    )
 
-    expect(screen.getByText(/No diff context near line 999/)).toBeInTheDocument()
+    expect(screen.queryByText(/No diff context/)).not.toBeInTheDocument()
+    expect(screen.getByText('removed line')).toBeInTheDocument()
   })
 
   it('shows "Loading diff…" while unifiedDiff is null', () => {
-    render(<DiffViewer unifiedDiff={null} file="src/x.ts" line={42} findingId="R1" />)
+    render(
+      <DiffViewer sessionId="s1" unifiedDiff={null} file="src/x.ts" line={42} findingId="R1" />,
+    )
 
     expect(screen.getByText(/Loading diff…/)).toBeInTheDocument()
   })
 
   it('shows "File not in diff" when the file is missing from the diff', () => {
-    render(<DiffViewer unifiedDiff={sampleDiff} file="src/y.ts" line={42} findingId="R1" />)
+    render(
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={sampleDiff}
+        file="src/y.ts"
+        line={42}
+        findingId="R1"
+      />,
+    )
 
     expect(screen.getByText(/File not in diff/)).toBeInTheDocument()
   })
 
-  it('trims a large new-file hunk to a window around the anchor by default', () => {
+  it('renders a large new-file hunk in full (no window trimming)', () => {
     render(
-      <DiffViewer unifiedDiff={bigInsertDiff(60)} file="src/big.ts" line={30} findingId="R1" />,
+      <DiffViewer
+        sessionId="s1"
+        unifiedDiff={bigInsertDiff(60)}
+        file="src/big.ts"
+        line={30}
+        findingId="R1"
+      />,
     )
 
-    expect(screen.getByText('line 30 content')).toBeInTheDocument()
-    expect(screen.queryByText('line 1 content')).not.toBeInTheDocument()
-    expect(screen.queryByText('line 60 content')).not.toBeInTheDocument()
-  })
-
-  it('reveals the trimmed lines when the user clicks "Expand full file"', () => {
-    render(
-      <DiffViewer unifiedDiff={bigInsertDiff(60)} file="src/big.ts" line={30} findingId="R1" />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /expand full file/i }))
-
+    // The detail viewer shows the file's diff hunks in full; surrounding
+    // context (not in the diff) is reached via the gap expanders instead.
     expect(screen.getByText('line 1 content')).toBeInTheDocument()
+    expect(screen.getByText('line 30 content')).toBeInTheDocument()
     expect(screen.getByText('line 60 content')).toBeInTheDocument()
   })
 
-  it('keeps +/- rows visible when the anchor is on a context line a few rows away', () => {
-    // 14 context lines + (-/+) + 14 context lines = 30 changes, so trimming
-    // kicks in. Anchor on context line 10 — change at line 15 is 5 rows away.
-    // Regression guard for the bug fixed in 2210d65.
+  it('shows +/- rows for the full hunk regardless of where the anchor lands', () => {
     render(
       <DiffViewer
+        sessionId="s1"
         unifiedDiff={hunkWithChangeAt({ contextBefore: 14, contextAfter: 14 })}
         file="src/y.ts"
         line={10}

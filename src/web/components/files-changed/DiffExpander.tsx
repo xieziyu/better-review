@@ -1,5 +1,6 @@
 import { ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
-import { Decoration } from 'react-diff-view'
+import { type ReactElement } from 'react'
+import { Decoration, Hunk, getCollapsedLinesCountBetween, type HunkData } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
 // One screenful of context per directional click — matches GitHub's "expand
@@ -85,4 +86,58 @@ export function DiffExpander({ gapStart, gapEnd, onExpand }: DiffExpanderProps) 
       </div>
     </Decoration>
   )
+}
+
+export interface InterleaveOptions {
+  /** Whether expanders should be rendered at all (false hides them). */
+  expandable: boolean
+  /** Total OLD-side line count; enables the bottom-of-file expander. */
+  totalLines: number | null
+  /** Expand the half-open OLD-side range [start, end) into the hunks. */
+  onExpand: (start: number, end: number) => void
+}
+
+// Render hunks with GitHub-style expander bars woven into the collapsed gaps
+// between them and at the file head / tail. Shared by the Files Changed pane
+// and the finding-detail context viewer so both behave identically. When
+// `expandable` is false it degrades to a plain hunk list.
+export function renderHunksWithExpanders(
+  hunks: HunkData[],
+  { expandable, totalLines, onExpand }: InterleaveOptions,
+): ReactElement[] {
+  if (!expandable) {
+    return hunks.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
+  }
+  const out: ReactElement[] = []
+  hunks.forEach((h, i) => {
+    const prev = i === 0 ? null : (hunks[i - 1] ?? null)
+    const collapsed = getCollapsedLinesCountBetween(prev, h)
+    if (collapsed > 0) {
+      const gapStart = prev ? prev.oldStart + prev.oldLines : 1
+      out.push(
+        <DiffExpander
+          key={`exp-${h.oldStart}-${h.newStart}`}
+          gapStart={gapStart}
+          gapEnd={h.oldStart}
+          onExpand={onExpand}
+        />,
+      )
+    }
+    out.push(<Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
+  })
+  const last = hunks[hunks.length - 1]
+  if (last && totalLines != null) {
+    const tailStart = last.oldStart + last.oldLines
+    if (totalLines >= tailStart) {
+      out.push(
+        <DiffExpander
+          key="exp-tail"
+          gapStart={tailStart}
+          gapEnd={totalLines + 1}
+          onExpand={onExpand}
+        />,
+      )
+    }
+  }
+  return out
 }

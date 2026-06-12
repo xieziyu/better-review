@@ -365,6 +365,7 @@ export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: 
             <section className="space-y-2">
               <SectionHeader>{t('inspector.section.source')}</SectionHeader>
               <DiffViewer
+                sessionId={finding.sessionId}
                 unifiedDiff={unifiedDiff}
                 file={finding.file}
                 line={finding.line}

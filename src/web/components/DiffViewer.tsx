@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   parseDiff,
   Diff,
-  Hunk,
   findChangeByNewLineNumber,
   getChangeKey,
-  type ChangeData,
   type HunkData,
   type FileData,
   type HunkTokens,
@@ -15,20 +13,21 @@ import {
 import { inferLangFromFile } from '@/lib/lang-from-file'
 import { getHighlighter } from '@/lib/shiki'
 import { shikiTokensForDiff, type ShikiDiffTokenNode } from '@/lib/shiki-diff-tokens'
+import { useFileExpansion } from '@/lib/use-file-expansion'
+
+import { renderHunksWithExpanders } from './files-changed/DiffExpander'
 
 import 'react-diff-view/style/index.css'
 import './DiffViewer.css'
 
 interface Props {
+  /** Session whose source tree backs the hidden-line expanders. */
+  sessionId: string
   unifiedDiff: string | null
   file: string
   line: number | null
   findingId: string
 }
-
-type ExpandLevel = 'window' | 'full'
-
-const WINDOW = 6
 
 /** Project a Shiki-tagged token onto a span carrying both theme colors as CSS
  *  variables; `.shiki-tok` rules in DiffViewer.css pick the active one. */
@@ -56,74 +55,7 @@ function findContainingHunk(hunks: HunkData[], anchor: number): HunkData | undef
   return hunks.find((h) => anchor >= h.newStart && anchor < h.newStart + h.newLines)
 }
 
-function changeNewLine(c: ChangeData): number | null {
-  if (c.type === 'normal') return c.newLineNumber
-  if (c.type === 'insert') return c.lineNumber
-  return null
-}
-
-function changeOldLine(c: ChangeData): number | null {
-  if (c.type === 'normal') return c.oldLineNumber
-  if (c.type === 'delete') return c.lineNumber
-  return null
-}
-
-// Slice a hunk to a window of changes around the anchor's index in the
-// changes array. Index-based (not line-based) so that +/- rows near a
-// context-line anchor stay visible — see commit 2210d65 for the prior bug.
-function trimHunkAround(hunk: HunkData, anchor: number, window: number): HunkData {
-  const all = hunk.changes
-  if (all.length <= 2 * window + 1) return hunk
-
-  let bestIdx = -1
-  let bestDist = Infinity
-  for (let i = 0; i < all.length; i++) {
-    const c = all[i]
-    if (!c) continue
-    const ln = changeNewLine(c)
-    if (ln == null) continue
-    const d = Math.abs(ln - anchor)
-    if (d < bestDist) {
-      bestIdx = i
-      bestDist = d
-    }
-  }
-  if (bestIdx < 0) return hunk
-
-  const start = Math.max(0, bestIdx - window)
-  const end = Math.min(all.length, bestIdx + window + 1)
-  const sliced = all.slice(start, end)
-
-  let oldStart = Infinity
-  let oldLines = 0
-  let newStart = Infinity
-  let newLines = 0
-  for (const c of sliced) {
-    const oln = changeOldLine(c)
-    const nln = changeNewLine(c)
-    if (oln != null) {
-      if (oln < oldStart) oldStart = oln
-      oldLines++
-    }
-    if (nln != null) {
-      if (nln < newStart) newStart = nln
-      newLines++
-    }
-  }
-
-  return {
-    ...hunk,
-    changes: sliced,
-    oldStart: oldStart === Infinity ? hunk.oldStart : oldStart,
-    oldLines,
-    newStart: newStart === Infinity ? hunk.newStart : newStart,
-    newLines,
-  }
-}
-
-export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
-  const [level, setLevel] = useState<ExpandLevel>('window')
-
+export function DiffViewer({ sessionId, unifiedDiff, file, line, findingId }: Props) {
   const fileDiff = useMemo<FileData | undefined>(() => {
     if (!unifiedDiff) return undefined
     try {
@@ -135,12 +67,30 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
   }, [unifiedDiff, file])
 
   const anchor = line ?? 0
-  const hunks: HunkData[] = useMemo(() => {
-    if (!fileDiff) return []
-    if (level === 'full') return fileDiff.hunks
-    const h = findContainingHunk(fileDiff.hunks, anchor)
-    return h ? [trimHunkAround(h, anchor, WINDOW)] : []
-  }, [fileDiff, level, anchor])
+  const containingHunk = useMemo(
+    () => (fileDiff ? findContainingHunk(fileDiff.hunks, anchor) : undefined),
+    [fileDiff, anchor],
+  )
+
+  // Show the file's diff hunks; the gap expanders pull real file context on
+  // demand (between hunks and at the head/tail). When the finding's line sits
+  // outside every hunk we auto-expand the surrounding gap so it comes into
+  // view — the case the old "Expand full file" toggle could never reach.
+  const baseHunks = useMemo<HunkData[]>(() => fileDiff?.hunks ?? [], [fileDiff])
+
+  const { hunks, totalLines, status, expand, expandGapContaining } = useFileExpansion(
+    sessionId,
+    file,
+    baseHunks,
+  )
+  const expandable = status !== 'unavailable'
+
+  // Off-diff finding: pull in the surrounding context so the line is visible.
+  useEffect(() => {
+    if (line != null && fileDiff && !containingHunk) {
+      expandGapContaining(line)
+    }
+  }, [line, fileDiff, containingHunk, expandGapContaining])
 
   const selectedChanges = useMemo<string[]>(() => {
     if (line == null || hunks.length === 0) return []
@@ -149,9 +99,9 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
   }, [hunks, line])
 
   // Shiki-driven syntax highlighting for the visible hunks. We tokenize only
-  // the displayed window (no full-file source), so tokens may miss multi-line
-  // context (e.g. an open block comment beyond the window) — visually fine
-  // for the short slices we render.
+  // the rendered hunks (not the whole file), so tokens may miss multi-line
+  // context (e.g. an open block comment beyond a hunk) — visually fine for the
+  // short slices we render.
   const [tokens, setTokens] = useState<HunkTokens | null>(null)
   const lang = useMemo(() => inferLangFromFile(file), [file])
 
@@ -217,25 +167,6 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
           {file}
           {line ? `:${line}` : ''}
         </span>
-        <div className="flex items-center gap-2 text-caps tracking-caps uppercase">
-          {level === 'window' ? (
-            <button
-              type="button"
-              onClick={() => setLevel('full')}
-              className="text-ink-secondary hover:text-brand transition-colors duration-180 ease-out-quart"
-            >
-              Expand full file
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setLevel('window')}
-              className="text-ink-muted hover:text-ink-primary transition-colors duration-180 ease-out-quart"
-            >
-              Collapse
-            </button>
-          )}
-        </div>
       </header>
       {hunks.length === 0 ? (
         <div className="px-3 py-2 text-meta text-ink-muted">No diff context near line {line}.</div>
@@ -248,7 +179,9 @@ export function DiffViewer({ unifiedDiff, file, line, findingId }: Props) {
           tokens={tokens}
           renderToken={renderShikiToken}
         >
-          {(hs: HunkData[]) => hs.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)}
+          {(hs: HunkData[]) =>
+            renderHunksWithExpanders(hs, { expandable, totalLines, onExpand: expand })
+          }
         </Diff>
       )}
     </div>
