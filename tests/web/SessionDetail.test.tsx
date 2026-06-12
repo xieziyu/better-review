@@ -2,7 +2,7 @@ import type { Finding, PRSession, SSEEvent } from '@shared/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { SelectionProvider } from '@/lib/selection'
@@ -43,6 +43,11 @@ function withRoute(
       </SelectionProvider>
     </QueryClientProvider>
   )
+}
+
+function LocationProbe() {
+  const loc = useLocation()
+  return <div data-testid="prompt-location">{`${loc.pathname}${loc.search}`}</div>
 }
 
 const session: PRSession = {
@@ -131,6 +136,43 @@ describe('SessionDetail', () => {
   it('omits the local repo chip when the session has none', () => {
     render(withRoute(<SessionDetail />, { session, findings: [finding] }))
     expect(screen.queryByLabelText(/Local repo:/)).not.toBeInTheDocument()
+  })
+
+  // Renders the prompt-editor destination so navigation is observable as text.
+  function renderWithPromptProbe(s: PRSession) {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    qc.setQueryData(['session', s.id], { session: s, findings: [] })
+    qc.setQueryData(['session', s.id, 'diff'], null)
+    return render(
+      <QueryClientProvider client={qc}>
+        <SelectionProvider>
+          <MemoryRouter initialEntries={[`/session/${s.id}`]}>
+            <Routes>
+              <Route path="/session/:id" element={<SessionDetail />} />
+              <Route path="/prompt" element={<LocationProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </SelectionProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('Prompt rules button jumps to the prompt editor carrying the repo', async () => {
+    const user = userEvent.setup()
+    renderWithPromptProbe({ ...session, localRepoPath: '/Users/me/code/web' })
+    await user.click(screen.getByRole('button', { name: /^prompt$/i }))
+    expect(screen.getByTestId('prompt-location')).toHaveTextContent(
+      `/prompt?repo=${encodeURIComponent('/Users/me/code/web')}`,
+    )
+  })
+
+  it('Prompt rules button jumps without a repo param when none is pinned', async () => {
+    const user = userEvent.setup()
+    renderWithPromptProbe(session)
+    await user.click(screen.getByRole('button', { name: /^prompt$/i }))
+    expect(screen.getByTestId('prompt-location')).toHaveTextContent(/^\/prompt$/)
   })
 
   it('renders session error banner when present', () => {

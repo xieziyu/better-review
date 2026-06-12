@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderGit2, FolderOpen } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button, ConfirmAction, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError, type WritablePromptScope } from '@/lib/api'
@@ -21,11 +21,14 @@ export function PromptEditor() {
   const relativeTime = useRelativeTime()
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   // The repo whose `.better-review/review.md` backs the Project scope. Empty
   // means no repo is pinned — the Project tab then has nothing to resolve
-  // against and the effective chain collapses to global → builtin.
-  const [repo, setRepo] = useState('')
+  // against and the effective chain collapses to global → builtin. Seeded from
+  // the `?repo=` query param so a "Prompt rules" jump from a session detail
+  // lands on the rules that review uses (and survives a refresh).
+  const [repo, setRepo] = useState(() => searchParams.get('repo') ?? '')
   const repoTrimmed = repo.trim()
   const repoArg = repoTrimmed.length > 0 ? repoTrimmed : null
 

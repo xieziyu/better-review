@@ -12,7 +12,7 @@ import { PromptEditor } from '@/pages/PromptEditor'
 // same payload so tests can switch into the Project tab's repo context.
 function withClient(
   ui: React.ReactNode,
-  state: { prompts?: PromptStateResponse; sessions?: PRSession[] } = {},
+  state: { prompts?: PromptStateResponse; sessions?: PRSession[]; route?: string } = {},
 ) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -24,7 +24,7 @@ function withClient(
   if (state.sessions) qc.setQueryData(['sessions'], state.sessions)
   return (
     <QueryClientProvider client={qc}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <MemoryRouter initialEntries={[state.route ?? '/prompt']}>{ui}</MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -57,6 +57,16 @@ describe('PromptEditor', () => {
     )
     expect(screen.getByTestId('prompt-source')).toHaveTextContent(/builtin/i)
     expect(screen.getByLabelText(/review guidelines/i)).toHaveValue('# builtin rules body')
+  })
+
+  it('seeds the repo selector from the ?repo= query param', () => {
+    render(
+      withClient(<PromptEditor />, {
+        prompts: baseState,
+        route: `/prompt?repo=${encodeURIComponent('/proj')}`,
+      }),
+    )
+    expect(screen.getByLabelText(/local repository path for project rules/i)).toHaveValue('/proj')
   })
 
   it('Framework tab renders read-only framework content', async () => {

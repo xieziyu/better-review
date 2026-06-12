@@ -10,6 +10,7 @@ import type {
 import { AGENT_KINDS } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  BookText,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -118,8 +119,15 @@ function PRHeader({
   justSwitched,
 }: PRHeaderProps) {
   const { t } = useTranslation()
+  const nav = useNavigate()
   const isLocal = isLocalSource(session.source)
   const headerLabel = sessionDisplayLabel(session)
+  // Jump to the prompt editor. Carry the session's pinned repo (when any) as a
+  // query param so the editor resolves the effective rule chain — project →
+  // global → builtin — exactly as this review will see it.
+  const promptHref = session.localRepoPath
+    ? `/prompt?repo=${encodeURIComponent(session.localRepoPath)}`
+    : '/prompt'
   return (
     <header className="space-y-4">
       <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -306,6 +314,20 @@ function PRHeader({
               </Button>
             )
           ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => nav(promptHref)}
+            title={
+              session.localRepoPath
+                ? t('prdetail.viewPromptRulesTitleWithRepo')
+                : t('prdetail.viewPromptRulesTitle')
+            }
+          >
+            <BookText size={12} aria-hidden="true" />
+            {t('prdetail.viewPromptRules')}
+          </Button>
           <ExportPopover session={session} findings={findings} roundNumber={roundNumber} />
           {!isHistorical && !isLocal ? (
             <Button
