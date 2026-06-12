@@ -257,16 +257,20 @@ export function Home() {
     enabled: tab === 'local' && localTabRepoTrim.length > 0,
     retry: false,
   })
-  // Reset the user-touched flag when the repo path changes — the branch
-  // list belongs to a different repo now, so re-prefill is appropriate.
-  // Skip the initial mount run so a restored HEAD (and its seeded touched
-  // flag) survives a refresh instead of being re-prefilled from the repo.
+  // Clear the persisted branch fields and reset the user-touched flag when
+  // the repo path changes — head/base belong to a different repo now, so
+  // carrying them over could submit a review against the wrong branch range
+  // (e.g. if the new branch list fails to load or the user submits before it
+  // does). Skip the initial mount run so a restored HEAD (and its seeded
+  // touched flag) survives a refresh instead of being cleared.
   const localRepoChanged = useRef(false)
   useEffect(() => {
     if (!localRepoChanged.current) {
       localRepoChanged.current = true
       return
     }
+    setLocalTabHead('')
+    setLocalTabBase('')
     setLocalTabHeadTouched(false)
   }, [localTabRepoTrim])
   // Prefill HEAD with the repo's current branch once the API resolves.
