@@ -10,7 +10,7 @@ import {
   GitBranch,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -26,6 +26,7 @@ import {
 import { api, queryKeys, ApiError } from '@/lib/api'
 import { useRelativeTime } from '@/lib/format'
 import { sessionDisplayLabel } from '@/lib/session-display'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import { cn } from '@/lib/utils'
 
 type HomeTab = 'pr' | 'local' | 'vbranch'
@@ -120,6 +121,15 @@ function TopTabButton({
   )
 }
 
+// localStorage keys for the repo/branch selections we persist across refreshes
+// on the Local-branch and Gitbutler-vbranch tabs. The PR tab is intentionally
+// excluded — its repo field has its own auto-fill-from-PR-URL behaviour.
+const LOCAL_REPO_KEY = 'better-review:home:local-repo:v1'
+const LOCAL_HEAD_KEY = 'better-review:home:local-head:v1'
+const LOCAL_BASE_KEY = 'better-review:home:local-base:v1'
+const VBRANCH_REPO_KEY = 'better-review:home:vbranch-repo:v1'
+const VBRANCH_SELECTED_KEY = 'better-review:home:vbranch-selected:v1'
+
 export function Home() {
   const { t } = useTranslation()
   const relativeTime = useRelativeTime()
@@ -132,17 +142,19 @@ export function Home() {
   // Local-branch tab state. The repo input is intentionally independent from
   // the vbranch tab's repo (no shared default) — picking a repo in one tab
   // must never leak into the other.
-  const [localTabRepo, setLocalTabRepo] = useState('')
-  const [localTabHead, setLocalTabHead] = useState('')
-  const [localTabBase, setLocalTabBase] = useState('')
+  // Repo + branch selections persist across refreshes (see *_KEY constants).
+  const [localTabRepo, setLocalTabRepo] = usePersistedState(LOCAL_REPO_KEY)
+  const [localTabHead, setLocalTabHead] = usePersistedState(LOCAL_HEAD_KEY)
+  const [localTabBase, setLocalTabBase] = usePersistedState(LOCAL_BASE_KEY)
   // Gate the auto-prefill of HEAD: once the user has touched it (typed,
   // picked, or cleared), don't clobber their choice when the branch list
-  // refreshes.
-  const [localTabHeadTouched, setLocalTabHeadTouched] = useState(false)
+  // refreshes. Seed it from the restored HEAD so a persisted choice isn't
+  // overwritten by the repo's current branch on first load.
+  const [localTabHeadTouched, setLocalTabHeadTouched] = useState(() => localTabHead.length > 0)
   // vbranch tab state. Repo + selected vbranch; inspect result is fetched
   // from the API and drives both the gating and the dropdown contents.
-  const [vbranchTabRepo, setVbranchTabRepo] = useState('')
-  const [vbranchSelected, setVbranchSelected] = useState<string>('')
+  const [vbranchTabRepo, setVbranchTabRepo] = usePersistedState(VBRANCH_REPO_KEY)
+  const [vbranchSelected, setVbranchSelected] = usePersistedState(VBRANCH_SELECTED_KEY)
   // Shared state.
   const [agent, setAgent] = useState<AgentKind | null>(null)
   const [extraPrompt, setExtraPrompt] = useState('')
@@ -245,9 +257,20 @@ export function Home() {
     enabled: tab === 'local' && localTabRepoTrim.length > 0,
     retry: false,
   })
-  // Reset the user-touched flag when the repo path changes — the branch
-  // list belongs to a different repo now, so re-prefill is appropriate.
+  // Clear the persisted branch fields and reset the user-touched flag when
+  // the repo path changes — head/base belong to a different repo now, so
+  // carrying them over could submit a review against the wrong branch range
+  // (e.g. if the new branch list fails to load or the user submits before it
+  // does). Skip the initial mount run so a restored HEAD (and its seeded
+  // touched flag) survives a refresh instead of being cleared.
+  const localRepoChanged = useRef(false)
   useEffect(() => {
+    if (!localRepoChanged.current) {
+      localRepoChanged.current = true
+      return
+    }
+    setLocalTabHead('')
+    setLocalTabBase('')
     setLocalTabHeadTouched(false)
   }, [localTabRepoTrim])
   // Prefill HEAD with the repo's current branch once the API resolves.
@@ -268,14 +291,25 @@ export function Home() {
   // Reset the selected vbranch when the repo changes — what was valid
   // for the previous repo is almost never valid for the new one. We
   // key on the resolved repoPath so a transient inspect failure
-  // doesn't lose the user's pick mid-typing.
+  // doesn't lose the user's pick mid-typing. Skip the initial mount run
+  // so a restored repo+vbranch pair survives a refresh.
+  const vbranchRepoChanged = useRef(false)
   useEffect(() => {
+    if (!vbranchRepoChanged.current) {
+      vbranchRepoChanged.current = true
+      return
+    }
     setVbranchSelected('')
   }, [vbranchTabRepoTrim])
+  // Gate submit on the selected vbranch still existing in the current inspect
+  // result, not just on the persisted string being non-empty. After a refresh
+  // the stored vbranch may have been deleted/renamed (or absent from `but
+  // status`), in which case the UI shows nothing selected — the button must
+  // not stay enabled and submit a stale, invisible name.
   const vbranchCanSubmit =
     vbranchTabRepoTrim.length > 0 &&
     vbranchInspect?.kind === 'gitbutler' &&
-    vbranchSelected.length > 0 &&
+    vbranchInspect.vbranches?.some((v) => v.name === vbranchSelected) === true &&
     !create.isPending
 
   function submitPrTab(): void {
