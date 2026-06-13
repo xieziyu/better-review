@@ -183,6 +183,8 @@ Notes on stable keys: `nsSeparator: false` is set in the i18next init so colons 
 
 Conventional Commits, lowercase imperative mood: `feat(scope): …`, `fix(scope): …`, `docs(scope): …`. Recent history is consistent — match it. Common scopes seen so far: `cli`, `server`, `engine`, `web`, `prompts`, `docs`.
 
+Do **not** include Claude/AI session links (`https://claude.ai/code/session_…`) in PR descriptions or PR/issue comments — the repo owner wants those free of tooling backlinks.
+
 ### TypeScript settings worth knowing
 
 `tsconfig.json` has `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` on. When adding optional fields to interfaces in `src/shared/types.ts`, callers must pass `undefined` explicitly or omit the key — `?: T` is not the same as `?: T | undefined` here. Indexed access (`arr[i]`, `record[key]`) returns `T | undefined`; narrow before use.
