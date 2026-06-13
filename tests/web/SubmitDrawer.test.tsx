@@ -166,6 +166,40 @@ describe('SubmitDrawer', () => {
     expect(inline).toHaveTextContent(/R1/)
   })
 
+  it("moves a multi-line finding to body when its startLine is outside the diff, matching the server's range rule", () => {
+    const diff = [
+      'diff --git a/src/x.ts b/src/x.ts',
+      '--- a/src/x.ts',
+      '+++ b/src/x.ts',
+      '@@ -10,2 +10,3 @@',
+      ' a',
+      '+b',
+      ' c',
+      '',
+    ].join('\n')
+    const findings = [
+      // line is inside the hunk (10..12) but startLine 2 is not — the server
+      // (payload-builder) validates the whole range and drops this to the
+      // review body, so the preview must agree.
+      mk({ id: 'R1', dbId: 'd1', file: 'src/x.ts', line: 11, startLine: 2 }),
+      // fully in-hunk range stays inline
+      mk({ id: 'R2', dbId: 'd2', file: 'src/x.ts', line: 12, startLine: 10 }),
+    ]
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings,
+        diff,
+      }),
+    )
+    const moved = screen.getByTestId('moved-to-body-list')
+    expect(moved).toHaveTextContent(/R1/)
+    expect(moved).not.toHaveTextContent(/\bR2\b/)
+
+    const inline = screen.getByTestId('inline-list')
+    expect(inline).toHaveTextContent(/R2/)
+  })
+
   it('renders PR-wide findings as body preview cards', () => {
     render(
       withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {

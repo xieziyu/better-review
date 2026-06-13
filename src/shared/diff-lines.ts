@@ -55,3 +55,22 @@ export function isLineRangeInDiff(
   }
   return true
 }
+
+// Inline-eligibility for a finding anchored at `line` with an optional
+// multi-line `startLine`: a range finding (startLine < line) needs the
+// whole startLine..line span on the diff's new side; a single-line
+// finding only needs its own line. This is THE decision both the submit
+// payload-builder and the SubmitDrawer preview must share — call this,
+// not the two primitives above, so the preview can never disagree with
+// what actually gets posted inline.
+export function isFindingRangeInDiff(
+  diff: string,
+  file: string,
+  line: number,
+  startLine?: number | null,
+): boolean {
+  const start = startLine != null && startLine < line ? startLine : null
+  return start !== null
+    ? isLineRangeInDiff(diff, file, start, line)
+    : isLineInDiff(diff, file, line)
+}

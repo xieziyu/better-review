@@ -1,4 +1,4 @@
-import { isLineInDiff, isLineRangeInDiff } from '../../shared/diff-lines'
+import { isFindingRangeInDiff } from '../../shared/diff-lines'
 import type { Finding, ReviewEvent } from '../../shared/types'
 import type { ReviewPayload, ReviewComment } from '../github/gh-client'
 
@@ -61,10 +61,7 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
       continue
     }
     const start = f.startLine && f.startLine < f.line ? f.startLine : null
-    const rangeOk = start
-      ? isLineRangeInDiff(args.diff, f.file, start, f.line)
-      : isLineInDiff(args.diff, f.file, f.line)
-    if (rangeOk) {
+    if (isFindingRangeInDiff(args.diff, f.file, f.line, f.startLine)) {
       const c: ReviewComment = {
         path: f.file,
         line: f.line,
