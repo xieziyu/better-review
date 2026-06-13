@@ -50,7 +50,7 @@ describe('makeRerunSession', () => {
 
     const result = await rerun('s1')
 
-    expect(result.freshId).toBe('fresh-id')
+    expect(result.id).toBe('fresh-id')
     expect(startSession).toHaveBeenCalledWith({
       source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
       agent: 'claude',
@@ -252,7 +252,7 @@ describe('makeRerunSession', () => {
     const startSession = vi.fn<StartSessionFn>(async () => ({ id: 'fresh' }))
     const rerun = makeRerunSession({ sessions, findings, startSession })
     const result = await rerun('s1')
-    expect(result.freshId).toBe('fresh')
+    expect(result.id).toBe('fresh')
     expect(startSession).toHaveBeenCalledOnce()
   })
 })

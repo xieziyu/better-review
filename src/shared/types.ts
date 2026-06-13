@@ -4,7 +4,7 @@ import type { ReviewSummaryFromAgent } from './summary-schema'
 
 export type { SessionSource, SessionSourceKind } from './source'
 
-export type { ReviewSummaryFromAgent, ManualReviewItem } from './summary-schema'
+export type { ReviewSummaryFromAgent } from './summary-schema'
 
 // One file dropped from the review-agent diff by the skip-review globs (see
 // `engine/diff-filter.ts`). `glob` is the pattern that matched — shown in the
@@ -290,13 +290,6 @@ export interface LocalBranchesResult {
   repoPath: string
   head: string | null
   branches: LocalBranchEntry[]
-}
-export interface RerunSessionRequest {
-  agent?: AgentKind
-  // When omitted, the rerun reuses the previous session's `extraPrompt` as-is.
-  // When provided (including the empty string), it overrides — the empty
-  // string clears the carry-over.
-  extraPrompt?: string
 }
 export interface SubmitRequest {
   event: ReviewEvent

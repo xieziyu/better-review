@@ -1,6 +1,7 @@
 import type { AgentKind } from '../shared/types'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
+import { SessionNotFoundError } from './session-errors'
 import type { StartSessionFn, StartSessionInput } from './start-session'
 
 export interface RerunSessionDeps {
@@ -17,15 +18,14 @@ export interface RerunSessionOptions {
   extraPrompt?: string
 }
 
-export type RerunSessionFn = (
-  id: string,
-  opts?: RerunSessionOptions,
-) => Promise<{ freshId: string }>
+// Resolves to the replacement session's id (a fresh id, not the one
+// passed in — the input session is archived).
+export type RerunSessionFn = (id: string, opts?: RerunSessionOptions) => Promise<{ id: string }>
 
 export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
   return async function rerunSession(id, opts) {
     const s = deps.sessions.getById(id)
-    if (!s) throw new Error('not found')
+    if (!s) throw new SessionNotFoundError()
     // Archived rounds are normally frozen historical snapshots, but a previous
     // rerun can leave an orphan: archiveAllForSession + setStatus('archived')
     // run before startSession, and startSession has synchronous failure modes
@@ -57,6 +57,6 @@ export function makeRerunSession(deps: RerunSessionDeps): RerunSessionFn {
     const carryOver = opts?.extraPrompt !== undefined ? opts.extraPrompt : (s.extraPrompt ?? '')
     if (carryOver.trim().length > 0) startInput.extraPrompt = carryOver
     const fresh = await deps.startSession(startInput)
-    return { freshId: fresh.id }
+    return { id: fresh.id }
   }
 }

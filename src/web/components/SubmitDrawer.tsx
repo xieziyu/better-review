@@ -1,3 +1,4 @@
+import { isFindingRangeInDiff } from '@shared/diff-lines'
 import type { Finding, ReviewEvent } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, X } from 'lucide-react'
@@ -6,7 +7,6 @@ import { Trans, useTranslation } from 'react-i18next'
 
 import { Button, KbdTooltip, Tag } from '@/components/ui'
 import { api, queryKeys, ApiError } from '@/lib/api'
-import { isLineInDiff } from '@/lib/diff-line-check'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -99,7 +99,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
         } else {
           prWide.push(f)
         }
-      } else if (diff && !isLineInDiff(diff, f.file, f.line)) {
+      } else if (diff && !isFindingRangeInDiff(diff, f.file, f.line, f.startLine)) {
         movedToBody.push(f)
       } else {
         inline.push(f)

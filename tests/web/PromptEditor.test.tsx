@@ -178,6 +178,7 @@ describe('PromptEditor', () => {
       {
         id: 's1',
         owner: 'a',
+        source: { kind: 'github-pr', owner: 'a', repo: 'b', number: 1 },
         repo: 'b',
         number: 1,
         title: 'T',

@@ -40,6 +40,7 @@ function withProviders(ui: React.ReactNode) {
 const session: PRSession = {
   id: 's1',
   owner: 'acme',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'web', number: 42 },
   repo: 'web',
   number: 42,
   title: 'feat: x',
@@ -163,7 +164,7 @@ describe('FindingDetailPanel', () => {
     render(
       withProviders(
         <FindingDetailPanel
-          finding={{ ...finding, suggestion: null }}
+          finding={{ ...finding, suggestion: undefined }}
           session={session}
           unifiedDiff={null}
         />,

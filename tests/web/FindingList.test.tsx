@@ -20,6 +20,7 @@ function withClient(ui: React.ReactNode) {
 const session: PRSession = {
   id: 's1',
   owner: 'acme',
+  source: { kind: 'github-pr', owner: 'acme', repo: 'web', number: 1 },
   repo: 'web',
   number: 1,
   title: null,

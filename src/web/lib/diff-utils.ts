@@ -65,13 +65,6 @@ export function parseFileList(diff: string): FileSummary[] {
   })
 }
 
-/** Look up hunks for a specific file path (matches either old or new path). */
-export function getFileHunks(diff: string, path: string): HunkData[] {
-  const list = parseFileList(diff)
-  const hit = list.find((f) => f.path === path || f.newPath === path || f.oldPath === path)
-  return hit?.hunks ?? []
-}
-
 /**
  * Map every alias (`path`, `newPath`, `oldPath`) to the canonical display path.
  * Renames are the reason this exists: findings written against the old path

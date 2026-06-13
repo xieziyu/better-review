@@ -2,6 +2,7 @@ import type { SessionsRepo } from './db/sessions'
 import type { EventBus } from './engine/events'
 import type { ConcurrencyQueue } from './engine/queue'
 import type { RunnerRegistry } from './engine/runner-registry'
+import { SessionNotFoundError, SessionNotRunningError } from './session-errors'
 
 export interface CancelSessionDeps {
   sessions: SessionsRepo
@@ -11,19 +12,6 @@ export interface CancelSessionDeps {
 }
 
 export type CancelSessionFn = (id: string) => Promise<void>
-
-export class SessionNotFoundError extends Error {
-  constructor() {
-    super('not found')
-    this.name = 'SessionNotFoundError'
-  }
-}
-export class SessionNotRunningError extends Error {
-  constructor() {
-    super('not running')
-    this.name = 'SessionNotRunningError'
-  }
-}
 
 export function makeCancelSession(deps: CancelSessionDeps): CancelSessionFn {
   return async function cancelSession(id) {

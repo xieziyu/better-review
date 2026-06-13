@@ -1,6 +1,6 @@
 import type { Severity } from '@shared/findings-schema'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import type { FileData, HunkData } from 'react-diff-view'
+import { parseDiff, type HunkData } from 'react-diff-view'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { FileTree } from '@/components/files-changed/FileTree'
@@ -13,6 +13,11 @@ interface MkFileOpts {
 }
 
 function mkFile(path: string, opts: MkFileOpts = {}): FileSummary {
+  const [fileData] = parseDiff(
+    `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n`,
+  )
+  if (!fileData) throw new Error(`failed to build FileData fixture for ${path}`)
+
   return {
     path,
     oldPath: path,
@@ -21,12 +26,7 @@ function mkFile(path: string, opts: MkFileOpts = {}): FileSummary {
     additions: opts.additions ?? 1,
     deletions: opts.deletions ?? 0,
     hunks: [] as HunkData[],
-    fileData: {
-      type: opts.status ?? 'modify',
-      oldPath: path,
-      newPath: path,
-      hunks: [],
-    } as FileData,
+    fileData,
   }
 }
 

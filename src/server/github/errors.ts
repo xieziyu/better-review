@@ -4,12 +4,6 @@ export class GhCliMissingError extends Error {
     this.name = 'GhCliMissingError'
   }
 }
-export class GhAuthError extends Error {
-  constructor(msg = 'gh not authenticated; run `gh auth login`') {
-    super(msg)
-    this.name = 'GhAuthError'
-  }
-}
 export class GhPRNotFoundError extends Error {
   constructor(target: string) {
     super(`PR not found or no access: ${target}`)

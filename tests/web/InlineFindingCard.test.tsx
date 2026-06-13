@@ -15,6 +15,7 @@ import { InlineFindingCard } from '@/components/files-changed/InlineFindingCard'
 const session: PRSession = {
   id: 's1',
   owner: 'o',
+  source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
   repo: 'r',
   number: 1,
   title: null,

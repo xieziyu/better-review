@@ -27,6 +27,7 @@ import { applyDiffViewModeDefault } from '@/lib/use-diff-view-mode'
 const session: PRSession = {
   id: 's1',
   owner: 'o',
+  source: { kind: 'github-pr', owner: 'o', repo: 'r', number: 1 },
   repo: 'r',
   number: 1,
   title: null,
