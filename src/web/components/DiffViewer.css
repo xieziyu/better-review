@@ -84,14 +84,12 @@
   border-left: 1px solid var(--rule);
 }
 
-/* Continue the seam through inline widget rows. SplitWidget renders two
- * half-width cells (empty old side + content new side) for findings anchored
- * to a new-side line; nth-child(2) is the new-side content. A full-width
- * widget (context-line finding) is a single colSpan=4 cell, so it has no
- * 2nd child and correctly shows no seam. */
-.diff-split .diff-widget > td:nth-child(2) {
-  border-left: 1px solid var(--rule);
-}
+/* Inline finding cards (and the add-finding form / selection bar) render as
+ * full-width `<Decoration>` rows — `.diff-finding-widget` — that span both
+ * panes like the hidden-line expander, rather than the library's per-side
+ * widget (which would leave the old side blank in split view). So there is no
+ * mid-row seam to continue here: the row is intentionally one element across
+ * the whole width. */
 
 /* The empty half of a split row (one side has no corresponding line). Tint it
  * with the recessed surface so "no line here" reads as intentional on the

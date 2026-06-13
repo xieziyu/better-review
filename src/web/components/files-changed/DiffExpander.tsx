@@ -1,6 +1,6 @@
 import { ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
-import { type ReactElement } from 'react'
-import { Decoration, Hunk, type HunkData } from 'react-diff-view'
+import { type ReactElement, type ReactNode } from 'react'
+import { Decoration, Hunk, getChangeKey, type HunkData } from 'react-diff-view'
 import { useTranslation } from 'react-i18next'
 
 // One screenful of context per directional click — matches GitHub's "expand
@@ -104,6 +104,50 @@ export interface InterleaveOptions {
   totalLines: number | null
   /** Reveal NEW-side lines [newStart, newEnd) numbered from oldStart on the old side. */
   onExpand: (newStart: number, newEnd: number, oldStart: number) => void
+  /**
+   * Map of react-diff-view changeKey → node (e.g. an inline finding card) to
+   * render as a FULL-WIDTH row right after that change's line. Unlike the
+   * library's per-side `widgets` prop — which renders a half-width cell on the
+   * new side in split view, leaving the old side blank — these go through
+   * `<Decoration>`, which spans both panes like the hidden-line expander.
+   */
+  widgets?: Record<string, ReactNode>
+}
+
+// Render one hunk, splitting it at every change that carries a widget so the
+// widget can sit between the resulting `<Hunk>` segments as a full-width
+// `<Decoration>`. The cut always lands AFTER the widget-bearing change; since
+// findings only anchor to insert/normal (new-side) changes, this never severs
+// a delete from the insert it pairs with in split view's side-by-side rows.
+function renderHunkWithWidgets(
+  hunk: HunkData,
+  widgets: Record<string, ReactNode> | undefined,
+): ReactElement[] {
+  const keyBase = `${hunk.oldStart}-${hunk.newStart}`
+  if (!widgets) return [<Hunk key={keyBase} hunk={hunk} />]
+
+  const out: ReactElement[] = []
+  let segStart = 0
+  let segIndex = 0
+  const flush = (end: number) => {
+    if (end <= segStart) return
+    const changes = hunk.changes.slice(segStart, end)
+    out.push(<Hunk key={`${keyBase}-seg${segIndex}`} hunk={{ ...hunk, changes }} />)
+    segIndex += 1
+    segStart = end
+  }
+  hunk.changes.forEach((change, i) => {
+    const node = widgets[getChangeKey(change)]
+    if (!node) return
+    flush(i + 1)
+    out.push(
+      <Decoration key={`w-${getChangeKey(change)}`}>
+        <div className="diff-finding-widget">{node}</div>
+      </Decoration>,
+    )
+  })
+  flush(hunk.changes.length)
+  return out
 }
 
 // Render hunks with GitHub-style expander bars woven into the collapsed gaps
@@ -116,10 +160,10 @@ export interface InterleaveOptions {
 // gutter numbering stays correct across earlier insertions/deletions.
 export function renderHunksWithExpanders(
   hunks: HunkData[],
-  { expandable, totalLines, onExpand }: InterleaveOptions,
+  { expandable, totalLines, onExpand, widgets }: InterleaveOptions,
 ): ReactElement[] {
   if (!expandable) {
-    return hunks.map((h) => <Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
+    return hunks.flatMap((h) => renderHunkWithWidgets(h, widgets))
   }
   const out: ReactElement[] = []
   hunks.forEach((h, i) => {
@@ -138,7 +182,7 @@ export function renderHunksWithExpanders(
         />,
       )
     }
-    out.push(<Hunk key={`${h.oldStart}-${h.newStart}`} hunk={h} />)
+    out.push(...renderHunkWithWidgets(h, widgets))
   })
   const last = hunks[hunks.length - 1]
   if (last && totalLines != null) {

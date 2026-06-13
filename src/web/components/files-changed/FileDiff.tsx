@@ -128,7 +128,6 @@ export function FileDiff({
       viewType={viewType}
       diffType={fileType}
       hunks={hunks}
-      widgets={widgets ?? {}}
       selectedChanges={selectedChanges ?? []}
       tokens={tokens}
       renderToken={renderShikiToken}
@@ -139,6 +138,7 @@ export function FileDiff({
           expandable: Boolean(expandable && onExpand),
           totalLines: totalLines ?? null,
           onExpand: onExpand ?? (() => {}),
+          ...(widgets ? { widgets } : {}),
         })
       }
     </Diff>
