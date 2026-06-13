@@ -27,7 +27,9 @@ function parseDiff(diff: string): Map<string, FileHunks> {
       if (m) {
         const start = Number(m[1])
         const length = m[2] ? Number(m[2]) : 1
-        map.get(curFile)!.ranges.push({ start, length })
+        const hunks = map.get(curFile)
+        if (!hunks) continue
+        hunks.ranges.push({ start, length })
       }
     }
   }
