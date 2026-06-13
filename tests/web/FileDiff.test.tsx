@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react'
-import { parseDiff } from 'react-diff-view'
+import { getChangeKey, parseDiff } from 'react-diff-view'
 import { describe, expect, it } from 'vitest'
 
 import { FileDiff } from '@/components/files-changed/FileDiff'
@@ -51,6 +51,59 @@ describe('FileDiff viewType', () => {
     expect(container.querySelector('.diff-line-new-only')).not.toBeNull()
     const firstLine = container.querySelector('tr.diff-line')
     expect(firstLine?.querySelectorAll('.diff-code')).toHaveLength(2)
+  })
+})
+
+describe('FileDiff inline finding widgets', () => {
+  // The first insert ("added line one") is preceded by a delete, so split view
+  // pairs them into one side-by-side row — the case the cut-after-the-change
+  // rule must keep intact while still placing the widget below the pair.
+  function widgetsForFirstInsert(diff: string) {
+    const hunks = hunksOf(diff)
+    const insert = hunks[0]!.changes.find((c) => c.type === 'insert')!
+    return {
+      hunks,
+      widgets: { [getChangeKey(insert)]: <div data-testid="finding-card">finding here</div> },
+    }
+  }
+
+  it('renders a finding as a full-width decoration spanning both panes in split mode', () => {
+    const { hunks, widgets } = widgetsForFirstInsert(DIFF)
+    const { container, getByTestId } = render(
+      <FileDiff
+        file="src/x.ts"
+        fileType="modify"
+        hunks={hunks}
+        viewType="split"
+        widgets={widgets}
+      />,
+    )
+    // It must NOT fall back to the library's half-width per-side widget row
+    // (empty old side + content new side) that wastes the left pane.
+    expect(container.querySelector('tr.diff-widget')).toBeNull()
+    // Instead it rides in a decoration row: a single cell spanning all four
+    // split-view columns (old gutter + old code + new gutter + new code).
+    const cell = getByTestId('finding-card').closest('td')
+    expect(cell).not.toBeNull()
+    expect(cell!.getAttribute('colspan')).toBe('4')
+    expect(cell!.closest('tbody')?.classList.contains('diff-decoration')).toBe(true)
+    // The split pairing is preserved: the diff still renders its rows normally.
+    expect(container.querySelector('table.diff-split')).not.toBeNull()
+  })
+
+  it('renders a finding as a full-width decoration in unified mode', () => {
+    const { hunks, widgets } = widgetsForFirstInsert(DIFF)
+    const { getByTestId } = render(
+      <FileDiff
+        file="src/x.ts"
+        fileType="modify"
+        hunks={hunks}
+        viewType="unified"
+        widgets={widgets}
+      />,
+    )
+    const cell = getByTestId('finding-card').closest('td')
+    expect(cell!.getAttribute('colspan')).toBe('3')
   })
 })
 
