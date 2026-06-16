@@ -61,6 +61,14 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
       bus.emit({ type: 'error', sessionId, message: result.error })
       return
     }
+    if (result.skipped.length > 0) {
+      const detail = result.skipped.map((s) => `[${s.index}] ${s.error}`).join('; ')
+      bus.emit({
+        type: 'error',
+        sessionId,
+        message: `findings.json: skipped ${result.skipped.length} invalid finding(s): ${detail}`,
+      })
+    }
     const fresh = result.data.filter((f) => !seenIds.has(f.id))
     if (fresh.length === 0) return
     fresh.forEach((f) => seenIds.add(f.id))
