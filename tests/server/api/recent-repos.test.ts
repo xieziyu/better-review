@@ -1,8 +1,25 @@
+import { execSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, it, expect } from 'vitest'
 
 import { createApp } from '../../../src/server/api/app'
 import type { RecentRepo } from '../../../src/shared/types'
 import { makeTestDeps } from './_deps'
+
+// Stand up a real git repo whose `origin` URL ends in github.com/o/r.git so
+// the remote-based fallback matcher can resolve it.
+function gitRepoWithRemote(owner: string, repo: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'br-recent-'))
+  const run = (cmd: string): void => {
+    execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  }
+  run('git init')
+  run(`git remote add origin https://github.com/${owner}/${repo}.git`)
+  return dir
+}
 
 function seed(deps: ReturnType<typeof makeTestDeps>): void {
   const base = {
@@ -91,6 +108,37 @@ describe('GET /api/recent-repos', () => {
     const res = await app.request('/api/recent-repos?limit=1')
     const j = (await res.json()) as { items: RecentRepo[] }
     expect(j.items).toHaveLength(1)
+  })
+
+  it('matches a repo by git remote when no session history carries owner/repo', async () => {
+    const deps = makeTestDeps()
+    // A directory only ever reviewed as a local branch — no owner/repo in the
+    // session row — but whose git remote points at the pasted PR's repo.
+    const repoDir = gitRepoWithRemote('octo', 'widget')
+    deps.sessions.insert({
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'ready',
+      agent: 'claude',
+      workdir: '/w',
+      promptUsed: 'p',
+      id: 'local1',
+      owner: '',
+      repo: '',
+      number: 0,
+      localRepoPath: repoDir,
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/recent-repos?owner=octo&repo=widget')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { items: RecentRepo[] }
+    const match = j.items.find((i) => i.path === repoDir)!
+    expect(match.matchedCurrentRepo).toBe(true)
+    // Matched repo is sorted first.
+    expect(j.items[0]!.path).toBe(repoDir)
   })
 
   it('returns an empty list when no sessions have a local repo path', async () => {

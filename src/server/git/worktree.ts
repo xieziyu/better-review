@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { execa } from 'execa'
 
 import type { Logger } from '../logger'
+import { findGithubRemote } from './remote-match'
 
 export interface PrepareWorktreeArgs {
   localRepoPath: string
@@ -37,30 +38,6 @@ export class WorktreePrepError extends Error {
     super(msg)
     this.name = 'WorktreePrepError'
   }
-}
-
-// `git remote -v` output line: "<name>\t<url> (fetch|push)". We only care
-// about a fetch URL that points at the PR's owner/repo on github.com — over
-// SSH or HTTPS, with or without the trailing `.git`. PRs from forks still
-// resolve through the parent repo's `pull/<N>/head` ref, so when `localRepo`
-// is a clone of either the parent repo OR the forker's repo we'll still find
-// a usable remote — we look for the **PR target's** owner/repo specifically.
-function findGithubRemote(remotesText: string, owner: string, repo: string): string | null {
-  const wantPath = `${owner}/${repo}`
-  for (const raw of remotesText.split('\n')) {
-    const line = raw.trim()
-    if (!line) continue
-    const m = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
-    if (!m || m[3] !== 'fetch') continue
-    const name = m[1]!
-    const url = m[2]!
-    // Match github.com:owner/repo(.git)? or github.com/owner/repo(.git)?
-    const re = new RegExp(`github\\.com[:/]+${owner}/${repo}(\\.git)?$`, 'i')
-    if (re.test(url) || url.toLowerCase().includes(`/${wantPath.toLowerCase()}`)) {
-      return name
-    }
-  }
-  return null
 }
 
 export async function prepareWorktree(args: PrepareWorktreeArgs): Promise<WorktreeResult> {
