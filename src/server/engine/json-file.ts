@@ -34,10 +34,15 @@ export function parseJsonWithSchema<T>(
 // Watch `file` and report every (re)parse to `onParsed`. The agent may write
 // the file incrementally, so `awaitWriteFinish` debounces until the contents
 // stabilize. Returns an async closer.
-export async function watchParsedJson<T>(
+//
+// Generic over the whole result shape (not just `JsonParseResult<T>`) so
+// callers can return richer success payloads (e.g. the findings parser's
+// `{ ok: true; data; skipped }`); the only requirement is a `{ ok: false;
+// error }` failure branch, which this helper also produces on read errors.
+export async function watchParsedJson<R extends { ok: false; error: string } | { ok: true }>(
   file: string,
-  parse: (raw: string) => JsonParseResult<T>,
-  onParsed: (r: JsonParseResult<T>) => void,
+  parse: (raw: string) => R,
+  onParsed: (r: R) => void,
 ): Promise<() => Promise<void>> {
   const watcher = chokidar.watch(file, {
     ignoreInitial: false,
@@ -48,7 +53,7 @@ export async function watchParsedJson<T>(
       const raw = readFileSync(file, 'utf8')
       onParsed(parse(raw))
     } catch (e) {
-      onParsed({ ok: false, error: `read error: ${(e as Error).message}` })
+      onParsed({ ok: false, error: `read error: ${(e as Error).message}` } as R)
     }
   }
   watcher.on('add', handle)

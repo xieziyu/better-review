@@ -9,10 +9,22 @@ export const findingSchema = z
     category: z.string().min(1),
     file: z.string().nullable(),
     line: z.number().int().positive().nullable(),
-    startLine: z.number().int().positive().optional(),
+    // Agents (notably codex) emit `null` for an absent value rather than
+    // omitting the key. Accept `null` and normalize it to `undefined` so a
+    // single `"suggestion": null` / `"startLine": null` entry doesn't fail
+    // validation (and, pre-fix, drop the whole findings array on parse).
+    startLine: z
+      .number()
+      .int()
+      .positive()
+      .nullish()
+      .transform((v) => v ?? undefined),
     title: z.string().min(1),
     body: z.string().min(1),
-    suggestion: z.string().optional(),
+    suggestion: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? undefined),
   })
   .refine((f) => f.startLine === undefined || (f.line !== null && f.startLine <= f.line), {
     message: 'startLine must be <= line and require a non-null line',
