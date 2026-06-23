@@ -7,7 +7,15 @@ import { execa } from 'execa'
 
 export class ButCliError extends Error {
   constructor(
-    public readonly code: 'missing' | 'setup_required' | 'not_a_repo' | 'unknown',
+    public readonly code:
+      | 'missing'
+      | 'setup_required'
+      | 'not_a_repo'
+      // The CLI rejected an argument we passed (clap "unexpected argument"
+      // usage error). Used to drive flag-spelling fallback across `but`
+      // versions — see `butStatus`.
+      | 'unsupported_flag'
+      | 'unknown',
     message: string,
   ) {
     super(message)
@@ -21,6 +29,12 @@ export class ButCliError extends Error {
 let cachedButPath: string | null | undefined
 
 export async function findButExecutable(): Promise<string | null> {
+  // Explicit override (tests point this at a fake; users can pin a
+  // specific binary). Never cached so it can vary between calls.
+  const override = process.env['BETTER_REVIEW_BUT_BIN']
+  if (typeof override === 'string' && override.trim().length > 0) {
+    return override.trim()
+  }
   if (cachedButPath !== undefined) return cachedButPath
   try {
     const r = await execa('which', ['but'], { reject: false })
@@ -59,6 +73,18 @@ export async function butJson<T = unknown>(repoPath: string, args: string[]): Pr
     if (errCode === 'not_a_repo') {
       throw new ButCliError('not_a_repo', message ?? 'not a git repository')
     }
+    // Argument-parse failures (clap) come back with no JSON body and a
+    // "unexpected argument" usage error on stderr — this is how an
+    // older/newer `but` rejects a flag spelling it doesn't know. Flag it
+    // so callers can retry with an alternate spelling.
+    if (parsed === undefined && isUnsupportedFlagOutput(String(r.stderr ?? ''), stdout)) {
+      throw new ButCliError(
+        'unsupported_flag',
+        `but ${args.join(' ')}: ${String(r.stderr ?? stdout)
+          .trim()
+          .slice(0, 200)}`,
+      )
+    }
     throw new ButCliError(
       'unknown',
       `but ${args.join(' ')} exited ${r.exitCode}: ${(message ?? String(r.stderr ?? stdout)).slice(0, 300)}`,
@@ -77,6 +103,14 @@ function safeParse(input: string): unknown | undefined {
   } catch {
     return undefined
   }
+}
+
+// Recognize a clap argument-parse failure across `but` versions. clap
+// phrases these as "unexpected argument '--foo' found" /
+// "unrecognized ... argument" / "invalid value ... for '--format'".
+export function isUnsupportedFlagOutput(stderr: string, stdout: string): boolean {
+  const text = `${stderr}\n${stdout}`
+  return /unexpected argument|unrecognized .*argument|invalid value .*for/i.test(text)
 }
 
 // The subset of `but status --json` that we depend on. The CLI carries
@@ -201,8 +235,53 @@ function parseCommit(
   }
 }
 
-// Convenience: run `but status --json` and parse it in one call.
+// The `but status` JSON flag spelling changed across CLI versions:
+// GitButler CLI >= 0.20 uses `--format json`, older releases used
+// `--json`. We try the spellings in order and remember the one that
+// works, so a single machine probes at most once. Passing the wrong
+// spelling exits 2 with an argument error, which — left unhandled —
+// would silently downgrade a GitButler project to plain git.
+const STATUS_VARIANTS: readonly (readonly string[])[] = [
+  ['status', '--format', 'json'],
+  ['status', '--json'],
+]
+let cachedVariantIndex: number | undefined
+
+// Convenience: run `but status` (JSON) and parse it in one call,
+// transparently falling back across flag spellings for older/newer CLIs.
 export async function butStatus(repoPath: string): Promise<ButStatus> {
-  const raw = await butJson(repoPath, ['status', '--json'])
-  return parseButStatus(raw)
+  const indices = STATUS_VARIANTS.map((_, i) => i)
+  const order =
+    cachedVariantIndex === undefined
+      ? indices
+      : [cachedVariantIndex, ...indices.filter((i) => i !== cachedVariantIndex)]
+
+  let lastErr: unknown
+  for (let k = 0; k < order.length; k++) {
+    const idx = order[k]!
+    const args = [...STATUS_VARIANTS[idx]!]
+    try {
+      const raw = await butJson(repoPath, args)
+      cachedVariantIndex = idx
+      return parseButStatus(raw)
+    } catch (e) {
+      lastErr = e
+      // Only a flag the CLI doesn't understand justifies trying the next
+      // spelling. Anything else (setup_required, not_a_repo, missing, a
+      // real parse error) is meaningful and must propagate untouched.
+      if (e instanceof ButCliError && e.code === 'unsupported_flag' && k < order.length - 1) {
+        continue
+      }
+      throw e
+    }
+  }
+  // Unreachable in practice (the loop returns or throws), but keeps the
+  // type checker satisfied and surfaces the last error if it ever is.
+  throw lastErr
+}
+
+// Test-only: reset the cached flag spelling so independent cases don't
+// leak the winning variant across the single-fork vitest process.
+export function resetButStatusVariantCacheForTests(): void {
+  cachedVariantIndex = undefined
 }
