@@ -31,7 +31,8 @@ import { createLogger } from './logger'
 import { resolvePaths } from './paths'
 import { PromptStore } from './prompts/store'
 import { makeRerunSession } from './rerun-session'
-import { makeStartSession, type ResolvedAgent } from './start-session'
+import { makeRetrySession } from './retry-session'
+import { makeStartSession, type ResolvedAgent, type StartSessionDeps } from './start-session'
 import { getAppVersion } from './version'
 
 export interface ServerHandle {
@@ -119,7 +120,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     return { agent, executable }
   }
 
-  const startSession = makeStartSession({
+  const startSessionDeps: StartSessionDeps = {
     sessions,
     findings,
     submissions,
@@ -132,8 +133,10 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
     paths: { home: paths.home, sessionsDir: paths.sessionsDir, codexHome: paths.codexHome },
     log,
     resolveAgent,
-  })
+  }
+  const startSession = makeStartSession(startSessionDeps)
   const rerun = makeRerunSession({ sessions, findings, startSession })
+  const retry = makeRetrySession(startSessionDeps)
   const deleteSession = makeDeleteSession({
     db,
     sessions,
@@ -207,6 +210,11 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       const fresh = await rerun(id, rerunOpts)
       log.info('rerun started', { id, freshId: fresh.id, agent: rerunOpts?.agent })
       return fresh
+    },
+    retrySession: async (id) => {
+      const result = await retry(id)
+      log.info('retry started', { id })
+      return result
     },
     deleteSession: async (id) => {
       await deleteSession(id)

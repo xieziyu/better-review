@@ -295,5 +295,19 @@ export function sessionsRoutes(deps: AppDeps): Hono {
       return c.json({ error: msg }, 400)
     }
   })
+  // In-place retry of a failed session: same id, frozen at the same PR state,
+  // reusing prep artifacts that already succeeded. Distinct from rerun, which
+  // archives this session and starts a fresh one against the PR's current head.
+  r.post('/sessions/:id/retry', async (c) => {
+    try {
+      const result = await deps.retrySession(c.req.param('id'))
+      return c.json(result, 202)
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg === 'not found') return c.json({ error: msg }, 404)
+      if (msg === 'not failed') return c.json({ error: msg }, 409)
+      return c.json({ error: msg }, 400)
+    }
+  })
   return r
 }

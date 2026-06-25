@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { SessionSource } from '../shared/source'
-import type { AgentKind } from '../shared/types'
+import type { AgentKind, PRSession } from '../shared/types'
 import type { Config } from './config'
 import type { FindingsRepo } from './db/findings'
 import type { SessionsRepo } from './db/sessions'
@@ -18,6 +18,9 @@ import type { ConcurrencyQueue } from './engine/queue'
 import type { PriorReviewContext } from './engine/rerun-context'
 import { runReview } from './engine/runner'
 import type { RunnerRegistry } from './engine/runner-registry'
+import { snapshotDirFor } from './git/snapshot'
+import type { SourceContext } from './git/source-prep'
+import { cleanupWorktree, worktreeDirFor } from './git/worktree'
 import { withGhCallRecorder, type GhClient } from './github/gh-client'
 import type { Logger } from './logger'
 import { resolveLocalRepoPath } from './paths'
@@ -223,63 +226,78 @@ export function makeStartSession(deps: StartSessionDeps): StartSessionFn {
     })
     deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'pending' })
 
-    const flow = getSourceFlow(source, { gh: deps.gh })
-
-    void deps.queue.run(id, async () => {
-      try {
-        const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
-        const prep = await withGhCallRecorder(
-          (rec) => prepLogger.recordCall(rec),
-          () =>
-            prepareReview({
-              deps,
-              id,
-              workdir,
-              sessionShort,
-              flow,
-              localRepoPath,
-              extraPrompt,
-              prepLogger,
-            }),
-        )
-        const runArgs: Parameters<typeof runReview>[0] = {
-          sessionId: id,
-          workdir,
-          prompt: prep.prompt,
-          agent: resolvedAgent.agent,
-          executable: resolvedAgent.executable,
-          sessions: deps.sessions,
-          findings: deps.findings,
-          bus: deps.bus,
-          stallMs: deps.getConfig().stallMinutes * 60_000,
-          runners: deps.runners,
-          codexHome: deps.paths.codexHome,
-        }
-        if (prep.sourcePath) runArgs.sourcePath = prep.sourcePath
-        await runReview(runArgs)
-      } catch (e) {
-        const msg = (e as Error).message
-        deps.log.warn('start-session prep failed', { id, error: msg })
-        deps.sessions.setError(id, msg)
-        deps.sessions.setStatus(id, 'failed')
-        deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'failed', error: msg })
-        deps.bus.emit({ type: 'error', sessionId: id, message: msg })
-        deps.bus.emit({ type: 'done', sessionId: id })
-      }
+    void deps.queue.run(id, () => {
+      const session = deps.sessions.getById(id)
+      // The row was inserted synchronously above, so getById always hits;
+      // the guard only narrows the type.
+      if (!session) return Promise.resolve()
+      return runSessionPipeline({ deps, session, resolvedAgent, resume: false })
     })
     return { id }
   }
 }
 
+export interface RunSessionPipelineArgs {
+  deps: StartSessionDeps
+  session: PRSession
+  resolvedAgent: ResolvedAgent
+  // false for a fresh session, true when re-entering a previously `failed`
+  // session (retry). On resume, prepareReview reuses any prep artifact that
+  // already succeeded (diff.cache, the materialized source tree) and pins the
+  // head SHA to the persisted value so the retry stays frozen at the same PR
+  // state the original run reviewed.
+  resume: boolean
+}
+
+// The body of one review run: prep → agent. Shared by startSession (fresh) and
+// retrySession (resume). Owns the terminal failure handling so any throw from
+// prep or the runner flips the session to `failed` with the error persisted.
+export async function runSessionPipeline(args: RunSessionPipelineArgs): Promise<void> {
+  const { deps, session, resolvedAgent, resume } = args
+  const id = session.id
+  const workdir = session.workdir
+  const sessionShort = id.slice(0, 8)
+  const flow = getSourceFlow(session.source, { gh: deps.gh })
+  try {
+    const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
+    const prep = await withGhCallRecorder(
+      (rec) => prepLogger.recordCall(rec),
+      () => prepareReview({ deps, session, workdir, sessionShort, flow, prepLogger, resume }),
+    )
+    const runArgs: Parameters<typeof runReview>[0] = {
+      sessionId: id,
+      workdir,
+      prompt: prep.prompt,
+      agent: resolvedAgent.agent,
+      executable: resolvedAgent.executable,
+      sessions: deps.sessions,
+      findings: deps.findings,
+      bus: deps.bus,
+      stallMs: deps.getConfig().stallMinutes * 60_000,
+      runners: deps.runners,
+      codexHome: deps.paths.codexHome,
+    }
+    if (prep.sourcePath) runArgs.sourcePath = prep.sourcePath
+    await runReview(runArgs)
+  } catch (e) {
+    const msg = (e as Error).message
+    deps.log.warn('session pipeline failed', { id, error: msg })
+    deps.sessions.setError(id, msg)
+    deps.sessions.setStatus(id, 'failed')
+    deps.bus.emit({ type: 'status-changed', sessionId: id, status: 'failed', error: msg })
+    deps.bus.emit({ type: 'error', sessionId: id, message: msg })
+    deps.bus.emit({ type: 'done', sessionId: id })
+  }
+}
+
 interface PrepareReviewArgs {
   deps: StartSessionDeps
-  id: string
+  session: PRSession
   workdir: string
   sessionShort: string
   flow: SourceFlow
-  localRepoPath: string | null
-  extraPrompt: string | null
   prepLogger: PrepLogger
+  resume: boolean
 }
 
 interface PrepareReviewResult {
@@ -287,11 +305,104 @@ interface PrepareReviewResult {
   sourcePath: string | null
 }
 
+// Read a file, returning its content only when non-blank. Used to decide
+// whether a prior attempt's diff.cache is reusable on resume.
+function readNonEmptyFile(path: string): string | null {
+  try {
+    const s = readFileSync(path, 'utf8')
+    return s.trim().length > 0 ? s : null
+  } catch {
+    return null
+  }
+}
+
+// On resume, reconstruct the SourceContext for a tree the prior attempt left on
+// disk. Returns null when there is nothing trustworthy to reuse (sourceKind not
+// yet persisted — prep never completed — or the materialized dir is gone), in
+// which case the caller rebuilds. Exported for unit testing.
+export function reuseSourceContext(session: PRSession, workdir: string): SourceContext | null {
+  switch (session.sourceKind) {
+    case 'none':
+      return {
+        kind: 'none',
+        sourcePath: '',
+        headSha: session.headSha ?? '',
+        refName: null,
+        partial: false,
+      }
+    case 'worktree': {
+      const dir = worktreeDirFor(workdir)
+      if (!existsSync(dir)) return null
+      return {
+        kind: 'worktree',
+        sourcePath: dir,
+        headSha: session.headSha ?? '',
+        refName: session.sourceRefName,
+        partial: false,
+      }
+    }
+    case 'snapshot': {
+      const dir = snapshotDirFor(workdir)
+      if (!existsSync(dir)) return null
+      return {
+        kind: 'snapshot',
+        sourcePath: dir,
+        headSha: session.headSha ?? '',
+        refName: null,
+        partial: true,
+      }
+    }
+    default:
+      return null
+  }
+}
+
+// Remove partial source artifacts from a failed attempt before rebuilding on
+// resume. A half-created worktree leaves a dir that `git worktree add` would
+// refuse; drop both the registry entry (best-effort) and the physical dir.
+async function cleanupPartialSource(
+  session: PRSession,
+  workdir: string,
+  log: StartSessionDeps['log'],
+): Promise<void> {
+  const wt = worktreeDirFor(workdir)
+  if (existsSync(wt)) {
+    if (session.localRepoPath) {
+      await cleanupWorktree({
+        localRepoPath: session.localRepoPath,
+        worktreeDir: wt,
+        refName: session.sourceRefName,
+        log,
+      })
+    }
+    if (existsSync(wt)) rmSync(wt, { recursive: true, force: true })
+  }
+  const snap = snapshotDirFor(workdir)
+  if (existsSync(snap)) rmSync(snap, { recursive: true, force: true })
+}
+
 async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResult> {
-  const { deps, id, workdir, sessionShort, flow, localRepoPath, extraPrompt, prepLogger } = args
+  const { deps, session, workdir, sessionShort, flow, prepLogger, resume } = args
+  const id = session.id
+  const localRepoPath = session.localRepoPath
+  const extraPrompt = session.extraPrompt
+
+  // On resume, a non-empty diff.cache means fetching-diff already succeeded on
+  // the prior attempt. Reuse it verbatim so the retry stays frozen at the same
+  // PR state the original run reviewed (the user chose retry, not rerun). The
+  // cached diff anchors the freeze — the head SHA and source tree below pin to
+  // match it.
+  const diffCachePath = join(workdir, 'diff.cache')
+  const cachedDiff = resume ? readNonEmptyFile(diffCachePath) : null
+  const frozen = cachedDiff !== null
 
   prepLogger.markPhase(PREP_PHASES.fetchingPR)
-  const meta = await flow.fetchMetadata()
+  const fetchedMeta = await flow.fetchMetadata()
+  // Pin the head SHA to the persisted value when honoring a frozen diff, so the
+  // source tree + prompt key off the exact SHA the diff was taken at even if the
+  // PR advanced between the failed run and this retry.
+  const meta =
+    frozen && session.headSha ? { ...fetchedMeta, headSha: session.headSha } : fetchedMeta
   // Backfill the row so the UI shows title/author as soon as we know them
   // (it's polling the session via React Query + SSE invalidation).
   deps.sessions.updatePRMeta(id, {
@@ -304,8 +415,14 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   })
 
   prepLogger.markPhase(PREP_PHASES.fetchingDiff)
-  const diff = await flow.fetchDiff()
-  writeFileSync(join(workdir, 'diff.cache'), diff.unifiedDiff)
+  let unifiedDiff: string
+  if (cachedDiff !== null) {
+    unifiedDiff = cachedDiff
+  } else {
+    const diff = await flow.fetchDiff()
+    writeFileSync(diffCachePath, diff.unifiedDiff)
+    unifiedDiff = diff.unifiedDiff
+  }
 
   // Prior review context + source prep are independent: kick them off in
   // parallel. priorContext internally fans out 3-4 gh api calls; source
@@ -318,6 +435,12 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
     : PREP_PHASES.preparingSourceSnapshot
   prepLogger.markPhase(PREP_PHASES.loadingPriorReview)
   prepLogger.markPhase(sourcePhase)
+  // On resume, reuse a source tree the prior attempt already materialized
+  // (its dir is still on disk). prepareReview only persists sourceKind once it
+  // runs to completion, so a non-null sourceKind here means prep finished last
+  // time and the artifact is trustworthy — skip the (often network-bound)
+  // rebuild. Otherwise clean any partial remains before rebuilding.
+  const reusedSource = resume ? reuseSourceContext(session, workdir) : null
   const [priorCtxResult, sourceResult] = await Promise.allSettled([
     withCurrentPhase(PREP_PHASES.loadingPriorReview, () =>
       flow.loadPriorContext({
@@ -329,16 +452,19 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
         authorLogin: meta.author,
       }),
     ),
-    withCurrentPhase(sourcePhase, () =>
-      flow.prepareSourceTree({
-        workdir,
-        sessionShort,
-        headSha: meta.headSha,
-        unifiedDiff: diff.unifiedDiff,
-        localRepoPath,
-        log: deps.log,
-      }),
-    ),
+    reusedSource
+      ? Promise.resolve(reusedSource)
+      : withCurrentPhase(sourcePhase, async () => {
+          if (resume) await cleanupPartialSource(session, workdir, deps.log)
+          return flow.prepareSourceTree({
+            workdir,
+            sessionShort,
+            headSha: meta.headSha,
+            unifiedDiff,
+            localRepoPath,
+            log: deps.log,
+          })
+        }),
   ])
   const priorCtx: PriorReviewContext | null =
     priorCtxResult.status === 'fulfilled' ? priorCtxResult.value : null
@@ -366,8 +492,8 @@ async function prepareReview(args: PrepareReviewArgs): Promise<PrepareReviewResu
   // fed to the agent so we don't burn prompt tokens on them. `diff.cache`
   // above keeps the raw full diff for the web UI + submit-time validation.
   const excludeGlobs = resolveExcludeGlobs(deps.getConfig().reviewExcludeGlobs)
-  const filtered = filterDiffByGlobs(diff.unifiedDiff, excludeGlobs)
-  const diffForAgent = chooseDiffForAgent(diff.unifiedDiff, filtered)
+  const filtered = filterDiffByGlobs(unifiedDiff, excludeGlobs)
+  const diffForAgent = chooseDiffForAgent(unifiedDiff, filtered)
   // Persist the exclusions so the Summary tab can show what the agent never
   // saw, even on a daemon restart. When chooseDiffForAgent fell back to the
   // raw diff (every file matched a glob), the agent *did* see those files —

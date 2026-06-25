@@ -100,6 +100,10 @@ export const api = {
     if (body) init.body = JSON.stringify(body)
     return req(`/api/sessions/${id}/rerun`, init)
   },
+  // In-place retry of a failed session: resumes the same session id rather than
+  // creating a fresh one (cf. rerunSession). Returns the same id.
+  retrySession: (id: string): Promise<{ id: string }> =>
+    req(`/api/sessions/${id}/retry`, { method: 'POST' }),
   createManualFinding: async (sessionId: string, b: ManualFindingInput): Promise<Finding> => {
     const r = await req<{ finding: Finding }>(`/api/sessions/${sessionId}/findings/manual`, {
       method: 'POST',

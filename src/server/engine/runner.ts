@@ -9,6 +9,13 @@ import { watchFindings } from './findings-watcher'
 import type { RunnerRegistry } from './runner-registry'
 import { watchSummary } from './summary-watcher'
 
+// Content identity of a finding, shared by agent-emitted findings and persisted
+// rows. Used for cross-run dedup on retry (see runReview). JSON-encoding the
+// tuple keeps distinct fields from colliding without embedding control chars.
+function findingKey(f: { file: string | null; line: number | null; title: string }): string {
+  return JSON.stringify([f.file, f.line, f.title])
+}
+
 export interface RunReviewArgs {
   sessionId: string
   workdir: string
@@ -55,6 +62,12 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
   let resultOk: boolean | null = null
 
   const seenIds = new Set<string>()
+  // Cross-run dedup, keyed by content (file|line|title) because the agent's own
+  // `id` values are not persisted. Seeded from findings already ingested for
+  // this session so a retry — which re-runs the agent over the leftover
+  // findings.json and re-emits the prior run's findings — does not double-insert
+  // them. Empty for a fresh run, so behavior there is unchanged.
+  const seenKeys = new Set<string>(findings.listBySession(sessionId).map(findingKey))
   const stopWatcher = await watchFindings(findingsPath, (result) => {
     if (cancelled) return
     if (!result.ok) {
@@ -69,9 +82,12 @@ export async function runReview(args: RunReviewArgs): Promise<void> {
         message: `findings.json: skipped ${result.skipped.length} invalid finding(s): ${detail}`,
       })
     }
-    const fresh = result.data.filter((f) => !seenIds.has(f.id))
+    const fresh = result.data.filter((f) => !seenIds.has(f.id) && !seenKeys.has(findingKey(f)))
     if (fresh.length === 0) return
-    fresh.forEach((f) => seenIds.add(f.id))
+    fresh.forEach((f) => {
+      seenIds.add(f.id)
+      seenKeys.add(findingKey(f))
+    })
     const inserted = findings.insertMany(sessionId, fresh)
     inserted.forEach((f) => bus.emit({ type: 'finding-added', sessionId, finding: f }))
   })
