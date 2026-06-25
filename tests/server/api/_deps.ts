@@ -21,6 +21,7 @@ import { PromptStore } from '../../../src/server/prompts/store'
 export interface DepsOverrides {
   startSession?: AppDeps['startSession']
   rerunSession?: AppDeps['rerunSession']
+  retrySession?: AppDeps['retrySession']
   deleteSession?: AppDeps['deleteSession']
   cancelSession?: AppDeps['cancelSession']
   submitSession?: AppDeps['submitSession']
@@ -86,6 +87,7 @@ export function makeTestDeps(overrides: DepsOverrides = {}): AppDeps {
     getPort: () => 5555,
     startSession: overrides.startSession ?? (async () => ({ id: 'new1' })),
     rerunSession: overrides.rerunSession ?? (async () => ({ id: 'fresh1' })),
+    retrySession: overrides.retrySession ?? (async () => ({ id: 'retry1' })),
     deleteSession: overrides.deleteSession ?? defaultDelete,
     cancelSession: overrides.cancelSession ?? defaultCancel,
     submitSession:

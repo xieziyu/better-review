@@ -117,6 +117,8 @@ Multi-tab edits sync over SSE.
 
 Every rerun archives the previous round; the live page shows a `Round 2`, `Round 3`, … tag and the prior runs become read-only history (`/session/<old-id>` still loads, just without Submit/Edit; legacy `/pr/<id>` URLs redirect). Reruns also feed the previous review back to the agent: the prior review body, your prior inline comments, plus the PR-conversation thread are inlined into the prompt under a `PRIOR REVIEW` section, so the agent can build on past judgment instead of starting from scratch. Force-pushes are detected and called out explicitly. Cancel a running review with the **Stop** button (sends SIGTERM, then SIGKILL on timeout).
 
+A **failed** run (transient network / `gh` / agent error) also gets a **Retry** button. Unlike Rerun, Retry resumes the _same_ session in place — no new round, frozen at the same PR state — and reuses whatever prep already succeeded (the fetched diff, the materialized source tree), so it only re-runs the steps that actually failed. Findings already collected are kept, not cleared. Reach for Retry when you just want to try again; reach for Rerun when you want to review the PR's newer commits.
+
 ### Submit to GitHub
 
 The **Submit** drawer is two steps:
@@ -217,7 +219,7 @@ For deeper architecture and design rationale, see [`CLAUDE.md`](./CLAUDE.md), [`
 
 **Status dot turns red, popover shows `gh: not authed`.** The daemon inherits the env from the shell that started it. Run `gh auth login` and then `better-review restart`.
 
-**Agent runs forever and nothing happens.** Default watchdog is 3 minutes of silent stdout; raise `stallMinutes` if your reviews legitimately go quiet for longer. After a kill, the session goes `failed` — click **Rerun**.
+**Agent runs forever and nothing happens.** Default watchdog is 3 minutes of silent stdout; raise `stallMinutes` if your reviews legitimately go quiet for longer. After a kill, the session goes `failed` — click **Retry** to resume it in place (reuses the prep work already done), or **Rerun** to start a fresh round.
 
 **I edited the prompt — does it re-run my open PRs?** No. Existing findings stay put; click **Rerun** on the PR detail page (or **Apply to current session** in the prompt editor) to re-execute with the current rules.
 

@@ -116,6 +116,8 @@ PR 详情页有三个 tab —— **Summary**（概览）、**Findings**、**File
 
 每次 rerun 会归档上一轮：当前页面顶部出现 `Round 2` / `Round 3` 等轮次标签，旧的轮次页面（`/session/<old-id>`）仍可访问，但变为只读历史；旧的 `/pr/<id>` 链接会自动重定向到新路径。rerun 同时会把上一轮 review 反馈给 agent——上一轮的 review body、你之前提交的 inline comments、连同 PR conversation thread 都会注入 prompt 的 `PRIOR REVIEW` 段落，让 agent 在过往判断的基础上继续审而不是从零开始。强推会被识别并显式提示。运行中的 review 可以用 **Stop** 按钮取消（先 SIGTERM，超时升级 SIGKILL）。
 
+**失败**（网络 / `gh` / agent 临时抽风）的 run 还会出现 **续跑（Retry）** 按钮。和 rerun 不同，续跑是**原地**恢复同一个 session——不新建轮次、冻结在原来的 PR 状态——并复用已经成功的 prep 产物（已拉取的 diff、已物化的 source 树），只重跑真正失败的环节。已经收集到的 finding 会保留，不会被清掉。只是想再试一次就用续跑；想针对 PR 的新提交重新审就用 rerun。
+
 ### 提交到 GitHub
 
 **Submit** 抽屉分两步：
@@ -216,7 +218,7 @@ pnpm run format        # 写盘；CI 用 format:check
 
 **状态点变红、浮层显示 `gh: not authed`。** daemon 继承的是启动 shell 的环境变量。`gh auth login` 后 `better-review restart`。
 
-**agent 跑很久不结束。** 默认 3 分钟无 stdout 就 watchdog 杀；如果你的 review 本来就慢，调大 `stallMinutes`。被杀后 session 状态变 `failed`，点 **Rerun**。
+**agent 跑很久不结束。** 默认 3 分钟无 stdout 就 watchdog 杀；如果你的 review 本来就慢，调大 `stallMinutes`。被杀后 session 状态变 `failed`，点 **续跑（Retry）** 原地恢复（复用已经做完的 prep），或点 **Rerun** 开启新一轮。
 
 **改了 prompt，已开的 PR 会自动重跑吗？** 不会。已生成的 finding 留在原地；要用新规则就在 PR 详情页点 **Rerun**，或者在 prompt 编辑器里点 **Apply to current session**。
 

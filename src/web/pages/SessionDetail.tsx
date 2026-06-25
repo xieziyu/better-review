@@ -16,6 +16,7 @@ import {
   ExternalLink,
   FileText,
   FolderGit2,
+  RotateCcw,
   RotateCw,
   Square,
   Trash2,
@@ -87,10 +88,14 @@ interface PRHeaderProps {
   // orphaned archived heads (where the server allows recovery).
   allowRerun: boolean
   onRerun: () => void
+  // In-place retry of a failed session (same id, frozen PR state, reuses prep
+  // artifacts). Distinct from rerun, which archives this run and starts fresh.
+  onRetry: () => void
   onSubmit: () => void
   onDelete: () => void
   onCancel: () => void
   rerunPending: boolean
+  retryPending: boolean
   deletePending: boolean
   cancelPending: boolean
   rerunAgent: AgentKind
@@ -107,10 +112,12 @@ function PRHeader({
   isHistorical,
   allowRerun,
   onRerun,
+  onRetry,
   onSubmit,
   onDelete,
   onCancel,
   rerunPending,
+  retryPending,
   deletePending,
   cancelPending,
   rerunAgent,
@@ -278,6 +285,19 @@ function PRHeader({
               </Button>
             )}
           </ConfirmAction>
+          {session.status === 'failed' ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onRetry}
+              disabled={retryPending}
+              title={t('prdetail.retryTitle')}
+            >
+              <RotateCcw size={12} className={retryPending ? 'animate-spin' : undefined} />
+              {t('prdetail.retry')}
+            </Button>
+          ) : null}
           {allowRerun ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
           {allowRerun ? (
             session.status === 'running' ? (
@@ -745,6 +765,16 @@ export function SessionDetail() {
     },
   })
 
+  // Retry resumes the same session in place — no navigation. The status flip
+  // and resumed prep/agent progress arrive over SSE; we just refetch the row.
+  const retry = useMutation({
+    mutationFn: () => api.retrySession(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.session(id) })
+      void qc.invalidateQueries({ queryKey: queryKeys.sessions })
+    },
+  })
+
   const remove = useMutation({
     mutationFn: () => api.deleteSession(id),
     onSuccess: () => {
@@ -944,10 +974,12 @@ export function SessionDetail() {
           isHistorical={isHistorical}
           allowRerun={!isHistorical || !!isOrphanArchived}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
+          onRetry={() => retry.mutate()}
           onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
           onCancel={() => cancel.mutate()}
           rerunPending={rerun.isPending}
+          retryPending={retry.isPending}
           deletePending={remove.isPending}
           cancelPending={cancel.isPending}
           rerunAgent={effectiveRerunAgent}

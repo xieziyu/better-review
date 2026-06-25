@@ -1076,6 +1076,46 @@ describe('sessions API', () => {
     expect(body.id).toBe('recovered')
   })
 
+  it('POST /api/sessions/:id/retry calls retrySession and returns the same id', async () => {
+    let receivedId: string | null = null
+    const deps = makeTestDeps({
+      retrySession: async (id) => {
+        receivedId = id
+        return { id }
+      },
+    })
+    insertReadySession(deps)
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/retry', { method: 'POST' })
+    expect(res.status).toBe(202)
+    const body = (await res.json()) as { id: string }
+    expect(body.id).toBe('s1')
+    expect(receivedId).toBe('s1')
+  })
+
+  it('POST /api/sessions/:id/retry returns 404 when the session is unknown', async () => {
+    const deps = makeTestDeps({
+      retrySession: async () => {
+        throw new Error('not found')
+      },
+    })
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/missing/retry', { method: 'POST' })
+    expect(res.status).toBe(404)
+  })
+
+  it('POST /api/sessions/:id/retry returns 409 when the session is not failed', async () => {
+    const deps = makeTestDeps({
+      retrySession: async () => {
+        throw new Error('not failed')
+      },
+    })
+    insertReadySession(deps)
+    const app = createApp(deps)
+    const res = await app.request('/api/sessions/s1/retry', { method: 'POST' })
+    expect(res.status).toBe(409)
+  })
+
   it('POST /api/sessions/:id/cancel cancels a running session and writes cancelled status', async () => {
     const deps = makeTestDeps()
     deps.sessions.insert({

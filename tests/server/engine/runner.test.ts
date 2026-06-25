@@ -501,6 +501,102 @@ describe('runReview (cancellation)', () => {
   }, 15_000)
 })
 
+describe('runReview (retry dedup)', () => {
+  let workdir: string
+  let sessions: SessionsRepo
+  let findings: FindingsRepo
+  let bus: EventBus
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'br-run-'))
+    const db = openDatabase(join(dir, 's.db'))
+    sessions = new SessionsRepo(db)
+    findings = new FindingsRepo(db)
+    bus = new EventBus()
+    workdir = mkdtempSync(join(tmpdir(), 'br-run-wd-'))
+    sessions.insert({
+      id: 'rt1',
+      owner: 'o',
+      repo: 'r',
+      number: 1,
+      title: null,
+      author: null,
+      url: null,
+      baseRef: null,
+      headRef: null,
+      status: 'pending',
+      agent: 'claude',
+      workdir,
+      localRepoPath: null,
+      promptUsed: 'p',
+    })
+  })
+
+  it('keeps prior findings without duplicating them, and appends genuinely new ones', async () => {
+    // Simulate the state after a failed run: one finding already ingested.
+    findings.insertMany('rt1', [
+      {
+        id: 'A1',
+        severity: 'must',
+        category: 'Correctness',
+        file: 'src/x.ts',
+        line: 10,
+        title: 'Bug',
+        body: 'desc',
+      },
+    ])
+    // The resumed agent re-emits the same finding (different agent id, same
+    // content) plus a new one. Content-key dedup must drop the repeat.
+    process.env.FAKE_CLAUDE_BODY = JSON.stringify([
+      {
+        id: 'B9',
+        severity: 'must',
+        category: 'Correctness',
+        file: 'src/x.ts',
+        line: 10,
+        title: 'Bug',
+        body: 'desc (reworded)',
+      },
+      {
+        id: 'B10',
+        severity: 'should',
+        category: 'Correctness',
+        file: 'src/y.ts',
+        line: 20,
+        title: 'Other',
+        body: 'new one',
+      },
+    ])
+    try {
+      const events: SSEEvent[] = []
+      bus.subscribeGlobal((e) => events.push(e))
+      const promptText = `do review. FINDINGS_PATH=${join(workdir, 'findings.json')}`
+      writeFileSync(join(workdir, 'prompt.txt'), promptText)
+      await runReview({
+        sessionId: 'rt1',
+        workdir,
+        prompt: promptText,
+        agent: getAgent('claude'),
+        executable: FAKE_CLAUDE,
+        sessions,
+        findings,
+        bus,
+        stallMs: 60_000,
+        runners: new RunnerRegistry(),
+      })
+      const all = findings.listBySession('rt1')
+      // Original kept (not duplicated) + one new = 2.
+      expect(all).toHaveLength(2)
+      expect(all.filter((f) => f.title === 'Bug')).toHaveLength(1)
+      expect(all.some((f) => f.title === 'Other')).toBe(true)
+      // Only the genuinely new finding broadcasts a finding-added event.
+      const added = events.filter((e) => e.type === 'finding-added')
+      expect(added).toHaveLength(1)
+    } finally {
+      delete process.env.FAKE_CLAUDE_BODY
+    }
+  })
+})
+
 describe('runReview (claude result-after-linger)', () => {
   let workdir: string
   let sessions: SessionsRepo

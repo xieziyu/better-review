@@ -54,6 +54,7 @@ export interface AppDeps {
       extraPrompt?: string
     },
   ) => Promise<{ id: string }>
+  retrySession: (id: string) => Promise<{ id: string }>
   deleteSession: (id: string) => Promise<void>
   cancelSession: (id: string) => Promise<void>
   submitSession: (
