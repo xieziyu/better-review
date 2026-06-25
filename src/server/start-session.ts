@@ -260,10 +260,22 @@ export async function runSessionPipeline(args: RunSessionPipelineArgs): Promise<
   const flow = getSourceFlow(session.source, { gh: deps.gh })
   try {
     const prepLogger = new PrepLogger({ workdir, sessionId: id, bus: deps.bus })
-    const prep = await withGhCallRecorder(
-      (rec) => prepLogger.recordCall(rec),
-      () => prepareReview({ deps, session, workdir, sessionShort, flow, prepLogger, resume }),
-    )
+    // On retry, if the prior attempt's prep already ran to completion, resume
+    // straight from the persisted artifacts and skip prepareReview entirely —
+    // no fetchMetadata / prior-context / prompt re-render, hence no gh/network
+    // dependency for a phase that already succeeded (the common case: the agent
+    // stalled or errored after prep was done). Returns null when prep never
+    // finished or the source tree is gone, falling back to the resume rebuild.
+    const resumed = resume ? resumeFromCompletedPrep(session, workdir) : null
+    if (resumed) {
+      deps.log.info('retry resuming from completed prep; skipping metadata fetch', { id })
+    }
+    const prep =
+      resumed ??
+      (await withGhCallRecorder(
+        (rec) => prepLogger.recordCall(rec),
+        () => prepareReview({ deps, session, workdir, sessionShort, flow, prepLogger, resume }),
+      ))
     const runArgs: Parameters<typeof runReview>[0] = {
       sessionId: id,
       workdir,
@@ -354,6 +366,29 @@ export function reuseSourceContext(session: PRSession, workdir: string): SourceC
     }
     default:
       return null
+  }
+}
+
+// On retry, reconstruct the runReview inputs from artifacts the prior attempt
+// already persisted, letting runSessionPipeline skip prepareReview altogether.
+// `promptUsed` is the last thing prepareReview persists, so a non-empty value is
+// a reliable "prep finished" signal; combined with a reusable source tree this
+// reproduces the exact prompt + sourcePath the original run used. Returns null
+// when prep never completed or the materialized source dir is gone, in which
+// case the caller falls back to the full resume rebuild. Reusing the persisted
+// prompt verbatim also keeps the retry frozen at the same PR state the original
+// run reviewed — title/body/refs included — rather than splicing freshly-fetched
+// metadata into a frozen diff. Exported for unit testing.
+export function resumeFromCompletedPrep(
+  session: PRSession,
+  workdir: string,
+): PrepareReviewResult | null {
+  if (session.promptUsed.trim().length === 0) return null
+  const sourceCtx = reuseSourceContext(session, workdir)
+  if (!sourceCtx) return null
+  return {
+    prompt: session.promptUsed,
+    sourcePath: sourceCtx.kind !== 'none' && sourceCtx.sourcePath ? sourceCtx.sourcePath : null,
   }
 }
 
