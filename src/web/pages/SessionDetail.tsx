@@ -16,7 +16,6 @@ import {
   ExternalLink,
   FileText,
   FolderGit2,
-  RotateCcw,
   RotateCw,
   Square,
   Trash2,
@@ -26,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ExportPopover } from '@/components/ExportPopover'
+import { FailedRecovery } from '@/components/FailedRecovery'
 import { FilesChangedView } from '@/components/files-changed/FilesChangedView'
 import { FindingsWorkspace } from '@/components/FindingsWorkspace'
 import { ReviewSummary } from '@/components/ReviewSummary'
@@ -88,14 +88,10 @@ interface PRHeaderProps {
   // orphaned archived heads (where the server allows recovery).
   allowRerun: boolean
   onRerun: () => void
-  // In-place retry of a failed session (same id, frozen PR state, reuses prep
-  // artifacts). Distinct from rerun, which archives this run and starts fresh.
-  onRetry: () => void
   onSubmit: () => void
   onDelete: () => void
   onCancel: () => void
   rerunPending: boolean
-  retryPending: boolean
   deletePending: boolean
   cancelPending: boolean
   rerunAgent: AgentKind
@@ -112,12 +108,10 @@ function PRHeader({
   isHistorical,
   allowRerun,
   onRerun,
-  onRetry,
   onSubmit,
   onDelete,
   onCancel,
   rerunPending,
-  retryPending,
   deletePending,
   cancelPending,
   rerunAgent,
@@ -128,6 +122,9 @@ function PRHeader({
   const { t } = useTranslation()
   const nav = useNavigate()
   const isLocal = isLocalSource(session.source)
+  // Failed sessions surface Rerun (alongside Retry) inside the in-tab recovery
+  // card instead — keep it out of the top action bar to avoid confusing the two.
+  const showRerun = allowRerun && session.status !== 'failed'
   const headerLabel = sessionDisplayLabel(session)
   // Jump to the prompt editor. Carry the session's pinned repo (when any) as a
   // query param so the editor resolves the effective rule chain — project →
@@ -285,21 +282,8 @@ function PRHeader({
               </Button>
             )}
           </ConfirmAction>
-          {session.status === 'failed' ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={onRetry}
-              disabled={retryPending}
-              title={t('prdetail.retryTitle')}
-            >
-              <RotateCcw size={12} className={retryPending ? 'animate-spin' : undefined} />
-              {t('prdetail.retry')}
-            </Button>
-          ) : null}
-          {allowRerun ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
-          {allowRerun ? (
+          {showRerun ? <span className="h-5 w-px bg-rule" aria-hidden="true" /> : null}
+          {showRerun ? (
             session.status === 'running' ? (
               <ConfirmAction
                 title={t('prdetail.rerunRunningTitle')}
@@ -721,7 +705,8 @@ export function SessionDetail() {
   }, [id])
 
   // Adaptive default tab: once the session loads, land a terminal session
-  // (results are in) on Summary, and a pre-terminal one on Files. Runs once
+  // (results are in) on Summary, a failed one on Findings (where the recovery
+  // card — Retry vs Rerun — lives), and a pre-terminal one on Files. Runs once
   // per id — later refetches (SSE invalidations, status changes) must not
   // override a tab the user has since picked.
   useEffect(() => {
@@ -729,6 +714,7 @@ export function SessionDetail() {
     tabInitForRef.current = id
     const s = data.session.status
     if (s === 'ready' || s === 'submitted' || s === 'archived') setActiveTab('summary')
+    else if (s === 'failed') setActiveTab('findings')
   }, [id, data])
 
   useEffect(() => {
@@ -858,27 +844,22 @@ export function SessionDetail() {
             title: t('prdetail.findingsStreamingTitle'),
             body: t('prdetail.findingsStreamingBody'),
           }
-        : session.status === 'failed'
+        : session.status === 'cancelled'
           ? {
-              title: t('prdetail.findingsFailedTitle'),
-              body: t('prdetail.findingsFailedBody'),
+              title: t('prdetail.findingsCancelledTitle'),
+              body: t('prdetail.findingsCancelledBody'),
             }
-          : session.status === 'cancelled'
+          : session.status === 'submitted'
             ? {
-                title: t('prdetail.findingsCancelledTitle'),
-                body: t('prdetail.findingsCancelledBody'),
+                title: t('prdetail.findingsSubmittedTitle'),
+                body: t('prdetail.findingsSubmittedBody'),
               }
-            : session.status === 'submitted'
+            : session.status === 'archived'
               ? {
-                  title: t('prdetail.findingsSubmittedTitle'),
-                  body: t('prdetail.findingsSubmittedBody'),
+                  title: t('prdetail.findingsArchivedTitle'),
+                  body: t('prdetail.findingsArchivedBody'),
                 }
-              : session.status === 'archived'
-                ? {
-                    title: t('prdetail.findingsArchivedTitle'),
-                    body: t('prdetail.findingsArchivedBody'),
-                  }
-                : null
+              : null
       : null
 
   const findingsTabBody =
@@ -900,6 +881,39 @@ export function SessionDetail() {
           }
         />
       </div>
+    ) : session.status === 'failed' ? (
+      // Failed: surface the recovery card (Retry vs Rerun, explained) here
+      // rather than via the top action bar. When the agent managed to produce
+      // some findings before dying, keep the card above the workspace so the
+      // recovery affordance is never lost.
+      activeFindings.length === 0 ? (
+        <div className="px-8 py-10">
+          <FailedRecovery
+            onRetry={() => retry.mutate()}
+            onRerun={() => rerun.mutate(effectiveRerunAgent)}
+            retryPending={retry.isPending}
+            rerunPending={rerun.isPending}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="px-8 pt-6 pb-1">
+            <FailedRecovery
+              onRetry={() => retry.mutate()}
+              onRerun={() => rerun.mutate(effectiveRerunAgent)}
+              retryPending={retry.isPending}
+              rerunPending={rerun.isPending}
+            />
+          </div>
+          <FindingsWorkspace
+            findings={activeFindings}
+            session={session}
+            unifiedDiff={unifiedDiff}
+            selectedCount={selectedCount}
+            readOnly={isHistorical}
+          />
+        </div>
+      )
     ) : emptyFindingsCopy ? (
       <div className="px-8 py-10">
         <EmptyState title={emptyFindingsCopy.title} body={emptyFindingsCopy.body} />
@@ -974,12 +988,10 @@ export function SessionDetail() {
           isHistorical={isHistorical}
           allowRerun={!isHistorical || !!isOrphanArchived}
           onRerun={() => rerun.mutate(effectiveRerunAgent)}
-          onRetry={() => retry.mutate()}
           onSubmit={submitDrawer.open}
           onDelete={() => remove.mutate()}
           onCancel={() => cancel.mutate()}
           rerunPending={rerun.isPending}
-          retryPending={retry.isPending}
           deletePending={remove.isPending}
           cancelPending={cancel.isPending}
           rerunAgent={effectiveRerunAgent}
