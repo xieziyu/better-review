@@ -17,6 +17,9 @@ function withRoute(
     // Seed for the global ['sessions'] query so SessionDetail can compute
     // round-number and orphan-archived state without a real fetch.
     allSessions?: PRSession[]
+    // Seed for the ['session-transcript', id] query so the transcript drawer
+    // has agent-log content to render.
+    transcript?: string[]
   },
 ) {
   const qc = new QueryClient({
@@ -28,6 +31,12 @@ function withRoute(
       findings: initial.findings ?? [],
     })
     qc.setQueryData(['session', initial.session.id, 'diff'], initial.diff ?? null)
+    if (initial.transcript !== undefined) {
+      qc.setQueryData(['session-transcript', initial.session.id], {
+        chunks: initial.transcript,
+        truncated: false,
+      })
+    }
   }
   if (initial?.allSessions !== undefined) {
     qc.setQueryData(['sessions'], initial.allSessions)
@@ -183,6 +192,100 @@ describe('SessionDetail', () => {
       }),
     )
     expect(screen.getByText(/claude crashed/)).toBeInTheDocument()
+  })
+
+  describe('failed recovery', () => {
+    const failed: PRSession = { ...session, status: 'failed', error: 'agent stalled' }
+
+    // The retry test installs a window.fetch spy; restore it so a later test's
+    // seeded transcript query is not clobbered by a leaked refetch.
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('renders the recovery card with Retry and Rerun in the findings tab', () => {
+      render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
+      expect(screen.getByText('Run did not finish')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Retry$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Rerun$/i })).toBeInTheDocument()
+    })
+
+    it('keeps Retry out of the top action bar (single Retry affordance)', () => {
+      render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
+      expect(screen.getAllByRole('button', { name: /^Retry$/i })).toHaveLength(1)
+    })
+
+    it('POSTs /api/sessions/:id/retry when Retry is clicked', async () => {
+      const user = userEvent.setup()
+      const fetchSpy = vi.spyOn(window, 'fetch').mockImplementation(async (url, init) => {
+        void init
+        const u = String(url)
+        if (u === '/api/sessions/s1/retry') {
+          return new Response(JSON.stringify({ id: 's1' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+        // The retry mutation invalidates the session-detail query, forcing a
+        // refetch — answer it with a valid payload so the page can re-render.
+        if (u === '/api/sessions/s1') {
+          return new Response(JSON.stringify({ session: failed, findings: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+        if (u === '/api/health') {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              defaultAgent: 'claude',
+              agents: {
+                codex: { found: true },
+                claude: { found: true },
+                pi: { found: true },
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          )
+        }
+        return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+      })
+      render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
+      await user.click(screen.getByRole('button', { name: /^Retry$/i }))
+      await vi.waitFor(() => {
+        const retryCall = fetchSpy.mock.calls.find(
+          ([u, callInit]) =>
+            String(u) === '/api/sessions/s1/retry' &&
+            (callInit as RequestInit | undefined)?.method === 'POST',
+        )
+        expect(retryCall).toBeDefined()
+      })
+    })
+
+    it('opens the transcript drawer from the recovery card when a log exists', async () => {
+      const user = userEvent.setup()
+      render(
+        withRoute(<SessionDetail />, {
+          session: failed,
+          findings: [],
+          transcript: ['agent started', 'boom: timed out'],
+        }),
+      )
+      await user.click(screen.getByRole('button', { name: /View agent log/i }))
+      expect(screen.getByRole('button', { name: /Close activity drawer/i })).toBeInTheDocument()
+    })
+
+    it('hides "View agent log" when the failed session produced no log', () => {
+      render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
+      expect(screen.queryByRole('button', { name: /View agent log/i })).not.toBeInTheDocument()
+    })
+
+    it('still surfaces the recovery card when the failed run produced findings', () => {
+      render(withRoute(<SessionDetail />, { session: failed, findings: [finding] }))
+      expect(screen.getByText('Run did not finish')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Retry$/i })).toBeInTheDocument()
+      expect(screen.getByText('Test finding')).toBeInTheDocument()
+    })
   })
 
   it('shows passive submitted line when status=submitted', () => {
