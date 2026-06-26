@@ -8,6 +8,29 @@ Format roughly follows [Keep a Changelog](https://keepachangelog.com/) and the p
 
 _(no unreleased changes)_
 
+## [0.6.0] — 2026-06-26
+
+### Added
+
+- **Retry failed sessions in place** — failed sessions gain a **Retry** flow that keeps the same session id and frozen PR state, reuses successful prep artifacts, and deduplicates findings across resumed agent runs (distinct from **Rerun**, which archives the round and starts fresh). The recovery action now surfaces as a `FailedRecovery` card inside the Findings tab — where the decision is actually made — pairing Retry and Rerun side by side with a one-line explanation of each; failed sessions default to the Findings tab so the card is the first thing you see, and partial findings produced before the failure are preserved above it. (#58, #59)
+- **Expand hidden lines between diff hunks (GitHub-style)** — clickable expander bars between hunks and at file head/tail pull real file content on demand from the session source (`GET /api/sessions/:id/file`), so off-diff findings can be located in context with one click. Bars appear in both the Files Changed and Finding-detail diff views; >20-line gaps expand a screen at a time (▲/▼), ≤20-line gaps expand fully. The file endpoint is capability-bounded to the session's diff-touched paths and hardened against symlink escape via `realpathSync`. (#51)
+- **Prompt-rules shortcut from session detail** — a new **"Prompt rules"** button on the review header jumps to the Prompt editor, carrying the session's pinned local repo via a `?repo=` query param (refresh-safe, shareable) and landing on the effective-guidelines view that resolves the same project → global → builtin chain the review uses. (#49)
+- **Persist local & vbranch repo/branch selection across refresh** — the Local-branch and GitButler-vbranch tabs now mirror their repo path and branch selection to `localStorage` via a new `usePersistedState` hook, so a page reload no longer wipes the choice. The PR tab keeps its own auto-fill-from-URL behavior. (#47)
+
+### Changed
+
+- **Full-width inline findings in split diff view** — inline finding cards (and the add-finding form / selection bar) now render through `<Decoration>` so they span all columns in side-by-side split view instead of cramping into the new-side half. Hunks are split at finding-anchored changes with the card woven in as a full-width row; one render path now serves both split and unified views. (#54)
+- **Merged local head/base selectors** — the Local-branch tab's Head and Base selectors sit side by side on one row with a compare icon between them, and the read-only hint copy on the Local and vbranch tabs is removed. (#52)
+- **LGTM clean-review empty state** — the findings empty state for a finished review with zero findings now reads as a positive "Looks good to me" result instead of the neutral "No issues found"; only the review-finished-clean state changed, leaving running/failed/cancelled states untouched. (#50)
+- **Project cleanup** — a behavior-preserving sweep that removes dead code and zero-reference dependencies (`nanoid`, `supertest`, `@types/supertest`, `concurrently`), consolidates duplicate definitions (`SessionNotFoundError` → `session-errors.ts`, the findings/summary watchers → a generic `engine/json-file.ts`, the cross-end diff-line validator → `shared/diff-lines.ts`), unifies the `rerunSession` return contract on `{id}`, clears pre-existing `tsconfig.test.json` type errors, and realigns `CLAUDE.md` to the current architecture. (#53)
+
+### Fixed
+
+- **GitButler CLI version compatibility** — `but status` switched its JSON flag from `--json` to `--format json` in v0.20, and the hardcoded `--json` made `inspectLocalSource` silently misclassify a real GitButler workspace as a plain git repo (vbranch selector vanished). `butStatus` now tries both flag spellings, caches the working one, and classifies clap argument errors as a distinct `unsupported_flag` code to drive the fallback; `BETTER_REVIEW_BUT_BIN` allows overriding the binary. (#57)
+- **Auto-fill local repo from a pasted PR URL** — a directory previously reviewed only as a local branch (empty `owner`/`repo`) never matched its own PR URL, so the local-repo field stayed blank. recent-repos now falls back to a `git remote -v` check (`repoMatchesGithubRepo`) for unmatched candidates and surfaces the match. (#56)
+- **Tolerate `null` finding fields and parse per-element** — codex writes `"suggestion": null` for entries without an inline suggestion, which the `z.string().optional()` schema rejected; because `findings.json` was validated as a whole array, one bad element dropped all findings (sessions showing 0 findings despite a written file). `suggestion`/`startLine` now use `.nullish()` + `.transform()` to normalize `null` → `undefined`, and the parser validates per-element so valid findings ingest while invalid ones are skipped with a non-fatal error. (#55)
+- **Scope the prompt repo selector to the Project tab** — the PromptEditor repo path selector was rendered on all tabs but only serves the Project scope (`<localRepoPath>/.better-review/review.md`); it is now shown only on the Project tab. (#48)
+
 ## [0.5.0] — 2026-06-08
 
 ### Added
