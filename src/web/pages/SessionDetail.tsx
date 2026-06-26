@@ -209,7 +209,7 @@ function PRHeader({
             {t('prdetail.agentLabel')}
           </span>
           {AGENT_KINDS.map((k) => {
-            const found = health?.agents[k].found ?? true
+            const found = health?.agents[k]?.found ?? true
             const selected = rerunAgent === k
             return (
               <button
@@ -862,6 +862,13 @@ export function SessionDetail() {
               : null
       : null
 
+  // The transcript drawer renders only when there's something to show (matches
+  // TranscriptDrawer's own guard). Gate the recovery card's "View agent log"
+  // action on the same signal so it's never a dead button on a failed session
+  // that produced no log/prep output.
+  const hasAgentLog = transcriptChunks.length > 0 || prepSteps.length > 0 || prepCalls.length > 0
+  const onViewLog = hasAgentLog ? () => transcriptDrawer.setOpen(true) : undefined
+
   const findingsTabBody =
     session.status === 'ready' && activeFindings.length === 0 ? (
       <div className="px-8 py-10">
@@ -891,6 +898,7 @@ export function SessionDetail() {
           <FailedRecovery
             onRetry={() => retry.mutate()}
             onRerun={() => rerun.mutate(effectiveRerunAgent)}
+            onViewLog={onViewLog}
             retryPending={retry.isPending}
             rerunPending={rerun.isPending}
           />
@@ -901,6 +909,7 @@ export function SessionDetail() {
             <FailedRecovery
               onRetry={() => retry.mutate()}
               onRerun={() => rerun.mutate(effectiveRerunAgent)}
+              onViewLog={onViewLog}
               retryPending={retry.isPending}
               rerunPending={rerun.isPending}
             />

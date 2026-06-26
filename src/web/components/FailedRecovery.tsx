@@ -1,4 +1,4 @@
-import { RotateCcw, RotateCw } from 'lucide-react'
+import { AlertTriangle, RotateCcw, RotateCw, ScrollText } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -10,6 +10,9 @@ interface Props {
   onRetry: () => void
   // Archive this run and start a fresh round from the latest HEAD.
   onRerun: () => void
+  // Open the transcript drawer so the user can read the agent log before
+  // deciding how to recover. Omitted when there's no log/prep output to show.
+  onViewLog?: (() => void) | undefined
   retryPending: boolean
   rerunPending: boolean
 }
@@ -21,11 +24,22 @@ interface Props {
  * an explanation each, so the choice is made where the user is already looking
  * rather than via two near-identical buttons in the top action bar.
  */
-export function FailedRecovery({ onRetry, onRerun, retryPending, rerunPending }: Props) {
+export function FailedRecovery({ onRetry, onRerun, onViewLog, retryPending, rerunPending }: Props) {
   const { t } = useTranslation()
   return (
     <div className="rounded-lg border border-severity-must/30 bg-[color:color-mix(in_oklch,var(--severity-must)_5%,var(--bg-main))] p-5">
-      <div className="text-h2 text-ink-primary">{t('prdetail.findingsFailedTitle')}</div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2 text-h2 text-ink-primary">
+          <AlertTriangle size={18} className="shrink-0 text-severity-must" aria-hidden="true" />
+          {t('prdetail.findingsFailedTitle')}
+        </div>
+        {onViewLog ? (
+          <Button type="button" variant="ghost" size="sm" onClick={onViewLog}>
+            <ScrollText size={13} aria-hidden="true" />
+            {t('prdetail.viewAgentLog')}
+          </Button>
+        ) : null}
+      </div>
       <p className="mt-1.5 max-w-prose text-body text-ink-secondary">
         {t('prdetail.findingsFailedBody')}
       </p>

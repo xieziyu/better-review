@@ -17,6 +17,9 @@ function withRoute(
     // Seed for the global ['sessions'] query so SessionDetail can compute
     // round-number and orphan-archived state without a real fetch.
     allSessions?: PRSession[]
+    // Seed for the ['session-transcript', id] query so the transcript drawer
+    // has agent-log content to render.
+    transcript?: string[]
   },
 ) {
   const qc = new QueryClient({
@@ -28,6 +31,12 @@ function withRoute(
       findings: initial.findings ?? [],
     })
     qc.setQueryData(['session', initial.session.id, 'diff'], initial.diff ?? null)
+    if (initial.transcript !== undefined) {
+      qc.setQueryData(['session-transcript', initial.session.id], {
+        chunks: initial.transcript,
+        truncated: false,
+      })
+    }
   }
   if (initial?.allSessions !== undefined) {
     qc.setQueryData(['sessions'], initial.allSessions)
@@ -188,6 +197,12 @@ describe('SessionDetail', () => {
   describe('failed recovery', () => {
     const failed: PRSession = { ...session, status: 'failed', error: 'agent stalled' }
 
+    // The retry test installs a window.fetch spy; restore it so a later test's
+    // seeded transcript query is not clobbered by a leaked refetch.
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
     it('renders the recovery card with Retry and Rerun in the findings tab', () => {
       render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
       expect(screen.getByText('Run did not finish')).toBeInTheDocument()
@@ -245,6 +260,24 @@ describe('SessionDetail', () => {
         )
         expect(retryCall).toBeDefined()
       })
+    })
+
+    it('opens the transcript drawer from the recovery card when a log exists', async () => {
+      const user = userEvent.setup()
+      render(
+        withRoute(<SessionDetail />, {
+          session: failed,
+          findings: [],
+          transcript: ['agent started', 'boom: timed out'],
+        }),
+      )
+      await user.click(screen.getByRole('button', { name: /View agent log/i }))
+      expect(screen.getByRole('button', { name: /Close activity drawer/i })).toBeInTheDocument()
+    })
+
+    it('hides "View agent log" when the failed session produced no log', () => {
+      render(withRoute(<SessionDetail />, { session: failed, findings: [] }))
+      expect(screen.queryByRole('button', { name: /View agent log/i })).not.toBeInTheDocument()
     })
 
     it('still surfaces the recovery card when the failed run produced findings', () => {
