@@ -126,6 +126,8 @@ The **Submit** drawer is two steps:
 1. **Review** — preview which selected findings become inline comments and which fall back to the review body (off-diff or PR-wide), pick a review event (`COMMENT` / `REQUEST_CHANGES` / `APPROVE`), and edit the review body. The body is auto-populated from PR-wide findings unless you override it. Findings that duplicate a comment you already posted in a prior submission are flagged and skipped server-side.
 2. **Confirm** — final summary, then submit (`⌘⏎`). The daemon POSTs to `gh api repos/<owner>/<repo>/pulls/<n>/reviews` and shows the GitHub URL inline.
 
+**LGTM with no findings.** When a review comes back clean, you can still approve straight from better-review: the empty findings view offers an **Approve** action, and the drawer defaults to `APPROVE` when nothing is selected — submitting posts an empty approving review. `COMMENT` / `REQUEST_CHANGES` still require at least one finding or a review body (GitHub rejects an empty one).
+
 There are no automatic retries; failures surface in the banner and the submissions table.
 
 ### Local export (hand off to a coding agent)

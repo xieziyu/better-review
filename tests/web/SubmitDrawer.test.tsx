@@ -273,6 +273,85 @@ describe('SubmitDrawer', () => {
     expect(radio).toBeChecked()
   })
 
+  it('defaults to APPROVE and lets you submit when there are no findings (LGTM)', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [],
+      }),
+    )
+    // No findings → the LGTM path pre-selects APPROVE.
+    expect(screen.getByRole('radio', { name: /APPROVE/i })).toBeChecked()
+    // Next is enabled even with an empty selection.
+    const next = screen.getByRole('button', { name: /Next/i })
+    expect(next).toBeEnabled()
+    await user.click(next)
+    expect(screen.getByRole('button', { name: /Submit/i })).toBeEnabled()
+  })
+
+  it('blocks a COMMENT with no findings until a review body is written', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [],
+      }),
+    )
+    // Switch away from the pre-selected APPROVE to COMMENT.
+    await user.click(screen.getByRole('radio', { name: /COMMENT/i }))
+    const next = screen.getByRole('button', { name: /Next/i })
+    expect(next).toBeDisabled()
+    // Typing a body makes an otherwise-empty COMMENT submittable.
+    await user.type(screen.getByLabelText(/Review body/i), 'overall this looks fine')
+    expect(next).toBeEnabled()
+  })
+
+  it('does not default to APPROVE while the review is still running with no findings', () => {
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        // Zero findings but the review hasn't finished — an empty findings list
+        // here means "not done yet", not "clean". APPROVE must not be the default.
+        session: { ...session, status: 'running' },
+        findings: [],
+      }),
+    )
+    expect(screen.getByRole('radio', { name: /COMMENT/i })).toBeChecked()
+  })
+
+  it('keeps COMMENT as the default when findings exist but are all deselected', () => {
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        // The agent flagged something; the user deselected it. Approving a PR
+        // the agent flagged should stay a deliberate switch, not a default.
+        findings: [mk({ id: 'R1', dbId: 'd1', selected: false })],
+      }),
+    )
+    expect(screen.getByRole('radio', { name: /COMMENT/i })).toBeChecked()
+    // canSubmit is false → Next stays disabled until a finding or body.
+    expect(screen.getByRole('button', { name: /Next/i })).toBeDisabled()
+  })
+
+  it('confirms a body-only COMMENT as a comment, not as "approve with no comments"', async () => {
+    const user = userEvent.setup()
+    render(
+      withClient(<SubmitDrawer sessionId="s1" onClose={() => {}} />, 's1', {
+        session,
+        findings: [],
+      }),
+    )
+    await user.click(screen.getByRole('radio', { name: /COMMENT/i }))
+    await user.type(screen.getByLabelText(/Review body/i), 'overall thoughts')
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+    // The confirmation must reflect the COMMENT event, not contradict it.
+    expect(screen.queryByText(/approve with no comments/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/0 inline comments/i)).toBeInTheDocument()
+    expect(screen.getByText(/This will post immediately/i).parentElement).toHaveTextContent(
+      /COMMENT on acme\/web#42/i,
+    )
+  })
+
   it('goes from prepare directly to confirm without JSON preview', async () => {
     const user = userEvent.setup()
     render(

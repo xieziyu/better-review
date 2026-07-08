@@ -120,15 +120,30 @@ describe('SessionDetail', () => {
     expect(screen.queryByText(/ran with/i)).not.toBeInTheDocument()
   })
 
-  it('shows submit button disabled with selection count', () => {
+  it('keeps the submit button enabled with zero selection so the PR can be approved', () => {
     render(withRoute(<SessionDetail />, { session, findings: [{ ...finding, selected: false }] }))
     const submit = screen.getByRole('button', { name: /Submit/i })
-    expect(submit).toBeDisabled()
+    // With nothing selected the button still opens the drawer, where the
+    // review defaults to APPROVE (the LGTM path).
+    expect(submit).not.toBeDisabled()
+    expect(submit).toHaveAttribute('title', expect.stringMatching(/approve/i))
   })
 
   it('shows submit button enabled when selections exist', () => {
     render(withRoute(<SessionDetail />, { session, findings: [finding] }))
     expect(screen.getByRole('button', { name: /Submit/i })).not.toBeDisabled()
+  })
+
+  it('offers an Approve action in the LGTM empty state and opens the submit drawer', async () => {
+    const user = userEvent.setup()
+    render(withRoute(<SessionDetail />, { session, findings: [] }))
+    // A ready session opens on the Summary tab; the LGTM empty state (with its
+    // Approve affordance) lives in the Findings tab.
+    await user.click(screen.getByRole('tab', { name: /Findings/i }))
+    expect(screen.getByText(/Looks good to me/i)).toBeInTheDocument()
+    const approve = screen.getByRole('button', { name: /^Approve$/i })
+    await user.click(approve)
+    expect(screen.getByRole('dialog', { name: /Submit review/i })).toBeInTheDocument()
   })
 
   it('renders the local repo path chip when the session has one', () => {
