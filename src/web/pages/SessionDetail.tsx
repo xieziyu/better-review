@@ -339,8 +339,13 @@ function PRHeader({
               variant="primary"
               size="md"
               onClick={onSubmit}
-              disabled={selectedCount === 0}
-              title={selectedCount === 0 ? t('prdetail.submitTitleZero') : undefined}
+              title={
+                selectedCount > 0
+                  ? undefined
+                  : findings.length === 0
+                    ? t('prdetail.submitTitleZero')
+                    : t('prdetail.submitTitleZeroDeselected')
+              }
             >
               {selectedCount > 0
                 ? `${t('prdetail.submit')} · ${selectedCount}`
@@ -877,14 +882,26 @@ export function SessionDetail() {
           title={t('prdetail.noIssuesTitle')}
           body={t('prdetail.noIssuesBody')}
           action={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => rerun.mutate(effectiveRerunAgent)}
-            >
-              {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
-            </Button>
+            <div className="flex items-center gap-2">
+              {!isLocalSource(session.source) ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => submitDrawer.open()}
+                >
+                  {t('prdetail.approve')}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => rerun.mutate(effectiveRerunAgent)}
+              >
+                {t('prdetail.rerunWith', { agent: effectiveRerunAgent })}
+              </Button>
+            </div>
           }
         />
       </div>

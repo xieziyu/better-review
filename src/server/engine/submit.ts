@@ -67,6 +67,16 @@ export class SubmitNotSupportedError extends Error {
   }
 }
 
+// GitHub only accepts an empty review (no body, no comments) for the APPROVE
+// event. COMMENT / REQUEST_CHANGES with nothing to say are rejected upstream
+// with a 422; we surface a clearer message before the network round-trip.
+export class EmptyReviewError extends Error {
+  constructor(event: ReviewEvent) {
+    super(`a ${event} review needs at least one finding or a review body`)
+    this.name = 'EmptyReviewError'
+  }
+}
+
 export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
   const session = args.sessions.getById(args.sessionId)
   if (!session) throw new Error('session not found')
@@ -100,6 +110,19 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
       startLine: r.startLine,
       body: r.body,
     }))
+  // Reject a genuinely empty non-approve review up front rather than letting
+  // GitHub 422 it. APPROVE with no body/comments is the valid LGTM path. We
+  // check the pre-dedup payload so this only fires when the user had nothing
+  // to submit — a selection that dedup later empties out keeps its prior
+  // behavior (the submission is recorded as-is).
+  if (
+    args.event !== 'APPROVE' &&
+    built.payload.body.trim() === '' &&
+    built.payload.comments.length === 0
+  ) {
+    throw new EmptyReviewError(args.event)
+  }
+
   const dedup = dedupAgainstPrior(built.payload.comments, prior)
   const payload = { ...built.payload, comments: dedup.toSubmit }
 

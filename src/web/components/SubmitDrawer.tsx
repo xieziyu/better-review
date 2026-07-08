@@ -2,7 +2,7 @@ import { isFindingRangeInDiff } from '@shared/diff-lines'
 import type { Finding, ReviewEvent } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
 import { Button, KbdTooltip, Tag } from '@/components/ui'
@@ -112,6 +112,27 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
   const movedToBody = groups.movedToBody
   const prWide = groups.prWide
   const counts = useMemo(() => severityCounts(selected), [selected])
+
+  // Default the event to APPROVE only for a genuinely clean, finished review:
+  // the session reached `ready` and the agent produced no findings at all, so
+  // the LGTM path is one click. `findings.length === 0` alone can't tell a
+  // clean review apart from one that is still running or died early, so we
+  // also require `ready` (matching the LGTM empty state, which only renders
+  // when ready). When findings exist but are all deselected we keep COMMENT —
+  // approving a PR the agent flagged should stay a deliberate switch, not a
+  // default. Runs once, after the session query first resolves, and never
+  // overrides a manual pick.
+  const didInitEvent = useRef(false)
+  useEffect(() => {
+    if (didInitEvent.current || !data) return
+    didInitEvent.current = true
+    if (findings.length === 0 && data.session.status === 'ready') setEvent('APPROVE')
+  }, [data, findings.length])
+
+  // GitHub accepts an APPROVE review with no body and no comments (the LGTM
+  // case). COMMENT / REQUEST_CHANGES require at least one finding or a
+  // non-empty body, else GitHub rejects the submission with a 422.
+  const canSubmit = event === 'APPROVE' || selected.length > 0 || body.trim().length > 0
 
   const submit = useMutation({
     mutationFn: () => {
@@ -265,7 +286,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
 
               {selected.length === 0 ? (
                 <p className="text-meta text-ink-muted border-t border-rule pt-4">
-                  {t('submit.noSelection')}
+                  {event === 'APPROVE' ? t('submit.approveNoFindings') : t('submit.noSelection')}
                 </p>
               ) : null}
 
@@ -380,7 +401,9 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     {event} on {data?.session.owner}/{data?.session.repo}#{data?.session.number}
                   </div>
                   <div className="text-meta text-ink-secondary">
-                    {t('submit.confirmationLine', { count: inline.length })}
+                    {selected.length === 0 && event === 'APPROVE'
+                      ? t('submit.confirmApproveNoComments')
+                      : t('submit.confirmationLine', { count: inline.length })}
                   </div>
                   {movedToBody.length > 0 ? (
                     <div className="text-meta text-ink-secondary">
@@ -428,7 +451,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                   variant="primary"
                   size="md"
                   onClick={() => setStep((s) => (s + 1) as Step)}
-                  disabled={step === 1 && selected.length === 0}
+                  disabled={step === 1 && !canSubmit}
                 >
                   {t('common.next')}
                 </Button>
@@ -440,7 +463,7 @@ export function SubmitDrawer({ sessionId, onClose }: Props) {
                     variant="primary"
                     size="md"
                     onClick={() => submit.mutate()}
-                    disabled={submit.isPending || selected.length === 0}
+                    disabled={submit.isPending || !canSubmit}
                   >
                     {submit.isPending ? t('submit.submitting') : t('submit.submitButton')}
                   </Button>

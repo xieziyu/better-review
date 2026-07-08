@@ -125,6 +125,8 @@ PR 详情页有三个 tab —— **Summary**（概览）、**Findings**、**File
 1. **Review**：预览选中的 finding 哪些走 inline、哪些会降级到 review body（off-diff 或 PR-wide），同页选择 review event（`COMMENT` / `REQUEST_CHANGES` / `APPROVE`）并编辑 review body。Body 会按 PR-wide finding 自动填充，可以手动覆盖。与之前 submission 重复的 finding 会被服务端识别并跳过。
 2. **Confirm**：最终确认页，按下 `⌘⏎` 提交。daemon 会 POST 到 `gh api repos/<owner>/<repo>/pulls/<n>/reviews` 并在抽屉里给出 GitHub URL。
 
+**没有 finding 时的 LGTM。** 评审干净时也能直接在 better-review 里批准：空 finding 视图提供 **Approve** 按钮，未选中任何 finding 时抽屉默认 `APPROVE`，提交即发送一条空的批准评审。`COMMENT` / `REQUEST_CHANGES` 仍需至少一条 finding 或一段 review body（GitHub 会拒绝空评审）。
+
 **不会自动重试**，失败会在 banner 和 submissions 表里留痕。
 
 ### 本地导出 findings（转交 coding agent）

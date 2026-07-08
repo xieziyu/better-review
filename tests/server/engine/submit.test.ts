@@ -9,7 +9,7 @@ import { FindingsRepo } from '../../../src/server/db/findings'
 import { SessionsRepo } from '../../../src/server/db/sessions'
 import { SubmissionCommentsRepo } from '../../../src/server/db/submission-comments'
 import { SubmissionsRepo } from '../../../src/server/db/submissions'
-import { submitSession } from '../../../src/server/engine/submit'
+import { EmptyReviewError, submitSession } from '../../../src/server/engine/submit'
 import type { GhClient, GhReviewComment, ReviewPayload } from '../../../src/server/github/gh-client'
 import type { PRTarget } from '../../../src/server/github/pr-target-parser'
 
@@ -524,6 +524,84 @@ describe('submitSession', () => {
       gh,
     })
     expect(out.skippedDuplicates).toBe(1)
+    expect(received!.comments).toHaveLength(0)
+  })
+
+  it('approves with an empty body and no comments when there are no findings (LGTM)', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    let received: ReviewPayload | null = null
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
+    const out = await submitSession({
+      sessionId: 's1',
+      event: 'APPROVE',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(out.url).toBe('https://gh')
+    expect(received!.event).toBe('APPROVE')
+    expect(received!.body).toBe('')
+    expect(received!.comments).toHaveLength(0)
+    expect(sessions.getById('s1')!.status).toBe('submitted')
+  })
+
+  it('approves with a body-only review when there are no findings', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    let received: ReviewPayload | null = null
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
+    await submitSession({
+      sessionId: 's1',
+      event: 'APPROVE',
+      body: 'ship it 🚀',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(received!.event).toBe('APPROVE')
+    expect(received!.body).toBe('ship it 🚀')
+    expect(received!.comments).toHaveLength(0)
+  })
+
+  it('rejects a COMMENT review with no findings and no body before hitting gh', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    let called = false
+    const gh = ghStub({ onSubmit: () => (called = true) })
+    await expect(
+      submitSession({
+        sessionId: 's1',
+        event: 'COMMENT',
+        sessions,
+        findings,
+        submissions,
+        submissionComments,
+        gh,
+      }),
+    ).rejects.toThrow(EmptyReviewError)
+    expect(called).toBe(false)
+    // No submission row is recorded for a request we never sent.
+    expect(submissions.listBySession('s1')).toHaveLength(0)
+  })
+
+  it('allows a COMMENT review with only a body and no findings', async () => {
+    const { sessions, findings, submissions, submissionComments } = setup()
+    let received: ReviewPayload | null = null
+    const gh = ghStub({ onSubmit: (p) => (received = p) })
+    await submitSession({
+      sessionId: 's1',
+      event: 'COMMENT',
+      body: 'some overall thoughts',
+      sessions,
+      findings,
+      submissions,
+      submissionComments,
+      gh,
+    })
+    expect(received!.event).toBe('COMMENT')
+    expect(received!.body).toBe('some overall thoughts')
     expect(received!.comments).toHaveLength(0)
   })
 })

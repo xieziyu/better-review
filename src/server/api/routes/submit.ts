@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import type { ReviewEvent } from '../../../shared/types'
-import { SubmitNotSupportedError } from '../../engine/submit'
+import { EmptyReviewError, SubmitNotSupportedError } from '../../engine/submit'
 import type { AppDeps } from '../app'
 
 const VALID: ReviewEvent[] = ['COMMENT', 'REQUEST_CHANGES', 'APPROVE']
@@ -26,6 +26,9 @@ export function submitRoutes(deps: AppDeps): Hono {
     } catch (e) {
       if (e instanceof SubmitNotSupportedError) {
         return c.json({ error: e.message }, 409)
+      }
+      if (e instanceof EmptyReviewError) {
+        return c.json({ error: e.message }, 422)
       }
       return c.json({ error: (e as Error).message }, 502)
     }
