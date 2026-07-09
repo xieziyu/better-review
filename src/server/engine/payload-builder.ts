@@ -1,11 +1,12 @@
 import { isFindingRangeInDiff } from '../../shared/diff-lines'
-import type { Finding, ReviewEvent } from '../../shared/types'
+import type { Finding, Language, ReviewEvent } from '../../shared/types'
 import type { ReviewPayload, ReviewComment } from '../github/gh-client'
 
 export interface BuildArgs {
   diff: string
   findings: Finding[]
   event: ReviewEvent
+  language: Language
   userBody?: string
 }
 
@@ -14,10 +15,21 @@ export interface BuildResult {
   droppedToBody: Finding[]
 }
 
-function severityTag(s: Finding['severity']): string {
-  if (s === 'must') return '🔴 **[MUST]**'
-  if (s === 'should') return '🟡 **[SHOULD]**'
-  return '🔵 **[NIT]**'
+const SEVERITY_EMOJI: Record<Finding['severity'], string> = {
+  must: '🔴',
+  should: '🟡',
+  nit: '🔵',
+}
+
+// Localized so the GitHub-facing severity tag matches the language the agent
+// wrote the finding prose in. Keep in sync with the web `severity.*` i18n keys.
+const SEVERITY_LABELS: Record<Language, Record<Finding['severity'], string>> = {
+  en: { must: 'MUST', should: 'SHOULD', nit: 'NIT' },
+  'zh-CN': { must: '必改', should: '建议', nit: '细节' },
+}
+
+function severityTag(s: Finding['severity'], lang: Language): string {
+  return `${SEVERITY_EMOJI[s]} **[${SEVERITY_LABELS[lang][s]}]**`
 }
 
 function formatLineLoc(f: Finding): string {
@@ -26,8 +38,8 @@ function formatLineLoc(f: Finding): string {
   return String(f.line)
 }
 
-function renderFindingMarkdown(f: Finding): string {
-  const tag = severityTag(f.severity)
+function renderFindingMarkdown(f: Finding, lang: Language): string {
+  const tag = severityTag(f.severity, lang)
   const lineLoc = formatLineLoc(f)
   const loc = f.file ? ` (${f.file}${lineLoc ? ':' + lineLoc : ''})` : ''
   const head = `### ${tag} ${f.title}${loc}`
@@ -35,8 +47,8 @@ function renderFindingMarkdown(f: Finding): string {
   return `${head}\n\n${f.body}${sug}`
 }
 
-export function renderInlineComment(f: Finding): string {
-  const tag = severityTag(f.severity)
+export function renderInlineComment(f: Finding, lang: Language): string {
+  const tag = severityTag(f.severity, lang)
   const sug = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : ''
   return `${tag} ${f.title}\n\n${f.body}${sug}`
 }
@@ -48,7 +60,7 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
   if (args.userBody) bodyParts.push(args.userBody)
   for (const f of args.findings) {
     if (!f.file) {
-      bodyParts.push(renderFindingMarkdown(f))
+      bodyParts.push(renderFindingMarkdown(f, args.language))
       continue
     }
     if (!f.line) {
@@ -57,7 +69,7 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
       // in its `comments[]` items (that field only exists on the
       // standalone `POST /pulls/:n/comments` endpoint), so file-level
       // findings cannot ride along the review payload as inline comments.
-      bodyParts.push(renderFindingMarkdown(f))
+      bodyParts.push(renderFindingMarkdown(f, args.language))
       continue
     }
     const start = f.startLine && f.startLine < f.line ? f.startLine : null
@@ -66,7 +78,7 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
         path: f.file,
         line: f.line,
         side: 'RIGHT',
-        body: renderInlineComment(f),
+        body: renderInlineComment(f, args.language),
       }
       if (start) {
         c.start_line = start
@@ -75,7 +87,7 @@ export function buildSubmitPayload(args: BuildArgs): BuildResult {
       comments.push(c)
     } else {
       dropped.push(f)
-      bodyParts.push(renderFindingMarkdown(f))
+      bodyParts.push(renderFindingMarkdown(f, args.language))
     }
   }
   return {

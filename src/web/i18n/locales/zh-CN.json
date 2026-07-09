@@ -12,6 +12,12 @@
       "menuAriaLabel": "语言菜单"
     }
   },
+  "severity": {
+    "must": "必改",
+    "should": "建议",
+    "nit": "细节",
+    "ariaLabel": "严重程度：{{label}}"
+  },
   "activityBar": {
     "aria": "主导航",
     "brand": "better-review（首页）",
@@ -183,8 +189,8 @@
     "attentionHint": "点击文件可跳转到「文件变更」",
     "attentionEmpty": "没有需要人工特别关注的内容。",
     "attentionPrWide": "PR 级",
-    "attentionDerived_one": "包含 {{count}} 个 must 级问题。",
-    "attentionDerived_other": "包含 {{count}} 个 must 级问题。",
+    "attentionDerived_one": "包含 {{count}} 个必改级问题。",
+    "attentionDerived_other": "包含 {{count}} 个必改级问题。",
     "findingChip_one": "{{count}} 个问题",
     "findingChip_other": "{{count}} 个问题",
     "coverageTitle": "审查覆盖",
@@ -461,9 +467,9 @@
       "scopeSelected": "已选 · {{count}}",
       "scopeAll": "全部 · {{count}}",
       "severityCount": {
-        "must": "{{count}} must",
-        "should": "{{count}} should",
-        "nit": "{{count}} nit"
+        "must": "{{count}} 必改",
+        "should": "{{count}} 建议",
+        "nit": "{{count}} 细节"
       },
       "formatLabel": "格式",
       "formatMarkdown": "Markdown",
@@ -540,7 +546,7 @@
     "selectionSummary_one": "在 {{total}} 条中选中 {{count}} 条",
     "selectionSummary_other": "在 {{total}} 条中选中 {{count}} 条",
     "breakdown": "inline {{inline}} · file {{fileLevel}} · body {{body}} · pr-wide {{prWide}}",
-    "severityCounts": "{{must}} must · {{should}} should · {{nit}} nit",
+    "severityCounts": "{{must}} 必改 · {{should}} 建议 · {{nit}} 细节",
     "inlineSection": "Inline · {{count}}",
     "fileLevelSection": "文件级 · {{count}}",
     "fileLevelNote": "渲染到 review body 中作为带标题的小节 —— GitHub 的 create-review 接口不接受文件级行内评论。",

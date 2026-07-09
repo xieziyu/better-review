@@ -130,7 +130,7 @@ describe('SubmitDrawer', () => {
 
     const inline = screen.getByTestId('inline-list')
     expect(inline).toHaveTextContent(/R1/)
-    expect(inline).toHaveTextContent(/should/)
+    expect(inline).toHaveTextContent(/should/i)
     expect(inline).toHaveTextContent(/src\/x\.ts:10/)
     expect(inline).toHaveTextContent(/inline title/)
     expect(screen.getByLabelText(/Review body/i)).toBeInTheDocument()
