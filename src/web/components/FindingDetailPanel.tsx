@@ -300,10 +300,10 @@ export function FindingDetailPanel({ finding, session, unifiedDiff, readOnly }: 
                         value={sev}
                         checked={activeSev}
                         onChange={() => setDraft({ ...draft, severity: sev })}
-                        aria-label={sev}
+                        aria-label={t(`severity.${sev}`)}
                         className="sr-only"
                       />
-                      {sev}
+                      {t(`severity.${sev}`)}
                     </label>
                   )
                 })}

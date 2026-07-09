@@ -228,6 +228,7 @@ export async function startDaemon(opts: StartDaemonOpts = {}): Promise<ServerHan
       const submitArgs: Parameters<typeof submitSession>[0] = {
         sessionId: id,
         event,
+        language: configState.language,
         sessions,
         findings,
         submissions,

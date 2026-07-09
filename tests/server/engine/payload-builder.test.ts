@@ -40,6 +40,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ file: 'foo.ts', line: 11 })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).toMatchObject({ path: 'foo.ts', line: 11, side: 'RIGHT' })
@@ -52,6 +53,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ id: 'R1', file: null, line: null })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.payload.body).toContain('### 🔴 **[MUST]** t')
@@ -67,6 +69,7 @@ describe('buildSubmitPayload', () => {
         f({ file: 'foo.ts', line: 999, severity: 'nit', title: 'nit title' }),
       ],
       event: 'COMMENT',
+      language: 'en',
     })
 
     expect(r.payload.comments[0]!.body).toContain('🔴 **[MUST]** must title')
@@ -74,11 +77,29 @@ describe('buildSubmitPayload', () => {
     expect(r.payload.body).toContain('### 🔵 **[NIT]** nit title')
   })
 
+  it('localizes the severity tag for zh-CN', () => {
+    const r = buildSubmitPayload({
+      diff: DIFF,
+      findings: [
+        f({ file: 'foo.ts', line: 11, severity: 'must', title: 'must title' }),
+        f({ file: null, line: null, severity: 'should', title: 'should title' }),
+        f({ file: 'foo.ts', line: 999, severity: 'nit', title: 'nit title' }),
+      ],
+      event: 'COMMENT',
+      language: 'zh-CN',
+    })
+
+    expect(r.payload.comments[0]!.body).toContain('🔴 **[必改]** must title')
+    expect(r.payload.body).toContain('### 🟡 **[建议]** should title')
+    expect(r.payload.body).toContain('### 🔵 **[细节]** nit title')
+  })
+
   it('line outside diff drops to body', () => {
     const r = buildSubmitPayload({
       diff: DIFF,
       findings: [f({ file: 'foo.ts', line: 999 })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.droppedToBody).toHaveLength(1)
@@ -90,6 +111,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [],
       event: 'APPROVE',
+      language: 'en',
       userBody: 'LGTM!',
     })
     expect(r.payload.body).toContain('LGTM!')
@@ -101,6 +123,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ file: null, line: null, title: 'unique pr-wide title' })],
       event: 'COMMENT',
+      language: 'en',
       userBody: 'my own notes',
     })
     expect(r.payload.body).toContain('my own notes')
@@ -112,6 +135,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ file: 'foo.ts', line: 11, suggestion: 'fixed' })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments[0]!.body).toContain('```suggestion')
     expect(r.payload.comments[0]!.body).toContain('fixed')
@@ -132,6 +156,7 @@ describe('buildSubmitPayload', () => {
       diff: MULTI,
       findings: [f({ file: 'foo.ts', line: 13, startLine: 11, suggestion: 'B\nC\nD' })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).toMatchObject({
@@ -149,6 +174,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ file: 'foo.ts', line: 11, startLine: 8 })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.droppedToBody).toHaveLength(1)
@@ -159,6 +185,7 @@ describe('buildSubmitPayload', () => {
       diff: DIFF,
       findings: [f({ file: 'foo.ts', line: 11, startLine: 11, suggestion: 'fixed' })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(1)
     expect(r.payload.comments[0]).not.toHaveProperty('start_line')
@@ -181,6 +208,7 @@ describe('buildSubmitPayload', () => {
         }),
       ],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.payload.body).toContain('should not be committed')
@@ -202,6 +230,7 @@ describe('buildSubmitPayload', () => {
         }),
       ],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.payload.body).toContain('agent file-level note')

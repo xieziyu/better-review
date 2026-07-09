@@ -1,4 +1,5 @@
 import type { Severity } from '@shared/findings-schema'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
@@ -13,12 +14,6 @@ const COLOR: Record<Severity, string> = {
   nit: 'text-severity-nit',
 }
 
-const LABEL: Record<Severity, string> = {
-  must: 'MUST',
-  should: 'SHOULD',
-  nit: 'NIT',
-}
-
 const ICON: Record<Severity, string> = {
   must: '🔴',
   should: '🟡',
@@ -26,6 +21,8 @@ const ICON: Record<Severity, string> = {
 }
 
 export function SeverityLabel({ level, className }: Props) {
+  const { t } = useTranslation()
+  const label = t(`severity.${level}`)
   return (
     <span
       data-level={level}
@@ -34,10 +31,10 @@ export function SeverityLabel({ level, className }: Props) {
         COLOR[level],
         className,
       )}
-      aria-label={`severity: ${LABEL[level].toLowerCase()}`}
+      aria-label={t('severity.ariaLabel', { label })}
     >
       <span aria-hidden="true">{ICON[level]}</span>
-      <span>{LABEL[level]}</span>
+      <span>{label}</span>
     </span>
   )
 }

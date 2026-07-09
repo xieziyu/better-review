@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { Finding, ReviewEvent } from '../../shared/types'
+import type { Finding, Language, ReviewEvent } from '../../shared/types'
 import type { FindingsRepo } from '../db/findings'
 import type { SessionsRepo } from '../db/sessions'
 import type { SubmissionCommentsRepo, NewSubmissionComment } from '../db/submission-comments'
@@ -13,6 +13,7 @@ import { dedupAgainstPrior, type PriorPostedComment } from './submit-dedup'
 export interface SubmitArgs {
   sessionId: string
   event: ReviewEvent
+  language: Language
   body?: string
   sessions: SessionsRepo
   findings: FindingsRepo
@@ -38,6 +39,7 @@ export interface SubmitResult {
 function pairCommentsToFindings(
   comments: ReviewComment[],
   candidates: Finding[],
+  language: Language,
 ): Array<{ comment: ReviewComment; finding: Finding | null }> {
   const remaining = candidates.slice()
   return comments.map((c) => {
@@ -46,7 +48,7 @@ function pairCommentsToFindings(
         f.file === c.path &&
         (f.line ?? null) === (c.line ?? null) &&
         (f.startLine ?? null) === (c.start_line ?? null) &&
-        renderInlineComment(f) === c.body,
+        renderInlineComment(f, language) === c.body,
     )
     if (idx >= 0) {
       const [f] = remaining.splice(idx, 1)
@@ -93,6 +95,7 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
     diff,
     findings: selected,
     event: args.event,
+    language: args.language,
   }
   if (args.body !== undefined) buildArgs.userBody = args.body
   const built = buildSubmitPayload(buildArgs)
@@ -161,7 +164,7 @@ export async function submitSession(args: SubmitArgs): Promise<SubmitResult> {
     const ourComments = allComments.filter(
       (c) => c.pull_request_review_id === r.id && c.in_reply_to_id === null,
     )
-    const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates)
+    const paired = pairCommentsToFindings(payload.comments, inlineFindingCandidates, args.language)
     // Consume `ourComments` one-by-one, removing each match so two outgoing
     // comments on the same path+line can't both claim the same GitHub id.
     // `body` is part of the match key so two findings at the same line are

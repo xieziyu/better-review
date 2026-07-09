@@ -42,13 +42,14 @@ function findingLocation(finding: Finding): string {
 }
 
 function PreviewFindingRow({ finding }: { finding: Finding }) {
+  const { t } = useTranslation()
   const sev = SEVERITY_TONE[finding.severity]
   return (
     <div role="listitem" className="py-2.5 first:pt-0 last:pb-0">
       <div className="flex items-baseline gap-2.5 flex-wrap">
         <span className="font-mono text-meta text-ink-muted tabular-nums">{finding.id}</span>
         <span className={cn('text-caps tracking-caps uppercase', SEVERITY_TEXT[sev])}>
-          {finding.severity}
+          {t(`severity.${finding.severity}`)}
         </span>
         {finding.category ? <Tag tone="neutral">{finding.category}</Tag> : null}
         <span className="font-mono text-meta text-ink-secondary truncate min-w-0">

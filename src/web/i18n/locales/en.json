@@ -12,6 +12,12 @@
       "menuAriaLabel": "Language menu"
     }
   },
+  "severity": {
+    "must": "MUST",
+    "should": "SHOULD",
+    "nit": "NIT",
+    "ariaLabel": "severity: {{label}}"
+  },
   "activityBar": {
     "aria": "Primary navigation",
     "brand": "better-review (home)",

@@ -154,11 +154,13 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
  * severity word lives in title / aria-label for hover + screen readers.
  */
 function SeverityCount({ level, count }: { level: Severity; count: number }) {
+  const { t } = useTranslation()
+  const label = `${count} ${t(`severity.${level}`)}`
   return (
     <span
       className={cn('tabular-nums', count === 0 ? 'text-ink-muted' : SEV_TEXT[level])}
-      title={`${count} ${level}`}
-      aria-label={`${count} ${level}`}
+      title={label}
+      aria-label={label}
     >
       {count}
     </span>

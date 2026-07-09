@@ -43,6 +43,7 @@ describe('buildSubmitPayload — source-agnostic', () => {
         f({ source: 'agent', file: 'foo.ts', line: 11, title: 'agent on-diff' }),
       ],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(2)
     expect(r.payload.comments.map((c) => c.body)).toEqual(
@@ -58,6 +59,7 @@ describe('buildSubmitPayload — source-agnostic', () => {
       diff: DIFF,
       findings: [f({ source: 'manual', file: 'foo.ts', line: 999, title: 'manual off-diff' })],
       event: 'COMMENT',
+      language: 'en',
     })
     expect(r.payload.comments).toHaveLength(0)
     expect(r.droppedToBody).toHaveLength(1)

@@ -95,6 +95,7 @@ describe('submitSession', () => {
     const out = await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -139,6 +140,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -186,6 +188,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -222,6 +225,7 @@ describe('submitSession', () => {
       submitSession({
         sessionId: 's1',
         event: 'COMMENT',
+        language: 'en',
         sessions,
         findings,
         submissions,
@@ -252,6 +256,7 @@ describe('submitSession', () => {
       submitSession({
         sessionId: 's1',
         event: 'COMMENT',
+        language: 'en',
         sessions,
         findings,
         submissions,
@@ -303,6 +308,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -344,6 +350,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -446,6 +453,7 @@ describe('submitSession', () => {
     const out = await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -517,6 +525,7 @@ describe('submitSession', () => {
     const out = await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -534,6 +543,7 @@ describe('submitSession', () => {
     const out = await submitSession({
       sessionId: 's1',
       event: 'APPROVE',
+      language: 'en',
       sessions,
       findings,
       submissions,
@@ -554,6 +564,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'APPROVE',
+      language: 'en',
       body: 'ship it 🚀',
       sessions,
       findings,
@@ -574,6 +585,7 @@ describe('submitSession', () => {
       submitSession({
         sessionId: 's1',
         event: 'COMMENT',
+        language: 'en',
         sessions,
         findings,
         submissions,
@@ -593,6 +605,7 @@ describe('submitSession', () => {
     await submitSession({
       sessionId: 's1',
       event: 'COMMENT',
+      language: 'en',
       body: 'some overall thoughts',
       sessions,
       findings,
